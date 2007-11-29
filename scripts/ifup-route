@@ -1,0 +1,495 @@
+#! /bin/bash
+# Copyright (c) 2002 SuSE Linux AG Nuernberg, Germany. All rights reserved.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Christian Zoz <zoz@suse.de>, 2002
+# Based on rcroute: Burchard Steinbild <bs@suse.de>, 1996
+#                   Werner Fink <werner@suse.de>, 1996-2000
+#
+# $Id$
+#
+
+usage () {
+	echo $@
+	echo "Usage: if{up,down,status}-route [<config>] <hwdesc> [-o <options>]"
+	echo "  hwdesc may be the interface name or any valid description"
+	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Options are:"
+	echo "    dhcp     : we are called from dhcp client (read only ifroute-*)" 
+	echo "All other or wrong options are silently ignored"
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+case "$SCRIPTNAME" in
+	ifup-route) ACTION=replace ;;
+	ifdown-route) ACTION=del ;;
+	ifstatus-route) ACTION=status ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=auto ;;
+		hotplug)     MODE=auto ;;
+		rc)          export RUN_FROM_RC=yes
+		             SUPPRESS_ERROR_MESSAGE=yes ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		dhcp)        DHCP=yes ;;
+		*)           debug "unknown option $1 ignored" ;;
+	esac
+	shift
+done
+
+######################################################################
+# get the interface and check if it is up
+# There are some exceptions where we do not have an active interface:
+# - when adding/deleting special routes (INTERFACE == 'noiface')
+# - when deleting routes of an already unplugged hotplug device:
+#   we have possibly to restore an old default route in this case
+#
+if ! is_iface_up $INTERFACE && [ "$INTERFACE" != noiface ] ; then
+	# This is a quick fix, don't know if it has drawbacks
+	# if [ "$ACTION" = del -a "$MODE" = auto ] ; then
+	if [ "$ACTION" = del ] ; then
+		REPLACE_ONLY=yes
+	else
+		logerror "interface $INTERFACE is not up"
+		exit $R_NOTRUNNING
+	fi
+fi
+
+######################################################################
+# check presence of configuration files and source one 
+#
+test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+# The global route configuration file must not be read if we were called from
+# dhcp client. In this case we only read the ifroute-* file.
+if [ "$DHCP" != yes ] ; then
+	ROUTECONF=routes
+fi
+test -f $ROUTECONF || ROUTECONF=""
+EXTRAROUTECONF=ifroute-$CONFIG
+test -f $EXTRAROUTECONF || EXTRAROUTECONF=""
+
+#
+# add special link local route
+# can configure only one interface this way at the moment
+#
+EXTRALINKLOCAL=
+islinklocal=
+if test -n "$LINKLOCAL_INTERFACES" ; then
+        eval "case \$INTERFACE in $LINKLOCAL_INTERFACES) islinklocal=true ;; esac"
+fi
+# Calling 'ip' if there is no interface (ifdown called from udev for remove
+# event) would trigger automatic module loading (Bug 199456)
+if [ -d /sys/class/net/$INTERFACE ] ; then
+	# Don't add this route if interface has no v4 address (Bug 65557)
+	test -z "`ip -4 a l dev $INTERFACE 2>/dev/null`" && islinklocal=
+	if test -n "$islinklocal" ; then
+		current=`ip route show 169.254.0.0/16`
+		if test -z "$current" -o "$current" != "${current/ dev $INTERFACE }"; then
+			EXTRALINKLOCAL="169.254.0.0 - 255.255.0.0 $INTERFACE"
+		fi
+	fi
+fi
+
+# Having no routing configuration file is no error
+test -z "${ROUTECONF}${EXTRAROUTECONF}${EXTRALINKLOCAL}" && exit $R_SUCCESS
+
+
+reverse ()
+{
+	local LINE
+	while read -r LINE ; do
+		case "$LINE" in \#*|"") continue ;; esac
+		test "$ACTION" = "del" && reverse
+		echo "$LINE"
+	done
+}
+
+run_iproute() {
+	test "$REPLACE_ONLY" = yes -a "$1" != replace && return
+	local COMMAND="ip route $@"
+	RETMESSAGE="$($COMMAND 2>&1)"
+	RETVALUE=$?
+	if test $RETVALUE -ne 0 ; then
+		debug "calling: $COMMAND  ---> FAILED"
+		case "$RETMESSAGE" in
+			RTNETLINK*answers:*File*exists) return ;;
+			RTNETLINK*answers:*No*such*process) return;;
+			RTNETLINK*answers:*Network*is*unreachable)
+				if [ "$3" = default -a "$7" != "$INTERFACE" ] ; then
+					eval \
+					logerror "Warning: Could not set up default route via interface" \
+					    "$INTERFACEi\\\n" \
+					    " Command '$COMMAND' returned:\\\n . \"${RETMESSAGE%%Usage:*}\"\\\n"\
+					    " Configuration line: $LINE\\\n" \
+					    " This needs NOT to be AN ERROR if you set up multiple" \
+					    "interfaces.\\\n  See 'man 5 routes' how to avoid this warning.\\\n" \
+					    ${SUPPRESS_ERROR_MESSAGE:+>/dev/null}
+					return 
+				fi
+				;;
+			*)
+		esac
+#		logerror "\033[1mError while executing:\n  $COMMAND\033[m"
+		logerror "Error while executing:\n" \
+		         "  Command '$COMMAND' returned:\n  ${RETMESSAGE%%Usage:*}\n"\
+		         "  Configuration line: $LINE"
+	else
+		debug "calling: $COMMAND  ---> OK"
+	fi
+}
+
+wrong_entry ()
+{
+	logerror "\033[1mWrong entry in $ROUTECONF\033[m"
+	logerror "  $@"
+}
+
+ROUTESTACKDIR=$RUN_FILES_BASE
+
+push_route_stack () {
+	pushd $ROUTESTACKDIR &>/dev/null || return
+	if [ "$OLDDEFROUTEIFACE" != "$INTERFACE" ] ; then
+		declare -i i
+		test -r route-stack-number && read i < route-stack-number
+		i=$((i+1))
+		echo $i > route-stack-number
+		ii=`printf "%.6d\n" $i`
+		echo $OLDDEFROUTEARGS > route-stack-$ii-${OLDDEFROUTEIFACE}-${INTERFACE}
+	fi
+	popd &>/dev/null
+}
+
+pop_route_stack () {
+	# The default route stack consists of files named route-stack-<i>-<X>-<Y>.
+	# If the topmost entry (with highest i) has for Y the current interface, then
+	# the current interface hosts the current default route. We can look for the
+	# current default route interface via 'ip route', but in one case thsi does not
+	# work. 
+	# NICs that are handled by '/sbin/hotplug' (cardmgr behaves different) loose
+	# their registered interface immediately when the NIC is ejected. Therefore
+	# we must get the name of the current default route interface from the stack
+	# itself and not via 'ip route'.
+
+	local f g # variables for route-stack-* filenames
+
+	# At first look for the current default route interface via 'ip route' and store
+	# it in $DR_IFACE.
+	set -- `ip route` 
+	while [ "$1" != default -a $# -gt 0 ] ; do shift; done
+	while [ "$1" != dev -a $# -gt 0 ] ; do shift; done
+	DR_IFACE=$2
+	if [ -z "$DR_IFACE" ] ; then
+		# Get the latest stack entry (with highest number)
+		for f in $ROUTESTACKDIR/route-stack-*-*-* ; do true; done
+		IFS=-; set -- $f; DR_IFACE=$5; unset IFS
+	fi
+	# If $DR_IFACE equals $INTERFACE we have to restore the previous default
+	# route. That means we look for the newest route-stack-X-$INTERFACE (which in
+	# this case should be the newest route-stack-X-*). This file may be deleted
+	# after the default route via dev X was restored.
+	# 
+	# Then we look for the newest route-stack-$INTERFACE-X and again for the now
+	# newest route-stack-Y-$INTERFACE. If X==Y these files may just be deleted.
+	# If X!=Y and there  is no route-stack-Y-X we have to copy
+	# route-stack-Y-$INTERFACE to route-stack-Y-X and delete the two old files
+	# afterwards.
+	# Repeat that until no more route-stack-*-$INTERFACE exists.
+	#
+	# Finally remove all route-stack-$INTERFACE-*.
+	#
+	if [ "$DR_IFACE" = "$INTERFACE" ] ; then
+		local restore_nullglob="$(shopt -p nullglob)"
+		shopt -s nullglob
+		for f in $ROUTESTACKDIR/route-stack-*-*-${INTERFACE} ; do true; done
+		eval $restore_nullglob
+		IFS=-; set -- $f; OLDDEFROUTEIFACE=$4; unset IFS
+		read OLDDEFROUTEARGS < ${f:-<(echo)}
+		debug `rm -vf $f 2>&1`
+	fi
+	while true ; do 
+		for f in $ROUTESTACKDIR/route-stack-*-*-${INTERFACE} ; do true; done
+		for g in $ROUTESTACKDIR/route-stack-*-${INTERFACE}-* ; do true; done
+		test -f "$f" -a -f "$g" || break
+		IFS=-
+		set -- $f ; fi=$4
+		set -- $g ; gi=$5
+		unset IFS
+		if [ "$fi" != "$gi" ] ; then
+			declare -i i
+			read i < $ROUTESTACKDIR/route-stack-number
+			i=$((i+1))
+			echo $i > $ROUTESTACKDIR/route-stack-number
+			ii=`printf "%.6d\n" $i`
+			cp -v $f $ROUTESTACKDIR/route-stack-$ii-${fi}-${gi}
+		fi
+		rm -vf $f $g
+	done
+	debug `rm -vf $ROUTESTACKDIR/route-stack-*-${INTERFACE}-*`
+	debug "PRS: OLDDEFROUTEIFACE=$OLDDEFROUTEIFACE"
+	debug "PRS: OLDDEFROUTEARGS=$OLDDEFROUTEARGS"
+	test -z "$OLDDEFROUTEARGS"    && return 1
+	test -z "$OLDDEFROUTEIFACE"   && return
+	is_iface_up $OLDDEFROUTEIFACE && return || return 1
+}
+
+get_default_route() {
+	local DEST VIA GWAY DEV IFACE IPOPTS
+	while read DEST VIA GWAY DEV IFACE IPOPTS; do
+		# $DEST can be one of unreachable|blackhole|prohibit|throw
+		if [    \( "$DEST" = default -a "$DEV" = dev \) \
+		     -o \( "$VIA"  = default -a -z "$GWAY$DEV$IFACE$IPOPTS" \) ] ; then
+			OLDDEFROUTEARGS="$DEST $VIA $GWAY $DEV $IFACE $IPOPTS"
+			OLDDEFROUTEIFACE=$IFACE
+			return
+		fi
+	done < <(ip route show)
+	return 1
+}
+
+read_routes() {
+	test -r "$1" || return
+	local DEST GWAY MASK IFACE IPOPTS
+	while read DEST GWAY MASK IFACE IPOPTS; do 
+		test -z "$GWAY" && GWAY=-
+		test -z "$MASK" && MASK=-
+		test -z "$IFACE" -o "$IFACE" = "-" && IFACE="$INTERFACE"
+		echo $DEST $GWAY $MASK $IFACE $IPOPTS
+	done < $1 
+}
+
+# for status we need to prepare the output of ip route and store it in
+# ALL_ROUTES. IFACE_ROUTES is needed to list active routes of 'noiface'.
+if [ "$ACTION" = status ] ; then
+	while read DEST VIA GWAY DEV IFACE IPOPTS; do
+		LINE="$DEST $VIA $GWAY $DEV $IFACE $IPOPTS"
+		# routes to the local net and blocking routes are listed in a different way
+		if [ "$VIA" = dev ] ; then
+			IPOPTS="$DEV $IFACE $IPOPTS"
+			IFACE=$GWAY
+			GWAY=""
+		fi
+		if [ "$INTERFACE" = noiface ] ; then
+			test -z "$IFACE" && IFACE_ROUTES="${IFACE_ROUTES:+$IFACE_ROUTES\n}  $LINE"
+		fi
+		case $DEST in
+			unreachable|blackhole|prohibit|throw)
+				ALL_ROUTES="$ALL_ROUTES ${VIA}:::${DEST}" ;;
+			*)
+				ALL_ROUTES="$ALL_ROUTES ${DEST}:${GWAY}:${IFACE}:" ;;
+		esac
+	done < <(ip route show)
+
+	declare -i n=0 m=0
+fi
+
+while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
+	# Save the original line for error reporting
+	LINE="$DEST $GWAY $MASK $IFACE $TYPE $IPOPTS"
+	# debug routeconfigline: $LINE
+	test "$GWAY" = "-" && GWAY=""
+	test "$MASK" = "-" && MASK=""
+	test "$IFACE" = "-" && IFACE=""
+	test "$TYPE" = "-" && TYPE=""
+	
+	# If we are setting up a route for 6to4 tunnel we must
+	# differentiate between USAGI and non-USAGI stack as they
+	# accept gateway addresses in different notations.
+	# What is ::192.88.99.1 for non-USAGI kernel must 
+	# be written as 2002:c058:6301::1 for USAGI.
+	if [ "$TUNNEL" = "sit" -a "$BOOTPROTO" = "6to4" ]; then
+		if [ ! -f /proc/net/inet6_version ]; then
+			# This is non-USAGI kernel.
+			# If the IPv6 gateway is set to 2002:IPV4:ADDR::1
+			# we must convert it to ::IP.V4.AD.DR
+			test "x$GWAY" != "x${GWAY#2002:}" && \
+				GWAY=`convert_6to4_to_ipv4address $GWAY`
+		else
+			# This is a USAGI kernel.
+			# If IPv6 gateway is set as ::IP.V4.AD.DR we must 
+			# convert it to 2002:IPV4:ADDR::1
+			test "x$GWAY" != "x${GWAY#::}" && \
+				GWAY=`convert_ipv4address_to_6to4 ${GWAY#::}`
+		fi
+	fi
+
+	# There are routes assigned to a certain interface and general routes. We
+	# only set up routes that match the current interface. General routes are
+	# only set up when we are called with the interface name 'noiface'.
+	# Only exception is the default route, which is set up with the current
+	# interface if no interface was specified in the configuration
+	if [ -n "$IFACE" ] ; then
+		test "$INTERFACE" != "$IFACE" && continue
+	else
+		if [ "$DEST" = default ] ; then
+			case $INTERFACE in
+				lo*|dummy*|noiface) continue ;;
+				*) test "$ACTION" = del && IFACE=$INTERFACE ;;
+			esac
+		else
+			test "$INTERFACE" != noiface  && continue
+		fi
+	fi
+	# Check if $MASK is a netmask or prefixlength and calculate prefixlength if
+	# it is a netmask. Then add the prefixlength to the destination. Finally we
+	# get the prefixlength back from the destination to have always the right
+	# prefixlength in $PFXL.
+	if [ "$MASK" -ge 0 -a "$MASK" -le 32 ] 2>/dev/null; then
+		PFXL=$MASK
+	else
+		PFXL=`mask2pfxlen $MASK`
+	fi
+	test "${DEST%%/*}" = "$DEST" && DEST="$DEST${PFXL:+/$PFXL}"
+	test "${DEST#*/}" != "$DEST" && PFXL=${DEST#*/}
+
+	# If the first word of the options ($TYPE) is a value that is respected
+	# as an valid type by ip route, then keep it. If $TYPE is anything else
+	# then it must be part of an ordinary option and we prepend it to $IPOPTS.
+	case $TYPE in
+		unicast|local|broadcast|nat|anycast|multicast) ;;
+		unreachable|blackhole|prohibit|throw)
+			IFACE="" 
+			;;
+		*) IPOPTS="$TYPE $IPOPTS" ; TYPE="" ;;
+	esac
+
+	case "$ACTION" in
+	replace|del)
+
+		test -n "$IFACE" && IFACE="dev $IFACE"
+
+		case "$DEST" in
+			\#*|"")
+				;;
+			224.0.0.0*|224/4)
+				# We are doing multicast
+				if [ -e /proc/net/igmp -a "$GWAY" = 0.0.0.0 \
+				     -a \( "$PFXL" = 4 -o "$DEST" = 224/4 \) ] ; then
+					run_iproute $ACTION to $TYPE 224/4 $IFACE $IPOPTS
+				else
+					logerror "Skipping multicast route 224/4 for $IFACE"
+					test ! -e /proc/net/igmp && logerror "	no /proc/net/igmp available"
+					test "$GWAY" != 0.0.0.0 \
+						&& logerror "	wrong dummy gateway entry $GWAY in $ROUTECONF"
+					test "$PFXL" != 4 \
+						&& logerror "	wrong netmask/prefixlength entry $MASK in $ROUTECONF"
+				fi
+				;;
+			default*)
+				if [ "$ACTION" != "del" ] ; then
+					# I cannot remember why we were running run_iproute always after
+					# the possible ip route command. But it hurts if there are two
+					# interfaces in the same subnet which should get the default
+					# route. Therefore we now run run_iproute only if ip route was
+					# not run successfully. (See bug 49123)
+					#get_default_route \
+					#	&& ip route $ACTION to $TYPE $DEST via $GWAY \
+					#	            ${INTERFACE:+dev $INTERFACE} $IPOPTS &>/dev/null \
+					#		&& push_route_stack
+					#run_iproute $ACTION to $TYPE $DEST via $GWAY $IFACE $IPOPTS
+					if get_default_route \
+					      && ip route $ACTION to $TYPE $DEST via $GWAY \
+					         ${INTERFACE:+dev $INTERFACE} $IPOPTS &>/dev/null ; then
+						push_route_stack
+					else
+						run_iproute $ACTION to $TYPE $DEST via $GWAY $IFACE $IPOPTS
+					fi
+				fi
+				if [ "$ACTION" = "del" ] ; then
+					pop_route_stack && run_iproute replace to $OLDDEFROUTEARGS
+				fi
+				;;
+			*)
+				case "$GWAY" in
+					0.0.0.0|\*)     # Add/Delete a local Network
+						GWAY=""
+						;;
+					$DEST)
+						test "$PFXL" = 32 && GWAY=""
+						;;
+				esac
+				run_iproute $ACTION to $TYPE $DEST ${GWAY:+via $GWAY} $IFACE $IPOPTS
+		esac
+		;;
+
+	status)
+
+		# To be able to compare destination later we possibly have to fill up $DEST
+		# with some '.0'. For this we have to seperate DIST and PFXL once again.
+		# Don't do that if $DEST = default ;)
+		if [ "$DEST" != default ] ; then
+			DEST=${DEST%%/*}
+			read D1 D2 D3 D4 < <(IFS=.; echo $DEST)
+			for a in D1 D2 D3 D4; do test -z "${!a}" && eval $a=0; done
+			DEST=$D1.$D2.$D3.$D4${PFXL:+/$PFXL}
+		fi
+
+		case "$DEST" in \#*|"")  continue ;; esac
+		n=$((n + 1))
+		test $n = 1 && message_if_not_run_from_rc "Configured routes for interface $INTERFACE:"
+		message_if_not_run_from_rc "  $LINE"
+		for R in $ALL_ROUTES ; do
+			if test "$R" = "${DEST}:${GWAY}:${IFACE}:${TYPE}" ; then
+				m=$((m + 1))
+			fi
+		done
+		;;
+
+	esac
+
+done < <(reverse < <(${ROUTECONF:+cat $ROUTECONF}; echo; \
+		     ${EXTRALINKLOCAL:+echo $EXTRALINKLOCAL} ; \
+                     read_routes $EXTRAROUTECONF)  )
+
+# Write a summary for status
+if [ "$ACTION" = status ] ; then
+	while read LINE; do
+		IFACE_ROUTES="${IFACE_ROUTES:+$IFACE_ROUTES\n}  $LINE"
+	done < <(ip route show dev $INTERFACE 2>/dev/null)
+	test -n "$IFACE_ROUTES" && message_if_not_run_from_rc "Active routes for interface $INTERFACE:"
+	message_if_not_run_from_rc "$IFACE_ROUTES"
+	test $n -gt 0  && \
+		message_if_not_run_from_rc "$m of $n configured routes for interface $INTERFACE up"
+	test $n -ne $m && exit 3
+fi
+
+exit 0

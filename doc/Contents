@@ -1,0 +1,103 @@
+Contents of /etc/sysconfig
+==========================
+
+Michal Svec <msvec@suse.cz>
+If you have any updates, fixes or suggestions please send them to me.
+
+Network configuration (network/):
+---------------------------------
+config		Global network settings
+dhcp		DHCP client additional parameters
+isdn		Global ISDN settings
+routes		Static routes
+wireless	Wireless devices settings
+ifcfg-*		Network devices
+ifroute-*	Static routes for a particular interface
+providers/	Locally defined providers
+scripts/	Network configuration helper scripts
+if-up.d/	Directory with scripts to be executed on network start
+if-down.d/	As above, but with network stop
+
+See the "Network" file for a detailed description of the network
+sysconfig configuration.
+
+Configuration files:
+--------------------
+3ddiag		3D acceleration settings
+SuSEfirewall2	SuSE firewall settings
+amavis		Mail antivirus scanner settings
+apache		Settings for apache(8) web server
+argoups
+argus
+atftpd
+autofs		Settings for autofs(8) (use nis, options)
+autoinstall	Autoinstallation stuff (profiles location)
+backup		System backup settings (backup dir)
+baycomepp
+boot		Boot process settings (confirmation, flow control)
+bootloader	Boot loader settings (boot loader type)
+clock		Clock settings (timezone)
+console		Console settings (font, enconding)
+cron		Settings for cron(8) scripts (files to delete)
+devfs
+dhcpd		Settings for dhcpd(8) (interface, user)
+dhcrelay
+displaymanager	Display manager configuration (xdm|kdm|gdm)
+distccd
+dracd
+dvb
+hardware	Hardware settings (dma devices)
+hotplug		Hot pluggable devices settings (pci, usb)
+intermezzo
+ipvsadm
+irda		IrDA settings (default port)
+ispell		Settings for ispell(1) (dictionary)
+java		Java settings (symlink, threads type)
+joystick	Joystick settings (port, modules)
+kernel		Kernel and initrd settings (initrd modules)
+keyboard	Keyboard settings (console map, speed)
+language	Language settings (default language)
+lisa
+locate		Settings for locate (updatedb(1) params)
+lshd
+lvm		LVM settings (activate on boot)
+mail		General mail settings for all MTA (From header)
+mouse		Mouse settings (device, console type)
+news		News settings (organization, nntp server)
+nfs		NFS settings (nfsd protocol number)
+noflushd
+ntopd
+onlineupdate	YaST2 online update settings (reg code)
+openldap
+otrs
+pcmcia		PCMCIA settings (system type)
+pcnfsd
+plip
+postfix		Parameters for postfix(1)
+postgresql
+powermanagement
+printer		Printer settings (default printer)
+proxy		Proxy settings (www and ftp proxy)
+radvd		Parameters for radvd(8)
+rplay
+saftemon
+secumod
+security	Security settings
+sendmail	Parameters for sendmail(8)
+smartups
+snort
+sound		Sound settings (load sequencer)
+spamd
+ssh		Parameters for sshd(8)
+suseconfig	SuSEconfig settings (mailto, logs, groff settings)
+susehelp
+sysctl		System control settings (ip forward, sysrq)
+syslog		Parameters for syslogd(8)
+tetex		Settings for TeX
+tux
+windowmanager	Window manager settings (wm scheme, default wm)
+xdmsc
+xntp		Parameters for xntpd(8)
+ypbind		Parameters for ypbind(8)
+ypserv		Parameters for ypserv(8) and rpc.yppasswdd(8)
+zope		Parameters for zope (http port)

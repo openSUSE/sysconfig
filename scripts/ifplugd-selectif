@@ -1,0 +1,172 @@
+#!/bin/bash
+# $Id$
+#
+# Priority based interface selector for ifplugd
+#
+# If there are multiple interfaces which should be used alternatively depending
+# on which one actually has a link beat, this script will select the right one,
+# set this up and all alternatives down. Interfaces are considered to be used
+# alternatively if they have IFPLUGD_PRIORITY > 0 in their ifcfg-*
+# configuration file. 
+#
+#
+# Copyright (c) 2004 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Authors: Christian Zoz <zoz@suse.de>
+
+cd /etc/sysconfig/network
+test -f ./config && . ./config
+. scripts/functions
+
+# . scripts/extradebug
+
+get_carrier() {
+	test "`cat /sys/class/net/${1}/carrier 2>/dev/null`" != 1 && sleep 1
+	cat /sys/class/net/${1}/carrier 2>/dev/null
+}
+
+debug $0 $*
+
+if [ -z "$1" ] || [ -z "$2" ] ; then
+	echo "Wrong arguments" > /dev/stderr
+	exit 1
+fi
+
+INTERFACE=$1
+ACTION=$2
+INTERFACETYPE=$3 # may be empty
+
+# Check all available interfaces if they have a ifplugd priority and collect
+# two ordered lists of interfaces with minor or major priority.
+unset MINOR MAJOR MINOR_A MAJOR_A
+PRIORITY=`get_ifplugd_priority $INTERFACE`
+if [ "$PRIORITY" -gt 0 ] ; then
+	for IF in `ls /sys/class/net`; do
+		test "$IF" = "$INTERFACE" && continue
+		IFPRIO=`get_ifplugd_priority $IF`
+		test "$IFPRIO" -eq 0 && continue
+		if [ "$IFPRIO" -lt "$PRIORITY" ] ; then
+			MINOR_A[$IFPRIO]="${MINOR_A[$IFPRIO]} $IF"
+		else
+			MAJOR_A[$IFPRIO]="${MAJOR_A[$IFPRIO]} $IF"
+		fi
+	done
+	MINOR=${MINOR_A[*]}
+	MAJOR=${MAJOR_A[*]}
+fi
+
+# for a in INTERFACE ACTION MAJOR MINOR FOUND; do
+#  	printf "%10s = %s\n" "$a" "${!a}"
+# done
+
+case $ACTION in
+	up)
+		write_cached_config_data link yes $INTERFACE
+		commit_cached_config_data $INTERFACE
+		# if current interface has an ifplugd priority, then shut down
+		# all minor interfaces and set up this interface if no major
+		# interfaces are already connected
+		for IF in $MINOR; do
+			if is_connected $IF; then 
+				echo ifdown $IF -o ifplugd
+				ifdown $IF -o ifplugd
+			fi
+		done
+		for IF in $MAJOR; do
+			if is_connected $IF; then
+				INTERFACE=""
+			fi
+		done
+		if [ -n "$INTERFACE" ] ; then
+			echo ifup $INTERFACE -o ifplugd
+			ifup $INTERFACE -o ifplugd
+			exit
+		fi
+		;;
+	down)
+		write_cached_config_data link no $INTERFACE
+		commit_cached_config_data $INTERFACE
+		# if current interface has an ifplugd priority, then shut down
+		# current interface and if no major interface is actually
+		# connected then set up next minor interface, which actually
+		# has a link.
+		for IF in $MAJOR; do
+			if is_connected $IF; then
+				MINOR=""
+			fi
+		done
+		echo ifdown $INTERFACE -o ifplugd
+		ifdown $INTERFACE -o ifplugd
+		for IF in `reverse $MINOR`; do
+			if has_link $IF; then
+				echo ifup $IF -o ifplugd
+				ifup $IF -o ifplugd
+				# Set up only one interface. If ifup returns
+				# without dhcp client looking for a lease in
+				# background, we consider this as success,
+				# because we know that it has a link.
+				case $? in
+					$R_SUCCESS|$R_DHCP_BG)
+						break
+						;;
+				esac
+			fi
+		done
+		;;
+	should_be_up)
+		# Checks if an interface which is controlled by ifplugd should
+		# currently be up and running (==> this script returns 0)
+		case "`get_carrier $INTERFACE`" in
+			1)
+				if [ "$INTERFACETYPE" == wlan ] ; then
+					mesg "`printf "    %-9s is probably associated" "$INTERFACE"`" 
+				else
+					mesg "`printf "    %-9s cable is connected" "$INTERFACE"`" 
+				fi
+				;;
+			0)
+				if [ "$INTERFACETYPE" == wlan ] ; then
+					mesg "`printf "    %-9s is assumed to be associated" \
+					              "$INTERFACE"`" 
+				else
+					mesg "`printf "    %-9s no cable connected" "$INTERFACE"`" 
+					exit 1
+				fi
+				;;
+			*)
+				if [ "$INTERFACETYPE" == wlan ] ; then
+					mesg "`printf "    %-9s cannot determine association state" \
+					              "$INTERFACE"`" 
+				else
+					mesg "`printf "    %-9s cannot determine cable connection state" \
+					              "$INTERFACE"`" 
+					exit 1
+				fi
+				;;
+		esac
+		info_mesg "`printf "    %-9s has priority %s" "$INTERFACE" "$PRIORITY"`"
+		if [ $PRIORITY -gt 0 ] ; then
+			for IF in $MAJOR; do
+				test "`get_carrier $IF`" == 1|| continue
+				mesg "`printf "    %-9s has lesser priority than '%s'" \
+				              "$INTERFACE" "$IF"`"
+				exit 1
+			done
+		fi
+		;;
+esac
+		
+exit 0

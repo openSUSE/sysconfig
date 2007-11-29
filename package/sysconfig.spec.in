@@ -1,0 +1,218 @@
+#
+# spec file for package sysconfig (Version @VERSION@)
+#
+# Copyright (c) 2005 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# This file and all modifications and additions to the pristine
+# package are under the same license as the package itself.
+#
+# Please submit bugfixes or comments via http://bugs.opensuse.org
+#
+
+# norootforbuild
+
+Name:         sysconfig
+BuildRequires: sysfsutils
+Version:      @VERSION@
+Release:      0
+Summary:      The sysconfig scheme
+Group:        System/Base
+License:      GPL
+Autoreqprov:  on
+Requires:     iproute2 dbus-1 hal
+BuildRoot:    %{_tmppath}/%{name}-%{version}-build
+PreReq:       %fillup_prereq %insserv_prereq textutils fileutils gawk /usr/bin/sed /usr/bin/grep
+Source:       %name-%version.tar.bz2
+
+%description
+This package provides the SuSE system configuration scheme.
+
+
+
+Authors:
+--------
+    Olaf Kirch <okir@suse.de>
+    Bjoern Jacke <bjoern@j3e.de>
+    Mads Martin Joergensen <mmj@suse.de>
+    Peter Poeml <poeml@suse.de>
+    Arvin Schnell <arvin@suse.de>
+    Michal Svec <msvec@suse.cz>
+    Christian Zoz <zoz@suse.de>
+
+%prep
+%setup -n sysconfig-%{version}
+
+%build
+autoreconf --force --install
+CFLAGS="$RPM_OPT_FLAGS -fPIC" \
+./configure --prefix=/ \
+            --sbindir=/sbin \
+            --libdir=/%_lib \
+            --libdir=/usr/%_lib \
+            --sysconfdir=%_sysconfdir \
+            --mandir=%_mandir \
+            --with-fillup-templatesdir=/var/adm/fillup-templates
+%{__make}
+make check
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%install
+make DESTDIR=$RPM_BUILD_ROOT install
+# This directory is not used since some time (was used for ifup locking)
+mkdir -p $RPM_BUILD_ROOT/var/lock/subsys/sysconfig
+touch $RPM_BUILD_ROOT/etc/sysconfig/network/config
+touch $RPM_BUILD_ROOT/etc/sysconfig/network/dhcp
+# remove template dir
+rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
+
+%files
+%defattr(-,root,root)
+/etc/init.d/*
+%ghost /etc/sysconfig/network/config
+%ghost /etc/sysconfig/network/dhcp
+%config(noreplace) /etc/sysconfig/network/ifcfg-lo
+%config(noreplace) /etc/sysconfig/network/ifroute-lo
+%config(noreplace) /etc/ppp/ip-up
+%config(noreplace) /etc/ppp/ip-down
+%dir /etc/udev
+%dir /etc/udev/rules.d
+%config /etc/udev/rules.d/77-network.rules
+%dir /etc/modprobe.d
+%config /etc/modprobe.d/blacklist
+/etc/sysconfig/network/ifcfg.template
+/etc/sysconfig/network/scripts/*
+/etc/sysconfig/hardware
+/etc/ppp/poll.tcpip
+/etc/NetworkManager
+/sbin/*
+%doc /usr/share/doc/packages/sysconfig
+%_mandir/*/*
+%dir /usr/share/omc
+%dir /usr/share/omc/svcinfo.d
+/usr/share/omc/svcinfo.d/network.xml
+/var/adm/fillup-templates/remove_old_netconfig
+/var/adm/fillup-templates/sysconfig.dhcp-network
+/var/adm/fillup-templates/sysconfig.config-network
+%dir /var/lock/subsys/sysconfig
+
+%pre
+if [ -f etc/sysconfig/hardware ] ; then
+    mv etc/sysconfig/hardware etc/sysconfig/ide
+fi
+# package update ?
+if [ ${1:-0} -gt 1 ]; then
+	# update from pre-9.1 to post-10.2 still needs to be checked
+	# update from pre-9.1?
+	#if ! [ -x sbin/getcfg ]; then
+	#	cat > etc/sysconfig/network/__conversion_for_getconfig_needed__ <<-EOF
+	#	This directory contains network configuration files that need to be
+	#	converted by /etc/sysconfig/network/scripts/convert_for_getconfig.
+	#	EOF
+	#fi
+	# conversion of persistent name ruules
+	if [ -f /etc/udev/rules.d/30-net_persistent_names.rules ] ; then
+		mv -v /etc/udev/rules.d/30-net_persistent_names.rules \
+		      /etc/udev/rules.d/30-net_persistent_names.rules.to_convert
+	fi
+	# if oldversion < 0.70.0
+	touch etc/sysconfig/network/__convert_hwdesc_to_iface__
+	# fi
+fi
+
+%post 
+#etc/sysconfig/network/scripts/oldnet2new.sh
+## look if dhclient.rc.config is present
+#if [ -f etc/rc.config.d/dhclient.rc.config ] ; then
+#  mv etc/rc.config.d/dhclient.rc.config etc/rc.config.d/dhcp.rc.config
+#fi
+## but prefer dhcpcd.rc.config as template (because it has more variables and is used more frequently)
+#if [ -f etc/rc.config.d/dhcpcd.rc.config ] ; then
+#  mv etc/rc.config.d/dhcpcd.rc.config etc/rc.config.d/dhcp.rc.config
+#fi
+# update from pre-9.1 to post-10.2 still needs to be checked
+#if [ -f etc/sysconfig/network/__conversion_for_getconfig_needed__ ]; then
+#	etc/sysconfig/network/scripts/convert_for_getconfig etc/sysconfig/network
+#	if [ $? = 0 ]; then rm etc/sysconfig/network/__conversion_for_getconfig_needed__; fi
+#fi
+pushd etc/sysconfig/network >/dev/null
+for i in ifcfg-ppp* ifcfg-ippp* ifcfg-dsl* ifcfg-modem* ; do
+    case $i in 
+	ifcfg-ippp\*|ifcfg-ppp\*|ifcfg-dsl\*|ifcfg-modem\*)
+	    # drop no matching file
+	    continue ;;
+	*~*|*.*) 
+	    # drop backup files, rpm{save,new,orig}
+	    continue ;;
+	ifcfg-ippp*|ifcfg-ppp*|ifcfg-dsl*|ifcfg-modem*)
+	    # optfile
+	    grep -q -s "^USERCONTROL" $i
+	    if [ $? -ne 0 ] ; then
+		echo "USERCONTROL=\"yes\"" >> $i
+	    fi
+	    ;;
+    esac
+done
+popd >/dev/null
+if [ -d etc/sysconfig/isdn ]; then
+    pushd etc/sysconfig/isdn >/dev/null
+    for i in cfg-net* ; do
+	case $i in
+	cfg-net\*)
+	    # drop no matching file
+	    continue ;;
+	*~*|*.*)
+	    # drop backup files, rpm{save,new,orig}
+	    continue ;;
+	cfg-net*)
+	    PROTOCOL=""
+	    proto=`grep "^PROTOCOL" $i`
+	    eval $proto
+	    if [ "$PROTOCOL" = "syncppp" ] ; then
+		grep -q -s "^USERCONTROL" $i
+		if [ $? -ne 0 ] ; then
+		    echo "USERCONTROL=\"yes\"" >> $i
+		fi
+	    fi
+	    ;;
+	esac
+    done
+    popd >/dev/null
+fi
+
+# conversion of persistent name ruules
+if [ -f /etc/udev/rules.d/30-net_persistent_names.rules.to_convert ] ; then
+	etc/sysconfig/network/scripts/convert_persistent_name_rules
+fi
+
+# convert hwdescs to interface names in config filenames and variables
+if [ -f etc/sysconfig/network/__convert_hwdesc_to_iface__ ] ; then
+	pushd etc/sysconfig/network
+	scripts/hwdesc2iface netconfig .
+	for cf in ifcfg-*; do
+		scripts/hwdesc2iface $cf
+	done
+	if [ -f ../SuSEfirewall2 ] ; then
+		scripts/hwdesc2iface ../SuSEfirewall2 FW_DEV_
+	fi
+	rm -f __convert_hwdesc_to_iface__
+	popd
+fi
+pushd /etc/sysconfig/hardware > /dev/null
+for cfg in hwcfg-*-ccw-* ; do
+	[ -f $cfg ] && bash ./hwcfg2rules $cfg
+done
+popd > /dev/null
+
+%{fillup_and_insserv -fY network}
+%{fillup_only -dns dhcp network network}
+%{fillup_only -dns config network network}
+%run_ldconfig
+echo "Removing old autogenerated device configuration files:"
+rm -vf $(grep -sl "HOTPLUG-FLAG: *autocreated" /etc/sysconfig/hardware/hwcfg-*)
+rm -vf /etc/sysconfig/storage
+
+%postun
+%{insserv_cleanup}
+
+%changelog -n sysconfig

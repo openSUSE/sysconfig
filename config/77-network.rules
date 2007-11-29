@@ -1,0 +1,14 @@
+# Driver module ipw3945 requires an userspace daemon to register network
+# interfaces. 
+SUBSYSTEM=="drivers", ACTION=="add", DEVPATH=="/bus/pci/drivers/ipw3945", RUN+="ipw3945d.sh"
+
+# Network interfaces will be set up automatically by ifup if they are configured
+# and service network is active.
+# We also call ifdown although the interface vanished already, because there
+# might be things to clean up. (E.g. killing ifplugd)
+# There are interfaces which are created with ifup. We have to ignore these
+# interfaces here.
+SUBSYSTEM=="net", ENV{INTERFACE}=="ppp*|ippp*|isdn*|plip*|lo*|irda*|dummy*|ipsec*|tun*|tap*|bond*|vlan*|modem*|dsl*", GOTO="skip_ifup"
+SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup $env{INTERFACE} -o hotplug"
+SUBSYSTEM=="net", ACTION=="remove", RUN+="/sbin/ifdown %k -o hotplug"
+LABEL="skip_ifup"

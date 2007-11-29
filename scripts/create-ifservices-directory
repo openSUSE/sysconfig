@@ -1,0 +1,23 @@
+#! /bin/bash
+
+# This script creates an example ifservices directory.
+# If you call it with one argument it uses this as an interface name.
+
+D=/etc/sysconfig/network/ifservices-${1:-template}
+mkdir -v $D
+ln -vs /etc/init.d/portmap $D/S10portmap
+ln -vs /etc/init.d/ypbind  $D/S20ypbind
+ln -vs /etc/init.d/autofs  $D/S30autofs
+ln -vs /etc/init.d/autofs  $D/K20autofs
+ln -vs /etc/init.d/ypbind  $D/K30ypbind
+
+test -z "$1" && exit
+read -p "Disable start of ypbind and autofs at boot time? (y/n)" X
+if [ "$X" == y ] ; then
+	chkconfig ypbind off
+	chkconfig ypbind
+	chkconfig autofs off
+	chkconfig autofs
+else
+	echo "Don't forget to disable these services manually (chkconfig)."
+fi

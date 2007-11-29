@@ -1,0 +1,215 @@
+#
+# $Id$
+#
+# Listing a module here prevents modprobe from loading it via modalias (only
+# aliases from /lib/modules/*/modules.alias). You may still load it explicitely.
+# We blacklist some modules becaus they may harm on certain devices or they
+# prevent other modules from grabbing the device.
+#
+# Syntax:  blacklist <driver name>
+# See 'man modprobe'.
+#
+
+# uhci ... usb-uhci handles the same pci class
+blacklist uhci
+# usbcore ... module is loaded implicitly, ignore it otherwise
+blacklist usbcore
+
+# tulip ... de4x5, xircom_tulip_cb, dmfe (...) handle same devices
+blacklist de4x5
+# At least 2.4.3 and later xircom_tulip doesn't have that conflict
+# xircom_tulip_cb
+blacklist dmfe
+
+# list all framebuffer drivers, some of them tend to crash during boot
+# they are either compiled into the kernel, or vesafb is active
+# X works fine without them, rcfbset can load them if really required
+#  sed -e '/\/drivers\/video\/.*\.\(o\|ko\)$/{s@^.*/@@;s@\..*$@@;p};d'
+blacklist aty128fb
+blacklist atyfb
+blacklist clgenfb
+blacklist cyber2000fb
+blacklist encode-big5
+blacklist encode-gb
+blacklist encode-gbk
+blacklist encode-jis
+blacklist encode-kscm
+blacklist fbcon-afb
+blacklist fbcon-cfb2
+blacklist fbcon-cfb4
+blacklist fbcon-hga
+blacklist fbcon-ilbm
+blacklist fbcon-iplan2p2
+blacklist fbcon-iplan2p4
+blacklist fbcon-iplan2p8
+blacklist fbcon-mac
+blacklist fbcon-mfb
+blacklist fbcon-vga
+blacklist fbcon-vga-planes
+blacklist fbgen
+blacklist g450_pll
+blacklist hgafb
+blacklist i2c-matroxfb
+blacklist i810fb
+blacklist intelfbdrv
+blacklist intelfbhw
+blacklist matroxfb_accel
+blacklist matroxfb_base
+blacklist matroxfb_crtc2
+blacklist matroxfb_DAC1064
+blacklist matroxfb_g450
+blacklist matroxfb_maven
+blacklist matroxfb_misc
+blacklist matroxfb_proc
+blacklist matroxfb_Ti3026
+blacklist mdacon
+blacklist neofb
+blacklist pm2fb
+blacklist pm3fb
+blacklist radeonfb
+blacklist rivafb
+blacklist sisfb
+blacklist sstfb
+blacklist tdfxfb
+blacklist tridentfb
+blacklist unikey
+blacklist vga16fb
+blacklist vgastate
+blacklist vmware
+# for kyrofb see Bug 35810
+blacklist kyrofb
+# list was not complete (bug 106715)
+blacklist arcfb
+blacklist backlight
+blacklist lcd
+blacklist cirrusfb
+blacklist gx1fb
+blacklist intelfb
+blacklist macmodes
+blacklist nvidiafb
+blacklist s1d13xxxfb
+blacklist savagefb
+
+# ISDN modules are load from /lib/udev/isdn.sh
+blacklist fcusb
+blacklist fcusb2
+blacklist fxusb
+blacklist fxusb_CZ
+blacklist fcdslusb
+blacklist fcdslusb2
+blacklist fcdslusba
+blacklist fcdslslusb
+blacklist fcdslslusb2
+blacklist e2220pc
+blacklist e5520pc
+blacklist bfusb
+blacklist b1isa
+blacklist b1pci
+blacklist b1pcmcia
+blacklist c4
+blacklist t1isa
+blacklist t1pci
+blacklist divas
+blacklist act2000
+blacklist hfc_usb
+blacklist hisax
+blacklist hisax_fcpcipnp
+blacklist hisax_st5481
+blacklist hysdn
+blacklist icn
+blacklist pcbit
+blacklist sc
+blacklist tpam
+blacklist fcpci
+blacklist fcclassic
+blacklist fcdsl
+blacklist fcdsl2
+
+# OSS PCI sound modules
+blacklist ad1889
+blacklist ali5455
+blacklist btaudio
+blacklist cmpci
+blacklist cs4281
+blacklist emu10k1
+blacklist es1370
+blacklist es1371
+blacklist esssolo1
+blacklist forte
+blacklist i810_audio
+blacklist maestro
+blacklist maestro3
+blacklist nm256_audio
+blacklist opl3sa2                 # Bug 219758
+blacklist rme96xx
+blacklist sonicvibes
+blacklist trident
+blacklist via82cxxx_audio
+blacklist ymfpci
+
+# If you really need firewire direct networking, then remove this entry
+blacklist eth1394
+
+# this is a debugging module which should only be loaded manually
+blacklist evbug
+
+# These mtd drivers should be loaded manually.
+blacklist scb2_flash
+blacklist ich2rom
+blacklist pci
+blacklist l440gx
+blacklist amd76xrom
+
+# job of rcdvb
+blacklist snd_bt87x
+blacklist snd-bt87x
+
+# HP Touch Screen usb input driver. breaks all other mouse input devices
+blacklist tsdev
+
+# The TPM modules are supposed to support the Trusted Platform chip.
+# The TPM is connected to the LPC bus, so these modules logically need to
+# specify the PCI ID of the LPC interface.
+# It's probably a reasonable thing to disable automatic loading of these
+# modules, given that we're not doing much with them anyway ATM.
+# In the future we may need a bit of more intelligent scanning of devices
+# that are connected to busses such as LPC or I2C.
+blacklist tpm_infineon
+blacklist tpm_nsc
+blacklist tpm_atmel
+
+# https://bugzilla.novell.com/show_bug.cgi?id=115132
+blacklist slamr
+blacklist slusb
+
+# This module seems to be good for nothing. See bug 129301.
+blacklist dpt_i2o
+
+# This driver is obsolete and should never be loaded as default.
+# See https://bugzilla.novell.com/show_bug.cgi?id=146728
+blacklist eepro100
+
+# This driver is obsolete and should never be loaded as default.
+# See https://bugzilla.novell.com/show_bug.cgi?id=146930
+blacklist sk98lin
+
+# This driver is rarely needed and causes trouble when scanning devices.
+# See: https://bugzilla.novell.com/show_bug.cgi?id=144623
+blacklist stradis
+
+# These devices have bt878 chip without PCI Subsystem ID. Without that info bttv
+# does not know how to treat them properly. Therefore we disable autoloading of
+# modules for these devices.
+# See https://bugzilla.novell.com/show_bug.cgi?id=149588
+# To enable your device create a hardware configuration file for your device.
+# See man hwup for details.
+# You will probably have to specify an option to identify your card. Have a
+# look in /usr/src/linux/Documentation/video4linux/CARDLIST.bttv.
+alias pci:v0000109Ed0000036Esv00000000sd00000000bc04sc00i00 bttv_skip_it
+alias pci:v0000109Ed00000878sv00000000sd00000000bc04sc80i00 bttv_skip_it
+install bttv_skip_it /bin/echo "module alias skipped (bt878 chip without PCI Subsystem ID)"
+
+# For some bridges both intel-agp and i82875p_edac are loaded. If i82875p_edac
+# is loaded first it will grab the device. Then intel-agp doesn't work.
+# Therefore we disable automatic loading of 82875p_edac. (Bug 213840)
+blacklist i82875p_edac

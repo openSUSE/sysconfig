@@ -1,0 +1,138 @@
+#! /bin/bash
+#
+# Copyright (c) 2002-2004 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Authors: Christian Zoz <zoz@suse.de>
+#
+# $Id$
+#
+
+usage () {
+	echo $@
+	echo "Usage: if{up,down,status}-services [<config>] <hwdesc> [-o <options>]"
+	echo "  hwdesc may be the interface name or any valid description"
+	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Options are:"
+	echo "    [on]boot : we are currently booting (or shutting down)"
+	echo "    auto     : alias for boot"
+	echo "    hotplug  : we are handling a hotplug event"
+	echo "    debug    : be verbose"
+	echo "All other or wrong options are silently ignored."
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+ACTION=${SCRIPTNAME#if}
+ACTION=${ACTION%%-services}
+debug $*
+case "${SCRIPTNAME}" in
+	ifup-*) true ;;
+	ifdown-*) true ;;
+	ifstatus-*) true ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=auto ;;
+		hotplug)     MODE=auto ;;
+		auto)        MODE=auto ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		*)           debug unknown option $1 ;;
+	esac
+	shift
+done
+
+######################################################################
+# get the interface and check if it is available or up
+#
+# if ! is_iface_available  $INTERFACE ; then
+# 	logerror "interface ${INTERFACE} is not available"
+# 	exit $R_NODEV
+# fi
+# if ! is_iface_up $INTERFACE ; then
+# 	logerror "interface ${INTERFACE} is not up"
+# 	exit $R_NOTRUNNING
+# fi
+
+######################################################################
+# check presence of configuration file and source it
+#
+test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+if [ -d "ifservices-$CONFIG" ] ; then
+	cd ifservices-$CONFIG
+elif [ -d "ifservices-$INTERFACE" ] ; then
+	cd ifservices-$INTERFACE
+elif [ -d "ifservices-${INTERFACE%%-*}" ] ; then
+	cd ifservices-${INTERFACE%%-*}
+elif [ -d "ifservices" ] ; then
+	cd ifservices
+else
+	debug "No services to handle for '$CONFIG $INTERFACE'"
+	exit 0
+fi
+
+# expand file pattern below to null string if no file matches
+shopt -s nullglob
+case $ACTION in
+	up)
+		message "Starting services from `pwd`:"
+		for SERVICE in S*; do
+			info_mesg "`./$SERVICE start 2>&1`"
+		done
+		;;
+	status)
+		message "Checking services from `pwd`:"
+		for SERVICE in S*; do
+			STAT_MSG="is inactive"
+			SERV_MSG="`./$SERVICE status 2>&1`"
+			test $? == 0 && STAT_MSG="is running"
+			mesg "    '${SERVICE##S[0-9][0-9]}' $STAT_MSG"
+			info_mesg "$SERV_MSG"
+		done
+		;;
+	down)
+		message "Stopping services from `pwd`:"
+		for SERVICE in K*; do
+			info_mesg "`./$SERVICE stop 2>&1`"
+		done
+		;;
+esac

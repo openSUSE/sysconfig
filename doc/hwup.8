@@ -1,0 +1,253 @@
+.\"
+.\" hwup manual page
+.\" Copyright (c) 2004 Hannes Reinecke, SuSE AG
+.\" All rights reserved.
+.\"
+.\" This file is under the GPL.
+.\"
+.TH HWUP 8 "April 2004" "sysconfig" "Hardware configuration"
+.SH NAME
+hwup \- start a preconfigured hardware device.
+.br
+hwdown \- stop a (preconfigured) hardware device.
+.br
+hwstatus \- show the state of a (preconfigured) hardware device.
+.SH SYNOPSIS
+.B hw{up,down,status}
+.B [
+.I <configuration-name>
+.B ]
+.I <hardware-description>
+.B [-o 
+.I options
+.B ]
+.SH NOTATION
+We use the terms 
+.B configuration, interface 
+and
+.B device
+in a dedicated way. A
+.B device
+is always the piece of hardware representing a physically or logically
+present hardware, e.g. a PCI- or PCMCIA-card or an USB device. An
+.B interface
+then is the name of the corresponding interface it gets from the
+kernel when the device has been registered. A 
+.B configuration
+is a set of parameters which are required for the initialisation of the
+device like modules or initialisation scripts.
+
+.SH DESCRIPTION
+.B hwup
+is used to initialise a device. It is usually invoked by the hotplug
+subsystem. It can also be used to configure devices manually on the
+command line. It loads the specified modules and calls any configured
+initialisation scripts required to initialise the device and/or binds
+the device to the corresponding driver. If a device was unbound from 
+its driver (e.g. by
+.BR hwdown )
+it will bind it again.
+.P
+.B hwdown
+is used to deconfigure a device. It should be called to fully
+deconfigure a device so that a next call to
+.B hwup
+will succeed. hwdown doesn't unload the modules any longer, but it just
+unbinds the device from its driver. So hwdown shouldn't affect other devices
+served by the same driver.
+.P
+.B hwstatus
+Displays the status of the device.
+.P
+.I <hardware-description>
+describes the device that should be initialized. It has to be compliant with the
+device naming rules as specified in getcfg.8. getcfg is used to look for the
+best matching configuration for this device.  Every configuration is stored in
+files below
+.I /etc/sysconfig/hardware
+which are named 
+.BI hwcfg- <configuration-name> . 
+.br
+Currently this hardware-description is mostly not used for anything else then
+looking for the right configuration, but this might change in future. Hopefully
+we will soon get more control over individual devices via sysfs.
+.P
+.I <configuration-name> 
+is the name of a configuration that should be used to set up the device. It may
+be used to circumvent the automatic search for a configuration with getcfg. In
+this case the configuration names are not restricted. For example if you have a
+configuration file hwcfg-my-special you may call hwup my-special <hwdesc>. If
+this configuration does not need information about the device (for example if
+just loading modules) <hwdesc> may be any string.
+
+.SH OPTIONS
+.IP "The following are options can be specified after the -o switch."
+.IP auto
+Only set up the device if the configuration has the STARTMODE=auto. 
+.IP hotplug
+Only set up the device if the configuration has the STARTMODE=auto. This is
+nearly equivalent to auto, just some messages were omitted.
+.\" .IP debug
+.\" Be verbose.
+
+.SH FILES
+.B /sbin/hw{up,down,status}
+.RS
+The scripts themselves.
+.RE
+.B /etc/sysconfig/hardware/hwcfg-*
+.RS
+The files containing the configuration of the devices. 
+.RE
+.B /etc/sysconfig/hardware/scripts
+.RS
+Helper scripts used to configure individual devices. They are called
+if specified via the parameter
+.B SCRIPTUP
+or
+.B SCRIPTDOWN
+in the configuration file as specified below.
+.RE
+.B /etc/sysconfig/hardware/skel
+.RS
+Template file for the various device types.
+
+.SH VARIABLES
+The following is a list of variables that can be put in the
+configuration file, with an
+example in parentheses.
+.TP 
+.BR STARTMODE (auto|manual|off)
+Choose when the configuration should be activated. Automatic via the hotplug
+system at boot time or when plugged, manually by the sysadmin or not at all.
+.TP 
+.B MODULE
+The module to load for this device. If multiple modules have to be loaded then
+uses this variable multiple times with any suffix appended. You must then use
+the same suffixes for multiple MODULE_OPTIONS variables. Example:
+.nf
+        MODULE_A="foo"
+        MODULE_B="bar"
+        MODULE_OPTIONS_A="foo-opt"
+        MODULE_OPTIONS_B="bar-opt1=xyz bar-opt2=off"
+.fi
+.TP
+.B MODULE_OPTIONS
+Options to pass to this module for insmod.8 or modprobe.8. Options for multiple
+modules will be specified by using the same suffixes of the MODULES variable.
+Note that you should prefer to set module options in
+.IR /etc/modprobe.conf .
+.TP
+.B DRIVER
+The driver to use for this device. In most cases the driver name is the same
+as the module name, but this is not always the case! Specify this variable to 
+ensure that the bind/unbind feature works properly.
+.br
+If you don't like unbinding devices at all, then set
+.B DRIVER=skip
+either locally in
+.I hwcfg-*
+or globally in
+.IR /etc/sysconfig/hardware/config .
+.TP
+.B SCRIPT{UP,DOWN}_[type]
+Script to be called for the initialisation / deconfiguration of a
+specific device type. This script is
+called if the type of the device to be initialized matches the
+.I type
+given in this parameter. This script must be specified relativ to
+.IR /etc/sysconfig/hardware/config .
+.TP
+.B SCRIPT{UP,DOWN}
+Script to be called for the initialisation / deconfiguration of the
+device. It will only be called if no matching type-specific script are
+configured. This script must be specified relativ to
+.IR /etc/sysconfig/hardware/config .
+.TP
+.B PRE_UP_SCRIPT
+.TP
+.B POST_UP_SCRIPT
+.TP
+.B PRE_DOWN_SCRIPT
+.TP
+.B POST_DOWN_SCRIPT
+These scripts will be called according to their names pre or post all other actions
+in hwup or hwdown. They will be called always independant if
+.B SCRIPT{UP,DOWN}
+or
+.B SCRIPT{UP,DOWN}_[type] 
+are set. They may be specified relative to
+.I /etc/sysconfig/hardware/config
+or may be absolute pathnames.
+
+.SH S/390 specific variables
+The following list of variables are valid on S/390 architectures only.
+.TP 
+.B CCW_CHAN_NUM
+Number of CCW channels required for this device. Default values are 3
+for qeth, 2 for 3088 type-devices (ctc, lcs), 1 for all other devices.
+.TP
+.B CCW_CHAN_IDS
+CCW IDS for this device, separated by spaces. The number of CCW IDS
+specified must match the number of CCW IDs required as specified by
+.B CCW_CHAN_NUM
+.TP
+.B CCW_CHAN_MODE
+(ctc, qeth devices only) The protocol number (for ctc) or port name
+(for qeth) for this device. For CTC device the valid choices
+are
+.I 0
+for compability mode,
+.I 1
+for extended mode,
+.I 2
+for CTC-base tty (Linux-Linux) connections, or
+.I 3
+for compability mode with OS/390 and z/OS.
+.TP
+.B ZFCP_LUNS
+(zfcp only). A list of configured zfcp devices. Entries in this
+list should be separated with a space. Each entry consists of the zfcp
+WWPN and zfcp LUN for this device, separated by a colon ':'. The zfcp
+WWPN and zfcp LUN are 8-byte hexadecimal numbers prefixed by '0x',
+e.g.
+.I 0x5005076300c590a9:0x0001000000000000
+.TP
+.B DASD_USE_DIAG
+(dasd only). If set to
+.I 1
+, enable DIAG access to this device. DIAG access is only possible for
+S/390 DASD devices in 31-bit mode running under z/VM, so it can not be
+guaranteed that DIAG access can be enabled for this device.
+
+.SH GENERAL VARIABLES
+There are some general settings in the file
+.BR /etc/sysconfig/hardware/config .
+.TP
+.B DEBUG
+.TP
+.B USE_SYSLOG
+.TP
+Please see the description of these variables in 
+.BR /etc/sysconfig/hardware/config .
+
+.\" .SH DIAGNOSTICS
+.\" .B hwstatus
+.\" .I device
+.SH BUGS
+hwstatus is still not implemented.
+.P
+Please report bugs at <http://www.suse.de/feedback>
+.SH AUTHOR
+.nf
+Christian Zoz <zoz@suse.de> -- hwup script
+Hannes Reinecke <hare@suse.de> -- S/390 configuration
+Stefan Scheler <sscheler@suse.de>
+.fi
+.SH "SEE ALSO"
+.BR getcfg(8),
+.br
+.BR /etc/sysconfig/hardware/*,
+.br
+.BR /etc/sysconfig/hardware/skel/*
+

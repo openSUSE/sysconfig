@@ -1,0 +1,626 @@
+#!/bin/bash
+
+# Network interface configuration
+#
+# Copyright (c) 2002-2006 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Authors: Michal Svec <msvec@suse.cz>
+#          Mads Martin Joergensen <mmj@suse.de>
+#
+# $Id$
+#
+
+. /etc/sysconfig/network/scripts/functions.common
+
+NETWORK_RUNFILE="$RUN_FILES_BASE/network"
+STAMPFILE_STUB="$RUN_FILES_BASE/new-stamp-"
+NETWORKMANAGER_BIN=/usr/sbin/NetworkManager
+NM_ONLINE_BIN=/usr/bin/nm-online
+NM_DISPATCHER_BIN=/usr/sbin/NetworkManagerDispatcher
+DHCDBD_BIN=/usr/sbin/dhcdbd
+
+#
+# to test the next two functions:
+#
+# for i in $(seq 0 32); do
+# 	echo $i: $(pfxlen2mask $i) " ---> " $(mask2pfxlen $(pfxlen2mask $i))
+# done
+
+mask2pfxlen() {
+	local i octet mask width=0
+
+	IFS_SAVE=$IFS; IFS="."
+	mask=($*)
+	IFS=$IFS_SAVE
+	test -n "$mask" || return
+	
+	for octet in 0 1 2 3; do
+		test "${mask[octet]}" -ge 0 -a "${mask[octet]}" -le 255 2>/dev/null \
+			|| return
+		for i in 128 192 224 240 248 252 254 255; do
+			test ${mask[octet]} -ge $i && ((width++))
+		done
+	done
+	
+	test $width -ge 0 && echo $width
+}
+
+pfxlen2mask() {
+	local i bit n=1 width=$1
+
+	test -n "$width" || return 0
+
+	for ((i=1; $i<=$width; i++)); do
+		bit[$i]=1
+	done; echo
+
+	for o in 1 2 3 4; do
+		octet[$o]=0
+		for i in 128 64 32 16 8 4 2 1; do
+			test ${bit[$n]:-0} -eq 1 && ((octet[$o] = ${octet[$o]} + $i))
+			((n++))
+		done
+	done
+
+	echo ${octet[1]}.${octet[2]}.${octet[3]}.${octet[4]}
+}
+
+is_iface_available () {
+	test -z "$1" && return 1
+	case $1 in
+		ippp*|isdn*) return 0 ;;
+		modem*|dsl*|ppp*) return 0 ;;
+		vlan*) return 0 ;;
+		sit*|gre*|ipip*) return 0 ;;
+	esac
+	test "${SCRIPTNAME%%-*}" = ifdown -a "$MODE" = hotplug && return 0
+	test "${SCRIPTNAME%%-*}" = ifup -a "$BONDING_MASTER" = yes && return 0
+	test "${SCRIPTNAME%%-*}" = ifup -a "$BRIDGE" = yes && return 0
+	test -d /sys/class/net/$1
+}
+
+is_iface_up () {
+	test -z "$1" && return 1
+	test -d /sys/class/net/$1 || return 1
+	case "`LC_ALL=POSIX ip link show $1 2>/dev/null`" in
+		*$1*UP*) ;;
+		*) return 1 ;;
+	esac
+}
+
+get_iface_type () {
+	local IF=$1 TYPE
+	test -n "$IF" || return 1
+	test -d /sys/class/net/$IF || return 2
+	case "`cat /sys/class/net/$IF/type`" in
+		  1) TYPE=eth    # Ethernet, may also be wireless
+		     test -d /sys/class/net/$IF/wireless && TYPE=wlan
+		     test -d /sys/class/net/$IF/bridge && TYPE=bridge
+		     test -f /proc/net/vlan/$IF && TYPE=vlan
+		     test -d /sys/class/net/$IF/bonding && TYPE=bond ;;
+		 24) TYPE=eth ;; # firewire ;; # IEEE 1394 IPv4 - RFC 2734
+		 32) TYPE=eth ;; # InfiniBand, treat it like ethernet?
+		512) TYPE=ppp ;;
+		768) TYPE=ipip ;; # IPIP tunnel
+		769) TYPE= ;; # IP6IP6 tunnel
+		772) TYPE=lo ;;
+		776) TYPE=sit ;; # sit0 device - IPv6-in-IPv4
+		778) TYPE=gre ;; # GRE over IP
+		783) TYPE=irda ;; # Linux-IrDA
+		801) TYPE=wlan_aux ;;
+	esac
+	# The following case statement still has to be replaced by something which
+	# does not rely on the interface names.
+	case $IF in
+		ippp*|isdn*) TYPE=isdn;;
+		ip6tnl*)     TYPE=ip6tnl;; # This might be type 769 ...
+		mip6mnha*)   TYPE=mip6mnha;;
+	esac
+	test -n "$TYPE" && echo $TYPE && return 0
+	return 3
+}
+
+get_iface_type_from_config () {
+	local VARIABLE VALUE TYPE IF=$1
+	local INTERFACETYPE WIRELESS WIRELESS_MODE BONDING_MASTER ETHERDEVICE
+	local BRIDGE TUNNEL PPPMODE MODEM_DEVICE ENCAP
+	test -z "$IF" && return 3
+	test -r ifcfg-$IF || return 2
+	# If variable (1st word) has the right value (2nd word) then this
+	# interface is of this type (3rd word). If variable can have any
+	# value except empty, then use "_not_empty_" as value.
+	# INTERFACETYPE gets special handling and has variable type
+	while read VARIABLE VALUE TYPE; do
+		eval $VARIABLE=
+		get_variable $VARIABLE $IF
+		if [ "$VALUE" == _not_empty_ ] ; then
+			test -n "${!VARIABLE}" && break
+		else
+			test "${!VARIABLE}" == "$VALUE" && break
+		fi
+	done <<- EOL
+		INTERFACETYPE _not_empty_ 
+		WIRELESS yes wlan
+		WIRELESS_MODE _not_empty_ wlan
+		BONDING_MASTER yes bond
+		ETHERDEVICE _not_empty_ vlan
+		BRIDGE yes bridge
+		TUNNEL sit sit
+		TUNNEL gre gre
+		TUNNEL ipip ipip
+		PPPMODE pppoe ppp
+		PPPMODE pppoatm ppp
+		PPPMODE capi-adsl ppp
+		PPPMODE pptp ppp
+		MODEM_DEVICE _not_empty_ ppp
+		ENCAP syncppp isdn
+		ENCAP rawip isdn
+	EOL
+	test -n "$INTERFACETYPE" && echo $INTERFACETYPE && return
+	if [ -z "$TYPE" ] ; then
+		case $IF in
+			lo)          TYPE=lo;;
+			ip6tnl*)     TYPE=ip6tnl;;
+			mip6mnha*)   TYPE=mip6mnha;;
+		esac
+	fi
+	# There is a config file, but it has no special type: This must be ethernet
+	test -n "$TYPE" && echo $TYPE || echo eth
+}
+
+get_hwaddress () {
+	cat /sys/class/net/$1/address >/dev/null
+}
+
+# This will echo the first address listed for the given interface.
+get_ipv4address () {
+	test -z "$1" && return 1
+	local a b c
+	while read a b c; do
+		if [ "$a" = inet ] ; then
+			break
+		fi
+	done < <(LC_ALL=POSIX ip -4 address list "$1" 2>/dev/null)
+	test -z "$b" && return 1
+	echo ${b%%/*}
+}
+
+convert_ipv4address_to_6to4 () {
+	printf "2002:%02x%02x:%02x%02x::1\n" $(IFS=.; echo $1)
+}
+
+convert_6to4_to_ipv4address () {
+	ADDR=$1
+	PART_1=`expr $ADDR : '2002:\([^:]*\):[^:]*:'`
+	PART_2=`expr $ADDR : '2002:[^:]*:\([^:]*\):'`
+	if [ "$PART_1" = "" -o "$PART_2" = "" ]; then 
+		echo $ADDR
+	fi
+	NORM_1=`printf "%04x" 0x$PART_1`
+	NORM_2=`printf "%04x" 0x$PART_2`
+
+	printf "::%u.%u.%u.%u" \
+		0x${NORM_1:0:2} 0x${NORM_1:2:2} \
+		0x${NORM_2:0:2} 0x${NORM_2:2:2}
+}
+
+# Loads module 'bonding' if not already loaded.
+# Creates a new bonding master interface and sets its options.
+# Usage: load_bond $INTERFACE $BONDING_MODULE_OPTIONS
+# Module option 'max_bonds' will be ignored. Use one configuration file per
+# bonding interface instead.
+# If first argument is '_no_fail_' then failures in setting interface options
+# will not return an error.
+load_bond() {
+	local NIF OPT OPT_NAME OPT_VALUE OLD_OPT_VALUE OLD_OPT_VALUE_2 IF NOFAIL
+	if [ "$1" == _no_fail_ ] ; then
+		NOFAIL=1
+		shift
+	fi
+	IF=$1
+	test -z "$IF" && return 0
+	shift
+	if [ -d /sys/class/net/$IF -a ! -d /sys/class/net/$IF/bonding ] ; then
+		return 1 # Iface exists but of another type
+	fi
+	if [ ! -r /sys/class/net/bonding_masters ] ; then
+	   /sbin/modprobe bonding
+		# If we add module option max_bonds=0 in the modprobe command above then
+		# we may skip the following lines in this if-fi block.
+		for a in `seq 33`; do
+			test -r /sys/class/net/bonding_masters && break
+			usleep 300000
+		done
+		NIF=`cat /sys/class/net/bonding_masters`
+		if [ -n "$NIF" -a "$NIF" != "$IF" ] ; then
+			nameif -r $IF $NIF
+		fi
+	fi
+	if [ ! -d /sys/class/net/$IF/bonding ] ; then
+		echo "+$IF" > /sys/class/net/bonding_masters
+	fi
+	for a in `seq 33`; do
+		test -d /sys/class/net/$IF/bonding && break
+		usleep 300000
+	done
+	if [ ! -d /sys/class/net/$IF/bonding ] ; then
+		return 1
+	fi
+	# Set options
+	sleep 1
+	for OPT in $*; do
+		read OPT_NAME OPT_VALUE < <(IFS==; echo $OPT)
+		if [ "$OPT_NAME" == max_bonds ] ; then
+			err_mesg "Don't use option max_bonds."
+			continue
+		fi
+		if [ ! -w /sys/class/net/$IF/bonding/$OPT_NAME ] ; then
+			err_mesg "There is no option '$OPT_NAME' for interface '$IF'."
+			echo "-$IF" > /sys/class/net/bonding_masters
+			return 1 # or continue? I guess its better to fail completely
+		fi
+		# Some options may only be changed if the interface is up and slaves are
+		# already assigned. Others may only be changed if it is down. To avoid
+		# unneccessary error messages or warnings we check first if the option
+		# already has the specified value.
+		# Special case for option 'mode': this sysfs attribute contains two
+		# words. A string describing the mode and the corresponding number. We
+		# have to compare both.
+		read OLD_OPT_VALUE OLD_OPT_VALUE_2 < /sys/class/net/$IF/bonding/$OPT_NAME
+		if [    "$OLD_OPT_VALUE" == "$OPT_VALUE" \
+		     -o \( "$OPT_NAME" == mode -a "$OLD_OPT_VALUE_2" == "$OPT_VALUE" \) \
+		   ] ; then
+			info_mesg "Bonding interface '$IF':" \
+			          "option '$OPT_NAME' is already set to '$OPT_VALUE'"
+			continue
+		fi
+		info_mesg "Bonding interface '$IF':" \
+		          "Setting option '$OPT_NAME' to '$OPT_VALUE'"
+		if ! echo "$OPT_VALUE" > /sys/class/net/$IF/bonding/$OPT_NAME \
+		          2>/dev/null ; then
+			err_mesg "Option '$OPT_NAME' of interface '$IF' cannot be set to" \
+			         "'$OPT_VALUE'."
+			# Should we continue? Its better to fail if not requested differently
+			test "$NOFAIL" == 1 && continue
+			echo "-$IF" > /sys/class/net/bonding_masters
+			return 1
+		fi
+	done
+	return 0
+}
+
+# Removes a bonding master interface
+# Usage: remove_bond $INTERFACE
+remove_bond () {
+	local IF=$1
+	if [ ! -d /sys/class/net/$IF ] ; then
+		return 0 # Interface does not exist; nothing to do
+	fi
+	if [ ! -d /sys/class/net/$IF/bonding ] ; then
+		return 1 # Interface is not a bonding master
+	fi
+	ip link set down dev $1
+	echo "-$IF" > /sys/class/net/bonding_masters
+}
+
+get_variable () {
+	local line
+	while read line; do
+		eval $line
+	done < <(grep "^[[:space:]]*$1" ifcfg-$2 2>/dev/null)
+}
+
+get_startmode () {
+	local STARTMODE
+	get_variable STARTMODE $1
+	echo  "$STARTMODE"
+}
+
+get_slaves () {
+	local ret=1
+	for v in BONDING_SLAVE ETHERDEVICE TUNNEL_DEVICE \
+	         TUNNEL_LOCAL_INTERFACE BRIDGE_PORTS; do
+		get_variable $v $1
+		for vv in `eval echo \$\{\!$v\*\}`; do
+			if [ -n "${!vv}" ] ; then
+				echo -n "${!vv} "
+				ret=0
+			fi
+			unset $vv
+		done
+		test $ret = 0 && return 0
+	done
+	return 1
+}
+
+get_ifplugd_priority () {
+	local IFPLUGD_PRIORITY=0
+	declare -i IFPLUGD_PRIORITY
+	get_variable IFPLUGD_PRIORITY $1
+	echo "$IFPLUGD_PRIORITY"
+}
+
+# We have to write status files per interface or per configuration for at least
+# these reasons:
+# 1) remember the used configuration if getcfg cannot get it after the device
+#    has been unplugged  --> OBSOLETE: no more getcfg
+# 2) store ifup options while restarting the network (e.g. the choosen provider)
+# 3) pass status information to smpppd to allow kinternet to show them to the
+#    user.
+# 4) control running ifup/down processes (ifdown has to stop a running ifup)
+# To handle this cached information, there are the *_cached_config_data
+# functions.
+
+# write_cached_config_data <type> <data> <name> [PFX=<prefix>]
+# needs at least 3 arguments
+# - the type of data to write: config, options, state, ...
+# - the data itself
+# - the configuration or interface name
+# - the file prefix is optional and must be given in the form PFX=<prefix>
+#   (default prefix is 'if-'
+# prints nothing
+# You have to commit changes after writing with commit_cached_config_data()
+write_cached_config_data () {
+	touch $RUN_FILES_BASE/tmp/test 2>/dev/null || return 1
+	local PFX FILE TMPFILE MODFILE
+	test -n "$4" && eval $4
+	: ${PFX:=if-}
+	FILE=$RUN_FILES_BASE/$PFX$3
+	MODFILE=$RUN_FILES_BASE/tmp/$PFX$3.$$                  # MODFILE
+	TMPFILE=$RUN_FILES_BASE/tmp/$PFX$3.$$.tmp              # MODFILE
+	test -f $MODFILE || cp $FILE $MODFILE 2>/dev/null
+	FILE=$MODFILE                                       # MODFILE
+	touch $FILE
+	while IFS== read a b; do
+		case $a in
+			$1) ;;
+			 *) echo "$a=$b" ;;
+		esac
+	done < <(cat $FILE) > $TMPFILE
+	if [ -n "$2" ] ; then
+		echo "$1=$2" >> $TMPFILE
+	fi
+	if [ -f $TMPFILE ] ; then
+		mv $TMPFILE $FILE
+	fi
+}
+
+# INTERFACE=`read_cached_config_data <type> <name> [PFX=<prefix>]`
+# needs at least 2 arguments
+# - the type of data to read: config, options, state, ...
+# - the configuration or interface name
+# - the file prefix is optional and must be given in the form PFX=<prefix>
+#   (default prefix is 'if-'
+# prints the wanted data
+read_cached_config_data () {
+	touch $RUN_FILES_BASE/tmp/test 2>/dev/null || return 1
+	local PFX
+	test -n "$3" && eval $3
+	: ${PFX:=if-}
+	if [ -r "$RUN_FILES_BASE/$PFX$2" ] ; then
+		while IFS== read a b; do
+			case $a in
+				$1) echo "$b" ;;
+				 *) ;;
+			esac
+		done < $RUN_FILES_BASE/$PFX$2
+	fi
+}
+
+# delete_from_cached_config_data <type> [<data> [<name>]] [PFX=<prefix>]
+# Deletes an entry "$1=$2" from all config data cache files.
+# If there is a third argument, we delete it only from this configuration. All
+# handled files that are empty after modification will be deleted.
+# If $2 is empty then remove line $1=* from this ($3) or all configuration.
+# If $1 is '*' it will remove all entries.
+#
+# !!! WIP !!!
+# It currently works only on one file and 2nd and 3rd argument are mandatory
+# !!! WIP !!!
+#
+# needs at least 1 argument
+# - the type of data to delete: config, options, state, ...
+# - optional the data itself
+# - optional the configuration or interface name
+# - the file prefix is also optional and must be given in the form PFX=<prefix>
+#   (default prefix is 'if-'
+# prints nothing
+# You have to commit changes after deleting with commit_cached_config_data()
+delete_from_cached_config_data () {
+	touch $RUN_FILES_BASE/tmp/test 2>/dev/null || return 1
+	local TYPE DATA PFX FILE TMPFILE MODFILE NAME
+	TYPE=$1; shift
+	if [ "$1" = "${1#PFX}" ] ; then
+		DATA=$1; shift
+	fi
+	if [ "$1" = "${1#PFX}" ] ; then
+		NAME=$1; shift
+	fi
+	test -n "$1" && eval $1
+	: ${PFX:=if-}
+	FILE=$RUN_FILES_BASE/$PFX$NAME                 # MODFILE
+	MODFILE=$RUN_FILES_BASE/tmp/$PFX$NAME.$$          # MODFILE
+	TMPFILE=$RUN_FILES_BASE/tmp/$PFX$NAME.$$.tmp      # MODFILE
+	test -f $MODFILE || cp $FILE $MODFILE 2>/dev/null
+   FILE=$MODFILE                                       # MODFILE
+	touch $FILE
+		if [ -s "$FILE" ] ; then
+			while IFS== read a b; do
+				case $a in
+					$TYPE)
+						if [ "$b" != "$DATA" -a -n "$DATA" ] ; then
+							echo "$a=$b" 
+						fi
+						;;
+					 *) echo "$a=$b" ;;
+				esac
+			done < <(cat $FILE) > $TMPFILE
+		fi
+		if [ -f $TMPFILE ] ; then
+			mv $TMPFILE $FILE
+		fi
+		if [ ! -s $FILE ] ; then
+			rm -Rf $FILE
+		fi
+#	done   MODFILE
+}
+
+# HWDESC NIX < <(grep_cached_config_data <type> <data> [PFX=<prefix>])
+# needs 2 arguments:
+# - the type of data to grep for: config, options, state, ...
+# - the data itself
+# - the file prefix is optional and must be given in the form PFX=<prefix>
+#   (default prefix is 'if-'
+# prints all matching configuration names in a single line
+grep_cached_config_data () {
+	touch $RUN_FILES_BASE/tmp/test 2>/dev/null || return 1
+	local PFX
+	test -n "$3" && eval $3
+	: ${PFX:=if-}
+	local restore_nullglob="$(shopt -p nullglob)"
+	shopt -s nullglob
+	for f in $RUN_FILES_BASE/$PFX*; do
+		while IFS== read a b; do
+			case $a in
+				$1)
+					if [ "$b" = "$2" ] ; then
+						echo -n "${f#$RUN_FILES_BASE/$PFX} " 
+					fi
+					;;
+			esac
+		done < $f
+	done
+	eval $restore_nullglob
+	echo
+}
+
+# Writing and deleting cached config data is always done in temporary files. To
+# make this changes visible in the right file you must commit the changes. This
+# helps to make file changes atomic.
+commit_cached_config_data () {
+	touch $RUN_FILES_BASE/tmp/test 2>/dev/null || return 1
+	local PFX FILE MODFILE
+	test -n "$2" && eval $2
+	: ${PFX:=if-}
+	FILE=$RUN_FILES_BASE/$PFX$1
+	MODFILE=$RUN_FILES_BASE/tmp/$PFX$1.$$
+	if [ -f $MODFILE ] ; then
+		mv $MODFILE $FILE
+	else
+		rm -f $FILE
+	fi
+}
+
+is_connected () {
+	case `read_cached_config_data status $1` in
+		connected) return 0 ;;
+		connecting) return 0 ;; # might be wrong, test for link to
+	esac
+	return 1
+}
+
+has_link () {
+	case `read_cached_config_data link $1` in
+		yes) return 0 ;;
+	esac
+	return 1
+}
+
+# This function looks for interfaces which depend on the given interface. It
+# prints a list with all depending interfaces. It returns 0 if there are
+# depending interfaces and !=0 if not.
+# Currently it checks only for vlan and bonding interfaces.
+# FIXME: Add other types of interfaces that depend on others.
+get_depending_ifaces() {
+	local VLAN_PATH BOND_PATH DEP_IFACES DEP_VLANS DEP_BONDS BASE_IFACE
+	VLAN_PATH="/proc/net/vlan"
+	BOND_PATH="/proc/net/bonding"
+	BASE_IFACE="$1"
+	DEP_IFACES=""
+
+	if [ -z "$BASE_IFACE" ]; then
+		return 1
+	fi
+
+	if [ -d "$VLAN_PATH" ]; then
+		DEP_VLANS=`cd "$VLAN_PATH"
+			grep -lws "Device: *$BASE_IFACE" *`
+		DEP_IFACES="$DEP_VLANS"
+	fi
+
+	if [ -d "$BOND_PATH" ]; then
+		DEP_BONDS=`cd "$BOND_PATH"
+			grep -lws "Slave Interface: *$BASE_IFACE" *`
+		DEP_IFACES="$DEP_IFACES${DEP_BONDS:+ $DEP_BONDS}"
+	fi
+
+	if [ -z "$DEP_IFACES" ]; then
+		return 1
+	else
+		echo "$DEP_IFACES"
+		return 0
+	fi
+}
+
+nm_running () {
+	local MSG RET
+	test -x "$NETWORKMANAGER_BIN" || return
+	MSG=`checkproc $NETWORKMANAGER_BIN 2>&1`
+	RET=$?
+	info_mesg "$MSG"
+	return $RET
+}
+
+netcontrol_running() {
+	test -f $NETWORK_RUNFILE
+}
+
+# returns 0 if there is a dhcp client running on this interface
+# prints pids of all dhcp clients on this interface
+# prints nothing if called with option '-q'
+# Usually it should not happen that more then one dhcpcd is running on one
+# interface, but it may happen. So better safe than sorry!
+dhcpc_on_iface() {
+	local pid line retval=1
+	while read pid line; do
+		retval=0
+		test "$1" == "-q" && break
+		echo $pid
+	done < <(ps axww | grep -s "[ /]$DHCLIENT\>.*\<$INTERFACE\>")
+	return $retval
+}
+
+# returns 0 if ifup is currently working on this interface
+ifup_on_iface() {
+	ps axww | grep -qs "[i]fup.* $INTERFACE\>"
+}
+
+dhcp-interfaces() {
+	. /etc/sysconfig/network/dhcp
+	: ${DHCLIENT_BIN:=dhcpcd}
+	if [ -x $DHCLIENT_BIN ]; then :
+	elif [ -x /sbin/$DHCLIENT_BIN ]; then DHCLIENT_BIN=/sbin/$DHCLIENT_BIN;
+	elif [ -x /sbin/dhclient ]; then DHCLIENT_BIN=/sbin/dhclient
+	fi
+	DHCLIENT=${DHCLIENT_BIN##*/}
+	for INTERFACE in `ls /sys/class/net`; do
+		dhcpc_on_iface -q && echo $INTERFACE
+	done
+	return 0
+}
+

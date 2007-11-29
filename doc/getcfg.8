@@ -1,0 +1,212 @@
+.\"
+.\" getcfg manual page
+.\" Copyright (c) 2004 Hannes Reinecke, SuSE AG
+.\" All rights reserved.
+.\"
+.\" This file is under the GPL.
+.\"
+.TH GETCFG 8 "April 2004" "sysconfig" "Hardware configuration"
+.SH NAME
+getcfg \- matches a configuration file to a configuration
+.br
+getcfg-parse-hwdesc \- Parses a configuration name
+.br
+getcfg-make-hwdesc \- Returns a valid configuration name
+.br
+getcfg-device \- returns the matching device
+.br
+getcfg-interface \- returns the matching interface
+.br
+getcfg-all-info \- returns the sysfs information matching a
+configuration name
+.SH SYNOPSIS
+.B getcfg{-parse-hwdesc,-make-hwdesc,-device,-interface,-all-info}
+.I cfg-name
+.B  [
+.I options
+.B ] [
+.I args
+.B]
+.SH DESCRIPTION
+The configuration names passed as
+.I cfg-name
+refer to a set of configuration data. Hardware
+descriptions as found in
+.I /etc/sysconfig/{hardware|network}
+are configuration names that indicate exactly one device. The
+.B getcfg-*
+family of programs is a configuration finder that looks for the best
+matching available configuration for a given hardware description.
+.P
+The individual programs have the following function:
+.B getcfg-parse-hwdesc
+Parses the hardware description
+.I hw-description
+and checks whether it complies with the device naming rules specified below.
+.P
+.B getcfg-get-all-info
+Parses the hardware description
+.I hw-description
+an returns information found in the
+corresponding sysfs attributes. It returns a list of variables which
+can be used in device-dependant initialisation scripts.
+.P
+.B getcfg
+Parses
+.I hw-description
+and returns the matching configuration file (if any).
+.P
+.B getcfg-device
+(Not yet implemented)
+.P
+.B getcfg-interface
+Parses
+.I hw-description
+and returns the interface matching to this configuration.
+.P
+.B getcfg-make-hwdesc
+Returns a valid configuration name base on the variables passed in
+.I args
+
+.SH OPTIONS
+.IP "The following are options can be specified."
+.IP "-c, --config"
+<arg> is a configuration name and not a hardware description
+.IP "-d dir, --directory=dir"
+look for configurations in <dir>
+.IP "-f prefix, --file-prefix=prefix"
+use <prefix> as prefix for configuration files
+.IP "-h, --help"
+print usage information
+.IP "-i, --ifacetype"
+set the interfacetype to look for in getcfg-interface
+.IP "-l, --literally"
+take hardware description literally and don't complete it
+.IP "-m, --multiarg"
+take multiple arguments like when called as getcfg-make-hwdesc
+.IP "-e, --noexport"
+Don't print a final line 'export <list of varaibles>'
+.IP "-p prefix, --prefix=prefix"
+Use this prefix for variable names (default: 'HWD_')
+.IP "-t <t>, --type=<t>"
+Choose the type of hardware description
+.IP "-v n, --verbose=<n>"
+Set the verbosity level to <n> (or specify multiple times)
+
+.SH "DEVICE NAMING RULES"
+Configuration names describe the device or interface they belong
+to. They need not to describe it exactly because they may be used for
+several devices or for a device plugged in at different
+locations. There are different types of configuration names. They may
+contain a (parts of) a individual number like link layer addresses or
+serial numbers. Alternatively they may describe (parts of) the
+location or specify the type of the device. To be backward compatible
+they may also just be the interface name traditionally given by the
+kernel.
+.P
+The configuration names consist of several parts which are seperated
+by a hyphen '-'.
+.P
+The parts of a configuration name must comply to the following rules:
+.ta 0 1.5i 3i
+.fc # !
+.br
+#!<config name>#:=#[<device type>-]{<interface name>|<device description>}#
+.br
+#!<device description>#:=#{id-<identifier>#
+.br
+#!#  #|bus-<bus location>#
+.br
+#!#  #|devpath-<sysfs devpath>}#
+.br
+#!#  #|interface-<interface name>}#
+.br
+#!#  #|vpid-<vendor id>[-<product id>[-<vendor sub id>[-<product sub id>]]]#
+.br
+#!#  #|type-<device type>#
+.br
+#!<bus location>#:=#<bus name>[-<bus id>][-<bus location>]#
+.br
+#!#  ##
+.br
+#!<device type>#:=#Any valid string except "id", "bus", "devpath",#
+.br
+#!#  #"interface", "vpid", or "type".#
+.br
+#!#  #This describes the type of the device. We will use the#
+.br
+#!#  #event types from hotplug for this purpose. If there is#
+.br
+#!#  #need for a finer differentiation we will have to specify#
+.br
+#!#  #it here in this document.#
+.br
+#!<interface name>#:=#Any valid string#
+.br
+#!#  #The interface name or the device file.#
+.br
+#!<identifier>#:=#Any valid string#
+.br
+#!#  #The identifier for this device. The interpretation of#
+.br
+#!#  #the identifier depends on the device type. For this#
+.br
+#!#  #reason the device type is mandatory when using "id".#
+.br
+#!<vendor id>#:=#Any valid string#
+.br
+#!<vendor sub id>#:=#Any valid string#
+.br
+#!<product id>#:=#Any valid string#
+.br
+#!<product sub id>#:=#Any valid string#
+.br
+#!#  #These are identifiers that describe the product and not#
+.br
+#!#  #an individual device. Think of PCI ids for example.#
+.br
+#!<bus name>#:=#{pci|scsi|ide|pcmcia|usb|ieee1394|css|ccw}#
+.br
+#!<bus id>#:=#Any valid string except a bus name#
+.br
+#!<sysfs devpath>#:=#Any path in /sys#
+.br
+#!Any valid string#:=#String that does not contain characters which#
+.br
+#!#  #are invalid in a filename (e.g. a slash '/').#
+.fc
+
+.SH EXAMPLES
+The following examples are meant to give an overview how the device
+naming rules can be applied to actual devices.
+.TP 
+.B bus-pci-0000:00:07.2
+Any device in PCI slot 0000:00:07.2.
+.TP 
+.B bus-pci-0000:03:05.0-scsi-0:0:1:0
+The SCSI target 0:0:1:0 accessed via SCSI HBA in PCI slot
+0000:03:05.0. Note that the HBA number are counted relative
+to the PCI slot, so the first HBA in a PCI slot will always
+have HBA number 0.
+.TP 
+.B eth-id-00:01:02:8E:21:9
+An ethernet device with id (MAC address) 00:01:02:8E:21:9.
+.TP
+.B iucv-id-ROUTER01
+S/390 iucv device with id (link partner) 'ROUTER01'.
+
+.SH BUGS
+Please report bugs at <http://www.suse.de/feedback>
+.SH AUTHOR
+.nf
+Christian Zoz <zoz@suse.de> -- hwup script
+Michal Svec <msvec@suse.cz> -- hwup script
+Hannes Reinecke <hare@suse.de> -- S/390 configuration
+.fi
+.SH "SEE ALSO"
+.BR hwup(8),
+.br
+.BR /etc/sysconfig/hardware/*,
+.br
+.BR /etc/sysconfig/hardware/skel/*
+

@@ -1,0 +1,355 @@
+.\" Process this file with
+.\" groff -man -Tascii foo.1
+.\"
+.TH IFCFG 5 "August 2004" "sysconfig" "Network configuration"
+.\" ...
+
+.SH NAME
+ifcfg \- common elements of network interface configuration
+.SH SYNOPSIS
+.B /etc/sysconfig/network/ifcfg-*
+.SH VARIABLES
+The following is a list of variables that can be put in the
+configuration file, with an
+example in parentheses.
+* marks the default.
+For the meaning of
+.IR suffix ,
+see the section
+.BR "Multiple addresses" .
+.\" How to keep this in sync with the comments in the sysconfig files?
+.\" FIXME: allowed values (see also ## Type:)
+.\" example in the following text
+.\" ---
+.TP 
+.BR STARTMODE\  { manual* | auto | hotplug | ifplugd | nfsroot | off }
+Choose when the interface should be set up.
+.RS
+.PD 0
+.TP
+.B manual
+Interface will be set up if ifup is called manually (without option
+.I boot
+or
+.I hotplug\fP)
+.TP
+.B auto
+Interface will be set up as soon as it is available (and service network was
+started). This either happens at boot time when network is starting or via
+hotplug when a interface is added to the system (by adding a device or loading a
+driver). To be backward compliant
+.B onboot\fP,
+.B on
+and
+.B boot
+are aliases for
+.B auto\fP.
+.TP
+.B hotplug
+This mode is nearly the same as
+.B auto\fP.
+The difference between
+.B auto
+and
+.B hotplug
+is that the latter does not make
+.B rcnetwork
+fail if the interface cannot be brought up.
+.TP
+.B ifplugd
+The interface will be controlled from ifplugd. At initial ifup only iflugd will
+be started for this interface. Then if ifplugd detects a link if calls ifup
+again which finally sets the interface up. See also variable
+.B IFPLUGD_PRIORITY
+below.
+.TP
+.B nfsroot
+Nearly like
+.BR auto , 
+but interfaces with this startmode will never be shut down via 
+.I rcnetwork 
+.IR stop .
+.I ifdown <interface> 
+still works. Use this when you use a root filesystem via network.
+.TP
+.B off
+Will never be activated.
+.PD
+.RE
+
+.TP
+.BR IFPLUGD_PRIORITY
+If there multiple interfaces have
+.B STARTMODE=ifplugd
+and a nonzero priority, only one of them will be set up at a time. Everytime one
+of these interfaces is (un)plugged the interface with highest priority (and
+plugged cable) will be set up.
+.TP 
+.BR BOOTPROTO\  { static* | dhcp | autoip | dhcp+autoip | 6to4 }
+Setup protocol. If this variable is empty, missing or
+.BR static ,
+a fixed address is used. Fixed addresses may also be configured together with
+dhcp.
+.B autoip
+may be used for a zeroconf setup.
+.B dhcp+autoip
+falls back to autoip if dhcp fails.
+
+Use
+.BR 6to4
+to set up 
+.I IPv6
+tunnel interfaces running in the "6to4" mode. See also
+.B ifcfg-tunnel
+.BR (5) .
+.TP 
+.IR  \fBIPADDR\fR [ suffix ]\ { IPv4 | IPv6 }[ \fB/\fIPREFIXLEN ]
+IP address, either IPv4 or IPv6. You may add
+.B /<prefixlenght>
+in both cases and omit
+.B NETMASK
+or
+.B PREFIXLEN.
+If you need more then one IP address use this variable multiple times with
+different suffixes added. See section
+.B Multiple addresses
+below. If no address is configured the interface will just be activated (UP).
+.TP
+.BR PREFIXLEN [ \fIsuffix\fR ]
+Number of bits in IPADDR that form the network
+address. Alternatively add prefixlength to
+.B IPADDR
+or use
+.BR NETMASK .
+.B PREFIXLEN 
+is preferred over
+.B NETMASK.
+but highest priority has a prefixlength added to the IP address in the variable
+.B IPADDR.
+.TP
+.BR NETMASK [ \fIsuffix\fR ]
+Network mask. Alternatively add prefixlength to
+.B IPADDR
+or use
+.BR PREFIXLEN .
+This variable is ignored if a prefixlength is specified.
+.TP
+.BR BROADCAST [ \fIsuffix\fR ]
+Network broadcast. If you omit the broadcast address, it will be calculated from
+netmask or prefixlength. You can affect the calculation with the variable
+.B DEFAULT_BROADCAST
+in 
+.I /etc/sysconfig/network/config.
+See the description there.
+.\" ---
+.TP
+.BR REMOTE_IPADDR [ \fIsuffix\fR ]
+The remote IP address of a point to point  connection
+.TP
+.BR LABEL [ \fIsuffix\fR ]
+Each address may be tagged with a label  string.   In  order  to preserve
+compatibility  with Linux-2.0 net aliases, this string must coincide with the
+name of the device or  must  be  prefixed with the device name followed by
+colon.
+This may be useful with
+.B Multiple addresses
+(see below).
+.TP
+.BR SCOPE [ \fIsuffix\fR ]
+The scope of the area where this address is valid.
+The available scopes are listed in file
+.IR "/etc/iproute2/rt_scopes" .
+Predefined scope values are:
+.in +8
+.B global
+- the address is globally valid.
+.sp
+.B site
+- (IPv6 only) the address is site local, i.e. it is
+valid inside this site.
+.sp
+.B link
+- the address is link local, i.e. it is valid only on this device.
+.sp
+.B host
+- the address is valid only inside this host.
+.in -8
+.TP
+.BR MTU
+Set the maximum transfer unit (MTU) for this interface.
+.TP
+.BR IP_OPTIONS [ \fIsuffix\fR ]
+Any other option you may want to give to the
+.B ip add addr ...
+command. This string is appended to the command.
+.TP
+.B LLADDR
+Set an individual link layer address (MAC address).
+.TP
+.B LINK_OPTIOS
+Here you may add any option valid with
+.B ip link set up ...
+.TP
+.B INTERFACETYPE
+Sometimes ifup cannot determine the interface type properly. In this cases you
+may specify it in this variable. 
+.TP
+.B ETHTOOL_OPTIONS
+If this variable is not empty ifup will call ethtool with this
+options. See manpage
+.B ethtool (8) 
+for available options.
+If option string starts with a '-' (e.g. '-K iface rx on') then the second word in the string
+will be replaced with the current interface name. Else (e.g. 'autoneg off speed
+10') ifup prepends '-s
+<interface>'.
+.TP
+.BR RUN_POLL_TCPIP\  { yes* | no }
+Controls running
+.I /etc/ppp/poll.tcpip
+when a dialup connection is established.
+.TP
+.BR NM_CONTROLLED\  { yes | no* }
+If the network is managed with NetworkManager but you want to control an
+interface manually with ifup/down you can set this variable to 'yes'.
+.TP
+\fBPRE_UP_SCRIPT\fR, \fBPOST_UP_SCRIPT\fR, \fBPRE_DOWN_SCRIPT\fR and \fBPOST_DOWN_SCRIPT\fR
+Here you can hook a script (better: an executable) to perform individual actions
+before/after the interface is set up or before/after the interface is set down.
+If you use relative filenames ifup will look for them in
+.I /etc/sysconfig/network/scripts 
+but you may use absolute paths as well. They were called scripts, because they
+usually are scripts, but you may add also binaries here. If they are scripts,
+they must be made executable.
+
+These scripts will be called with nearly the same arguments as ifup. The only
+difference is that the configuration-name (optional for ifup) is always set with
+the name determined by getcgf. The configuration name is stored in the variable
+.B $CONFIG
+which may be used inside the ifcfg- configuration file.
+
+If
+.B BOOTPROTO=dhcp
+then the post up and pre down scripts will not be executed immediately by
+ifup/ifdown. Instead dhcpcd calls ifup/ifdown with a special option always after
+it sets, changes or removes the IP address. Therefore post up scripts will be
+excuted after the interface is really up which may be much later if dhcp did not
+get a lease immedialetly. And pre down scripts are called after dhcp shut down
+the interface (not before as 'pre' would indicate. This is a problem of dhcpcd).
+
+.TP
+.B TUNNEL, TUNNEL_LOCAL_IPADDR, TUNNEL_LOCAL_INTERFACE, TUNNEL_REMOTE_IPADDR, T
+Using this variable you may set up different tunnels. See manpage
+.B ifcfg-tunnel
+.BR (5) .
+.TP
+.B ETHERDEVICE
+Needed only for virtual LANs. It contains the real interface to use for the vla
+interface. See manpage
+.B ifcfg-vlan
+.BR (5) .
+.TP
+.B BONDING_MASTER, BONDING_SLAVE_*, BONDING_OPTS, BONDING_MODULE_OPTS
+These are used to set up interface bonding. See manpage
+.B ifcfg-bonding
+.BR (5) .
+
+.SH GENERAL VARIABLES
+There are some general settings in the file
+.IR /etc/sysconfig/network/config .
+If needed you can also set every general variable as an individual variable in
+the
+.B ifcfg-*
+files.
+.TP
+.B DEFAULT_BROADCAST
+.TP
+.B GLOBAL_POST_UP_EXEC
+.TP
+.B GLOBAL_PRE_DOWN_EXEC
+.TP
+.B CHECK_DUPLICATE_IP
+.TP
+.B DEBUG
+.TP
+.B USE_SYSLOG=
+.TP
+.B MODIFY_RESOLV_CONF_DYNAMICALLY
+.TP
+.B MODIFY_NAMED_CONF_DYNAMICALLY
+.TP
+.B MODIFY_RESOLV_CONF_STATIC_DNS
+.TP
+.B CONNECTION_SHOW_WHEN_IFSTATUS
+.TP
+.B CONNECTION_CHECK_BEFORE_IFDOWN
+.TP
+.B CONNECTION_CLOSE_BEFORE_IFDOWN
+.TP
+.B CONNECTION_UMOUNT_NFS_BEFORE_IFDOWN
+.TP
+.B CONNECTION_SEND_KILL_SIGNAL
+.TP
+.B MANDATORY_DEVICES
+.TP
+.B WAIT_FOR_INTERFACES
+.TP
+.B FIREWALL
+.TP
+.B LINKLOCAL_INTERFACES
+.TP
+.B IFPLUGD_OPTIONS
+
+.in 7
+Please see the description of these variables in 
+.IR /etc/sysconfig/network/config .
+
+.SH Multiple addresses
+
+You can extend the variable name
+.B IPADDR 
+by any string you like. For example
+.BR IPADDR_1 ,
+.B IPADDR-FOO
+or
+.BR IPADDRxxx.
+Use these variables for your IP addresses.
+If you need some additional parameters for these addresses, then just add
+the same extension to these variable names:
+.B BROADCAST, NETMASK, PREFIXLEN, REMOTE_IPADDR, LABEL, SCOPE, IP_OPTIONS.
+
+Example:
+   IPADDR_AAA=1.2.3.4
+   NETMASK_AAA=255.0.0.0
+   BROADCAST_AAA=1.2.3.55
+   IPADDR_BBB=10.10.2.3/16
+   LABEL_BBB=BBB
+   and so on ...
+.PP
+You do not need to set a label for any address. But then you should not use
+.B ifconfig
+any longer; go and use
+.BR ip .
+If you want to use
+.B ifconfig
+then omit the label for your main address and set a number as label for every
+additional address.
+
+.SH BUGS
+Please report bugs at <http://www.suse.de/feedback>
+.SH AUTHOR
+.nf
+Christian Zoz <zoz@suse.de> -- ifup script
+Michal Svec <msvec@suse.cz> -- ifup script
+Bjoern Jacke -- ifup script
+Mads Martin Joergensen <mmj@suse.de> -- ifup manpage 
+Michal Ludvig <mludvig@suse.cz> -- tunnel support
+.fi
+.SH "SEE ALSO"
+.BR /etc/sysconfig/network/ifcfg.template ,
+.BR ifcfg-bonding (5),
+.BR ifcfg-tunnel (5),
+.BR ifcfg-vlan (5),
+.BR ifcfg-wireless (5),
+.BR ifup (8).
+

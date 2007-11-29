@@ -1,0 +1,120 @@
+.\"
+.\" SuSE man page ifservices
+.\" Copyright (c) 2005 SUSE Linux Products GmbH, Nuernberg, Germany.
+.\" please send bugfixes or comments to <http://www.suse.de/feedback>.
+.\"
+.\" Author: Christian Zoz <zoz@suse.de>
+.\"
+.\"
+.TH IFSERVICES 5 "February 2005" "sysconfig" "Network configuration"
+.\"
+.SH NAME
+.\"
+ifservices-* \- control network services with ifup/down
+.SH SYNOPSIS
+.BI /etc/sysconfig/network/ifservices- <configuration_name>/
+.\"
+.SH DESCRIPTION
+The directory
+.BI /etc/sysconfig/network/ifservices- <configuration_name>/
+is read by the script
+.I /etc/sysconfig/network/scripts/ifup-services
+which starts and stops system services when an interface is set up/down.
+.I ifup-services
+is used by
+.I /sbin/ifup, 
+which is the command line user interface for setting up network interfaces.
+.PP
+This is useful if you don't have a permanent network connection. If you
+sometimes boot without network and plug in the network cable later you can add
+links to system services in this directory. These services will then be started
+with ifup and stopped with ifdown.
+.PP
+The configuration name used for
+.B ifservices-*
+should match exactly the configuration name of the
+.B ifcfg-*
+file for the interface.
+.PP
+For the usage with NetworkManager (where you don't neccesarily need a
+.B ifcfg-*
+file) you can also use
+.BI /etc/sysconfig/network/ifservices- <interface>-<essid>/ 
+(for wlan interfaces) or if that does not exist
+.BI /etc/sysconfig/network/ifservices- <interface>/ .
+As a final fallback
+.B /etc/sysconfig/network/ifservices/
+is checked as well. If NetworkManager is active services will be stopped after
+the interface is down.
+.PP
+The links in this directory are equal to the links in the runlevel directories
+.I /etc/init.d/rc*.d/
+They have to point to service start scripts which are usually in /etc/init.d/.
+Links starting with 'S' are start links, which are called in alphabetical order
+after ifup has set up the interface. Links starting with 'K' are kill links
+which are called before ifdown takes down the interface.  See also section
+.B Sequencing Directories
+in
+.B boot 
+.BR (7) .
+
+.SH EXAMPLE
+In this exmple we use an interface with MAC address 00:de:ad:be:af:00. This
+interface is not always physically connected. As soon as you plug in the cable
+ypbind and autofs should be started. When you pull the cable they should be
+stopped. This can be reached with:
+.sp
+in file
+.I /etc/sysconfig/network/ifcfg-eth-id-00:de:ad:be:af:00
+
+    ...
+    STARTMODE=ifplugd
+    ...
+
+in dir
+.I /etc/sysconfig/network/ifservices-eth-id-00:de:ad:be:af:00/
+
+    S10portmap -> /etc/init.d/portmap
+    S20ypbind  -> /etc/init.d/ypbind 
+    S30autofs  -> /etc/init.d/autofs 
+    S20autofs  -> /etc/init.d/autofs 
+    K30ypbind  -> /etc/init.d/ypbind 
+
+Now you have to disable the start of this services at boot time
+
+    chkconfig ypbind off
+    chkconfig autofs off
+
+.if
+.PP
+Notes:
+.PP
+You may call
+.I scripts/create-ifservices-directory [<interface_name>] 
+to create a directory with the links from this example. This will create the directory
+.I ifservices-<interface_name> 
+or if no interface name was given 
+.IR ifservices-template .
+.PP
+Maybe you have to add also variable IFPLUGD_PRIORITY. For details about
+startmode ifplugd read
+.B ifup
+.BR (8) .
+.PP
+The service portmap had to be added because ypbind needs it. This service is
+still started at boot time because it does not need an active network
+connection. But ypbind may now be started earlier as usual. Therefore we make
+sure that portmap is started before. Starting an already running service again
+does not affect the service.
+
+
+.SH SEE ALSO
+.BR ifup (8),
+.BR ifcfg (5).
+
+.SH AUTHOR
+.nf
+Christian Zoz <zoz@suse.de>
+.fi
+.br
+

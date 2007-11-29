@@ -1,0 +1,176 @@
+#!/bin/bash
+
+# Network interface configuration
+#
+# Copyright (c) 2002-2003 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Authors: Michal Svec <msvec@suse.cz>
+#          Mads Martin Joergensen <mmj@suse.de>
+#
+# $Id$
+#
+
+# RUN_FILES_BASE contains the path to the configuration data cache.
+# It __must__ __not__ contain a trailing slash.
+RUN_FILES_BASE=/dev/shm/sysconfig
+test -d $RUN_FILES_BASE || mkdir -p $RUN_FILES_BASE
+
+#####################################################################
+# Returnvalues
+#
+# I don't know currently, if all this returnvalues are necessary. Probably some
+# of them will be removed. The values 0-7 should be very similar to the LSB
+# return values for init scripts
+R_SUCCESS=0        # interface has been set up
+R_ERROR=1          # any unspecified error
+R_USAGE=2          # wrong usage
+R_NOTIMPL=3        # feature not implemented
+R_NOTALLOWED=4     # insufficient privilege
+
+R_NODEV=7          # the given interface does not exist
+R_NOTCONFIGURED=5  # the bootmode does not match the current mode
+R_INACTIVE=5       # the interface is not up and it should not
+R_NOTRUNNING=7     # the interface is not up but it should be up
+
+R_NOCONFIG=9       # we could not find a matching configuration file
+R_BUSY=10          # the interface is busy and should not be shut down.
+                   # It will be used for 'ifstatus ... -o stop' or ifdown ... -o
+                   # check' or whatever we use for the check if a interface can
+                   # be shut down savely.
+R_LOCKED=11        # ifup/down is currently running on this hwdesc
+R_DHCP_BG=12       # dhcp client is running in bg, but no address up to now
+                   # or setting up firewall is still in progress
+R_INTERNAL=$R_ERROR      # internal error, e.g. no config or missing scripts
+R_NOT_UP2DATE=13   # returned from ifprobe if configuration has changed
+R_PROPERTY_NOT_SET=14    # some property of the iface could not be set.
+R_NO_IFPLUGD=15    # ifplugd is not running despite configured
+
+export PATH=/sbin:/usr/sbin:/bin:/usr/bin:/etc/sysconfig/network/scripts
+
+LOGGER=/bin/logger
+
+be_quiet_has_gone() {
+	mesg "Option 'quiet' has gone. Redirect output instead"
+}
+
+logerror () {
+	err_mesg "$*"
+}
+
+message () {
+	mesg "$*"
+}
+
+message_n () {
+	mesg_n "$*"
+}
+
+debug () {
+	test -n "$*" && info_mesg "$*"
+	test "$DEBUG" == "yes"
+}
+
+message_if_not_run_from_rc () {
+	if [ "$RUN_FROM_RC" = "yes" ]; then
+		debug "$*"
+	else
+		message "$*"
+	fi
+	return 0
+}
+
+reverse () {
+	local X=$1
+	test -z "$X" && return
+	shift
+	reverse $*
+	echo $X
+}
+
+########################################################################
+# output functions
+#
+# This defines a set of new output functions. One for each syslog level.
+# Currently we use only {err,info,debug}_mesg(), but other level may be added
+# easily. These functions should replace the old functions logerror(), message()
+# and debug()
+#
+# IMPORTANT: Wanted LOG_LEVEL has to be set _before_ this file is sourced.
+
+# If your script is called from udev and you did not set DEFAULT_LOG_LEVEL we
+# use the udev loglevel. Else an unset LOG_LEVEL will be set to 3 (err).
+LOG_LEVEL=${LOG_LEVEL:-$DEFAULT_LOG_LEVEL}
+LOG_LEVEL=${LOG_LEVEL:-$UDEV_LOG}
+LOG_LEVEL=${LOG_LEVEL:-3}
+# Also respect variable DEBUG for backward compliance
+test "$DEBUG" == yes && LOG_LEVEL=7
+SCRIPTNAME=${SCRIPTNAME:-${0##*/}}
+
+# DONT_USE_SYSLOG=yes will be set in ifstatus to overwrite USE_SYSLOG. This is
+# a workaround for bug 261350.
+test "$DONT_USE_SYSLOG" == yes && USE_SYSLOG=no
+
+if [ "$USE_SYSLOG" != yes ] ; then
+	mesg() {
+		echo -e "$@" # >&2
+	}
+	mesg_n() {
+		echo -ne "$@" # >&2
+	}
+else
+	mesg() {
+		echo -e "$@" # >&2
+		echo -e "$@" | logger -t "$SCRIPTNAME"
+	}
+	mesg_n() {
+		echo -ne "$@"  # >&2
+		echo -e "$@" | logger -t "$SCRIPTNAME"
+	}
+fi
+
+# This loop defines one *_mesg() function per loglevel, which does nothing,
+# writes to stderr or writes to syslog and stderr depending of the settings of
+# LOG_LEVEL and USE_SYSLOG.
+# Currently we define only err_mesg(), info_mesg() and debug_mesg(). If you need
+# *_mesg functions for other levels, just add the name (instead of the "#") in
+# the right order and set 'nl' to the number of the lowest level you use.
+# Syslog levels are: emerg alert crit err warning notice info debug
+# See what it does with:
+#    USE_SYSLOG=<yes|no> LOG_LEVEL=<0-7> . functions.common
+#    type err_mesg info_mesg debug_mesg
+# nl=0
+# for level in emerg "#" crit err warning "#" info debug; do
+nl=3
+for level in err "#" "#" info debug; do
+	eval ${level}_mesg\(\) \{ :\; \}
+	eval ${level}_mesg_n\(\) \{ :\; \}
+	test "$((nl))" -gt "$LOG_LEVEL" && : $((nl++)) && continue
+	if [ "$USE_SYSLOG" != yes ] ; then
+		eval ${level}_mesg\(\) \{ echo -e \"\$\@\" 1\>\&2\; \}
+		eval ${level}_mesg_n\(\) \{ echo -ne \"\$\@\" 1\>\&2\; \}
+	else
+		eval ${level}_mesg\(\) \{ echo -e \"\$\@\" 1\>\&2\; \
+			echo -e \"\$\@\" \
+			\| logger -p $nl -t \"$SCRIPTNAME\" \; \}
+		eval ${level}_mesg_n\(\) \{ echo -ne \"\$\@\" 1\>\&2\; \
+			echo -e \"\$\@\" \
+			\| logger -p $nl -t \"$SCRIPTNAME\" \; \}
+	fi
+	: $((nl++))
+done
+

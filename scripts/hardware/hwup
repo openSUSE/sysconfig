@@ -1,0 +1,166 @@
+#! /bin/bash
+
+
+usage () {
+	echo "Usage: hw{up,down,status} [<config>] <hwdesc> [-o <options>]"
+	echo "Options are:"
+	echo "    auto     : we were called from an automated process"
+	echo "    hotplug  : like auto, special for hotplug (udev)"
+	echo "    fast     : skip getcfg, works not for all subsystems"
+	exit $R_USAGE
+}
+
+# Test if argument is a existing path in sysfs. Argument may also be relative to
+# /sys. If it is a devpath, return the absolut path.
+chkif_devpath() {
+	local DP=$1
+	test -z "$DP" && return 11
+	# We don't want to change the working directory, therefore the subshell
+	(
+		cd -P $DP || cd -P /sys/$DP || return 12
+		test "$PWD" == "/sys/${PWD#/sys/}" || return 13
+		echo $PWD
+	) 2>/dev/null
+}
+
+chkif_bus() {
+	local HWDESC=$1 DP ID
+	test -z "$HWDESC" && return 21
+	case $HWDESC in */*) return 22;; esac
+	set -- $(IFS="-"; echo $HWDESC)
+	(
+		cd -P /sys/bus/$1/devices 2>/dev/null || return 23
+		shopt -s nullglob
+		# leading characters may lack in bus id, but bus id must be unambiguous.
+		for ID in *`(shift; IFS=-; echo "$*")`; do
+			test -n "$DP" && return 24
+			DP=$PWD/$ID
+		done
+		test -z "$DP" && return 25
+		chkif_devpath $DP
+	)
+}
+
+chkif_iface() {
+	local I IFP
+	test -z "$1" && return 31
+	case $HWDESC in */*) return 32;; esac
+	for I in `find /sys/class -name $1`; do
+		test -n "$IFP" && return 33
+		IFP=$I
+	done
+	test -z "$IFP" && return 34
+	chkif_devpath $IFP/device
+}
+
+get_devpath() {
+	local HWDESC=$1
+	set -- $(IFS="-"; echo $HWDESC)
+	case $1 in
+		devpath)
+			chkif_devpath `(shift; IFS=-; echo "$*")`
+			;;
+		bus)
+			chkif_bus `(shift; IFS=-; echo "$*")`
+			;;
+		"")
+			return 1
+			;;
+		*)
+			chkif_devpath $HWDESC && return
+			chkif_bus $HWDESC && return
+			chkif_iface $HWDESC && return
+			get_devpath `(shift; IFS=-; echo "$*")` && return
+			return 2
+			;;
+	esac
+}
+
+get_driverpath() {
+	test -z "$1" && return 41
+	(
+		cd -P $1/driver 2>/dev/null || return 42
+		echo $PWD
+	)
+}
+
+get_subsystempath() {
+	test -z "$1" && return 41
+	(
+		cd -P $1/subsystem 2>/dev/null || return 42
+		echo $PWD
+	)
+}
+
+
+######################################################################
+# Commandline parsing
+#
+# hw{up,down,status} [<config>] <hwdesc> [-o <options>]
+SCRIPTNAME=${0##*/}
+# echo $0: $*
+HWDESC=$1
+case "$HWDESC" in ""|-h|*help*) usage; esac
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	CONFIG=$HWDESC
+	HWDESC=$1
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS=$@
+MODE=manual
+HOTPLUG=no
+while [ $# -gt 0 ]; do
+	case $1 in
+		debug)   DEBUG=yes ;;
+		*)       echo "unknown option $1 ignored" ;;
+	esac
+	shift
+done
+
+FILE=/dev/shm/sysconfig/hw-${HWDESC//\//_}
+DEVPATH=`get_devpath $HWDESC` 
+gdp_ret=$?
+
+if [ -z "$DEVPATH" ] ; then
+	test -r "$FILE" && . "$FILE" || exit $gdp_ret
+fi
+
+DRIVERPATH="`get_driverpath $DEVPATH`"
+test -z "$DRIVERPATH" && DRIVERPATH="$OLDDRIVERPATH"
+echo "DEVPATH='$DEVPATH'" > $FILE
+echo "OLDDRIVERPATH='$DRIVERPATH'" >> $FILE
+DEVICE=${DEVPATH##*/}
+SUBSYSTEMPATH="`get_subsystempath $DEVPATH`"
+
+# echo SCRIPTNAME=$SCRIPTNAME
+echo DEVPATH=$DEVPATH
+echo DRIVERPATH=$DRIVERPATH
+echo DEVICE=$DEVICE
+echo SUBSYSTEMPATH=$SUBSYSTEMPATH
+# echo FILE=$FILE
+
+case $SCRIPTNAME in
+	hwup)
+		echo "add > $DEVPATH/uevent"
+		echo -n add > "$DEVPATH/uevent"
+		udevsettle
+		if [ ! -d $DEVPATH/driver -a -d "$DRIVERPATH" ] ; then
+			echo "$DEVICE > $DRIVERPATH/bind"
+			echo -n "$DEVICE" > $DRIVERPATH/bind
+		fi
+		udevsettle
+		if [ ! -d $DEVPATH/driver ] ; then
+			echo "$DEVICE > $SUBSYSTEMPATH/drivers_probe"
+			echo -n "$DEVICE" > $SUBSYSTEMPATH/drivers_probe
+		fi
+		;;
+	hwdown)
+		echo "$DEVICE > $DRIVERPATH/unbind"
+		echo -n "$DEVICE" > "$DRIVERPATH/unbind"
+		;;
+	hwstatus)
+		:
+		;;
+esac

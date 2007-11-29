@@ -1,0 +1,20 @@
+#
+# Makefile.cvs for sysconfig
+#
+
+configure: all
+	./configure --disable-shared
+
+all:
+	aclocal
+	autoconf
+	automake -a
+	libtoolize --force --copy
+
+install: ./configure --disable-shared
+	make
+	make install
+
+reconf: all
+	./config.status --recheck
+	./config.status

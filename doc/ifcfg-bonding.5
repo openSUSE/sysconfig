@@ -1,0 +1,73 @@
+.\" Process this file with
+.\" groff -man -Tascii foo.1
+.\"
+.TH IFCFG-BONDING 5 "April 2005" "sysconfig" "Network configuration"
+.\" ...
+
+.SH NAME
+ifcfg-bonding \- interface bonding configuration
+.SH SYNOPSIS
+.B /etc/sysconfig/network/ifcfg-bond*
+
+
+.SH Bonding Interfaces
+To setup a bonding interface you need a configuration file ifcfg-bond<X> with
+the usual network settings. But you must add additional variables
+.TP
+.B BONDING_MASTER
+must be set to 'yes' to identify this interface as a bonding interface
+.TP
+.B BONDING_SLAVE_<X>
+here you specify the slave network devices. It may contain just an interface
+name or any valid hardware description if interface names are not persistent.
+See man ifup for details about hardware descriptions. The suffix <X> must only
+contain numbers and characters.
+.TP
+.B BONDING_OPTS
+contains additional options for ifenslave, this one is optional and not important
+for most cases. For additional information take a look into the documentation
+mentioned at the bottom of this section.
+.TP
+.B BONDING_MODULE_OPTS
+contains additional options for the bonding kernel modul. Here you can set
+interface timeouts or working modes ('mode=1' for backup mode). For additional
+information take a look into the documentation mentioned at the bottom.
+
+
+.SH Example 
+Example for a bonding device on eth0 and eth1 using the backup mode
+
+.I ifcfg-bond0
+.nf
+   STARTMODE='onboot'
+   BOOTPROTO='static'
+   IPADDR='192.168.0.1/24'
+
+   BONDING_MASTER='yes'
+   BONDING_SLAVE_0='bus-pci-0000:00:11.0'  # you can use eth0 here, too
+   BONDING_SLAVE_1='bus-pci-0000:00:12.0'  # or eth1
+   BONDING_MODULE_OPTS='mode=1'            # backup mode
+.fi
+
+.SH Additional Information
+
+For additional and more general information take a look into
+.BR /usr/src/linux/Documentation/networking/bonding.txt.
+Maybe you need to install the kernel sources to get this additional
+documentation.
+ 
+The configuration of routes for this kind of interface does not differ from
+ordinary interfaces. See
+.I man routes 
+for details.
+
+.SH BUGS
+Please report bugs at <http://www.suse.de/feedback>
+.SH AUTHOR
+.nf
+Christian Zoz <zoz@suse.de> -- ifup script
+Wilken Gottwalt <wgottwalt@suse.de> -- ifcfg-bonding manpage 
+.fi
+.SH "SEE ALSO"
+.BR ifcfg (5),
+.BR ifup (8).

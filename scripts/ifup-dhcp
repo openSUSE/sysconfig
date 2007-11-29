@@ -1,0 +1,497 @@
+#! /bin/bash
+#
+# Copyright (c) 2002 SuSE Linux AG Nuernberg, Germany. All rights reserved.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Christian Zoz <zoz@suse.de>, 2002-2006
+#         Peter Poeml <poeml@suse.de>, 2002-2006
+#
+# $Id$
+#
+
+usage () {
+	echo $@
+	echo "Usage: if{up,down,status}-dhcp [<config>] <hwdesc> [-o <options>]"
+	echo "  hwdesc may be the interface name or any valid description"
+	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Options are: boot      : we are currently booting"
+	echo "             hotplug   : we are handling a hotplug event"
+	echo "             debug     : be verbose"
+	echo "             rc        : indicates that we are called from rcnetwork"
+	echo "All other or wrong options are silently ignored."
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+# . scripts/extradebug
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+
+case "${SCRIPTNAME}" in
+	ifup-*) ACTION=start ;;
+	ifdown-*) ACTION=stop ;;
+	ifstatus-*) ACTION=status ;;
+	ifrenew-*) ACTION=renew ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=onboot ;;
+		hotplug)     MODE=hotplug ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		rc)          RUN_FROM_RC=yes ;;
+		*)           debug unknown option $1 ;;
+	esac
+	shift
+done
+
+######################################################################
+# check presence of configuration files
+#
+test -f ./dhcp && . ./dhcp
+test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+
+######################################################################
+# get the interface and check if it is up
+#
+if [ -z "$INTERFACE" ] ; then
+	usage "No interface given"
+fi
+if ! is_iface_available $INTERFACE ; then
+	# When a hotplug remove event occurs the interface has already gone.
+	# Nevertheless we have to clean up.
+	if [ \( "$ACTION" != stop -o "$MODE" != hotplug \) -a "$INTERFACE" != all ] ; then
+		logerror "interface ${INTERFACE} is not available"
+		exit $R_NODEV
+	fi
+fi
+
+######################################################################
+# determine type of dhcp client
+#
+# This script is supposed to work with both dhcpcd and the ISC DHCP client,
+# because there's a lot of common stuff.
+# If neccesary you can preselect a dhcp client; just set DHCLIENT_BIN in one of
+# the used config files. If not we prefer dhcpcd if available.
+: ${DHCLIENT_BIN:=dhcpcd}
+if [ -x $DHCLIENT_BIN ]; then 
+	:
+elif [ -x /sbin/$DHCLIENT_BIN ]; then 
+	DHCLIENT_BIN=/sbin/$DHCLIENT_BIN; 
+elif [ -x /sbin/dhclient ]; then
+	DHCLIENT_BIN=/sbin/dhclient
+else
+	if [ "$INTERFACE" = all ]; then 
+		# 'rcnetwork stop' also calls us with "ifdown-dhcp all" in the end to make
+		# sure that all DHCP clients are stopped.  But if there is none installed,
+		# there is nothing to do and we can silently quit
+		exit $R_SUCCESS
+	else
+		logerror "DHCP client $DHCLIENT_BIN is not available"
+		logerror "please install package 'dhcpcd' or 'dhcp-client'"
+		exit $R_ERROR
+	fi
+fi
+DHCLIENT=${DHCLIENT_BIN##*/}
+
+
+case "$ACTION" in
+	start|renew)
+		# avoid that the temporary resolv.conf will persist after the client stops
+		# just because there hasn't been any resolv.conf to back up
+		test -e /etc/resolv.conf || touch /etc/resolv.conf
+
+		# if we were called at boot time, increase the time startproc waits,
+		# because the next scripts might rely on a configured network
+		# test "$MODE" = "boot" && STARTPROC_TIMEOUT=5
+
+		# a previous dhcpcd daemon could have been killed leaving its pidfile, 
+		# and we need to remove it before we can start a new one.
+		if [ $DHCLIENT = dhcpcd ]; then 
+			if [ -s /var/run/dhcpcd-$INTERFACE.pid ]; then
+				checkproc -k -p /var/run/dhcpcd-$INTERFACE.pid $DHCLIENT_BIN
+				ret=$? 
+				if [ $ret = 1 -o $ret = 7 ]; then 
+					message removing stale pid file /var/run/dhcpcd-$INTERFACE.pid
+					rm -f /var/run/dhcpcd-$INTERFACE.pid
+				fi
+			fi
+		fi
+
+		# the following code block, is only relevant if DHCLIENT_PRIMARY_DEVICE is
+		# empty. it basically sets DHCLIENT_PRIMARY_DEVICE based on the informationen 
+		# that is provided by the cached config data in a way that a user-defined  
+		# DHCLIENT_PRIMARY_DEVICE remains untouched.
+
+		if [ -z "$DHCLIENT_PRIMARY_DEVICE" ]; then
+
+			# read cached config data into PRIMARY_FROM_CACHE
+			PRIMARY_FROM_CACHE="`grep_cached_config_data primary yes`"
+
+			if [ -z "$PRIMARY_FROM_CACHE" ]; then
+				# no primary interface up-> we're the primary interface
+				DHCLIENT_PRIMARY_DEVICE='yes'
+
+ 				# save this fact to cached config data		
+				write_cached_config_data primary yes $INTERFACE
+				commit_cached_config_data $INTERFACE
+			else
+				# primary interface already up -> DHCLIENT_PRIMARY_DEVICE='no'
+				if [ "${PRIMARY_FROM_CACHE% }" == $INTERFACE ]; then
+					# special case for ifrenew:
+					# we are the primary interface which is up 
+					DHCLIENT_PRIMARY_DEVICE='yes'
+				else
+					DHCLIENT_PRIMARY_DEVICE='no'
+				fi
+			fi
+
+		fi		
+
+		if [ "$ACTION" = 'start' ] \
+			&& ( checkproc $DHCLIENT_BIN || [ "$DHCLIENT_PRIMARY_DEVICE" = no ]); then
+			
+			# let's first test if the running dhcpcd actually runs on this
+			# interface, because then we don't want to start another one:
+			if dhcpc_on_iface -q; then
+				if test "$RUN_FROM_RC" = yes; then
+					while read a b c d e f g h i; do
+						message "`printf "    %-9s IP address: %s (DHCP was already running)" $i $d`"
+						R_DHCP_BG=$R_SUCCESS
+					done < <(ip -o -4 addr show $INTERFACE)
+					if [ "$R_DHCP_BG" != "$R_SUCCESS" ] ; then
+						message "`printf "    %-9s DHCP already running" $INTERFACE`"
+					fi
+				else
+					message    "DHCP client is already running on $INTERFACE"
+				fi
+				exit $R_DHCP_BG
+			fi
+
+		elif [ "$ACTION" = 'renew' ]; then
+			case $DHCLIENT in 
+			dhcpcd) 
+				for i in `dhcpc_on_iface`; do
+					kill -TERM $i &>/dev/null
+				done
+				sleep 1
+				;;
+			dhclient)
+				killproc $DHCLIENT_BIN &>/dev/null 
+				;;
+			esac
+		fi
+
+		# there is already a dhcpcd running (or scheduled). We probably don't
+		# want to set another default gateway and so on. Let's clear some
+		# variables and source the ifcfg-$CONFIG again -- unless
+		# DHCLIENT_PRIMARY_DEVICE is set to "yes".
+
+		if [ "$DHCLIENT_PRIMARY_DEVICE" != yes ]; then 
+
+			unset DHCLIENT_SET_HOSTNAME \
+					DHCLIENT_SET_DOMAINNAME \
+					DHCLIENT_KEEP_SEARCHLIST \
+					DHCLIENT_MODIFY_RESOLV_CONF \
+					DHCLIENT_SET_DEFAULT_ROUTE \
+					DHCLIENT_MODIFY_NTP_CONF \
+					DHCLIENT_MODIFY_NIS_CONF 
+
+			test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+		fi
+	
+		debug "Starting service dhcp client on $INTERFACE"
+		ip link set $INTERFACE up ${MTU:+mtu $MTU} \
+		                          ${LLADDR:+address $LLADDR} $LINK_OPTIONS
+		for a in 1 2 3 4 5; do is_iface_up $INTERFACE && break; sleep 1; done
+
+		# (optionally) wait until a device is really configured
+		sleep ${DHCLIENT_SLEEP:-0}
+
+		if [ "$DHCLIENT" = "dhcpcd" ] ; then 
+			# The following DHCLIENT_ARGS are specific to dhcpcd. 
+			# (the ISC DHCP client can be finetuned via /etc/dhclient.conf 
+			# and so-called hooks (see man 8 dhclient-script)
+			test "$DHCLIENT_DEBUG"               = "yes" && args="-d"
+			test "$DHCLIENT_UDP_CHECKSUM"        = "yes" && args="$args -C"
+			test "$DHCLIENT_SET_HOSTNAME"        = "yes" && args="$args -H"
+			test "$DHCLIENT_SET_DOMAINNAME"      = "yes" && args="$args -D"
+			test "$DHCLIENT_KEEP_SEARCHLIST"     = "yes" && args="$args -K"
+			test "$DHCLIENT_MODIFY_RESOLV_CONF" != "yes" && args="$args -R"
+			test "$DHCLIENT_SET_DEFAULT_ROUTE"  != "yes" && args="$args -G"
+			test "$DHCLIENT_MODIFY_NTP_CONF"    != "yes" && args="$args -N"
+			test "$DHCLIENT_MODIFY_NIS_CONF"    != "yes" && args="$args -Y"
+			test -n "$DHCLIENT_TIMEOUT" \
+				&& args="$args -t $DHCLIENT_TIMEOUT"
+			test -n "$DHCLIENT_REBOOT_TIMEOUT" \
+				&& args="$args -z $DHCLIENT_REBOOT_TIMEOUT"
+			test -n "$DHCLIENT_CLIENT_ID" \
+				&& args="$args -I $DHCLIENT_CLIENT_ID"
+			test -n "$DHCLIENT_VENDOR_CLASS_ID" \
+				&& args="$args -i $DHCLIENT_VENDOR_CLASS_ID"
+			test -n "$DHCLIENT_LEASE_TIME" \
+				&& args="$args -l $DHCLIENT_LEASE_TIME"
+			test -n "$DHCLIENT_ADDITIONAL_OPTIONS" \
+				&& args="$args $DHCLIENT_ADDITIONAL_OPTIONS"
+
+			# send hostname for DDNS?
+			case "$DHCLIENT_HOSTNAME_OPTION" in AUTO|auto)
+				unset DHCLIENT_HOSTNAME_OPTION
+				test -s /etc/HOSTNAME && read -t 1 FQHOSTNAME < /etc/HOSTNAME
+				FQHOSTNAME=${FQHOSTNAME%%.*} # strip domain
+				FQHOSTNAME=${FQHOSTNAME%% *} # must not contain spaces, just in case
+				DHCLIENT_HOSTNAME_OPTION=$FQHOSTNAME
+				;;
+			esac
+			test -n "$DHCLIENT_HOSTNAME_OPTION" \
+				&& args="$args -h $DHCLIENT_HOSTNAME_OPTION"
+
+			# this used to be hardcoded in the dhcpcd binary, but we have reverted it in order 
+			# to allow innocent commandline users to use dhcpcd without calling the 
+			# dhcpcd-hook/ifup machinery [#85849]
+			args="$args -c ${DHCLIENT_SCRIPT_EXE:-/etc/sysconfig/network/scripts/dhcpcd-hook}"
+
+			DHCLIENT_ARGS=$args
+
+			# just in case /var is not mounted
+			test -d /var/lib/dhcpcd || mkdir -p /var/lib/dhcpcd
+			timestamp=/var/lib/dhcpcd/dhcpcd-$INTERFACE.timestamp; touch $timestamp
+			info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
+
+			if test "$RUN_FROM_RC" = yes; then 
+				message_n "`printf "    %-9s (DHCP) " $INTERFACE`"
+				# message_n "(DHCP) " 
+			else
+				message_n "Starting DHCP Client Daemon on $INTERFACE... "
+			fi
+
+			# now start dhcpcd
+			$DHCLIENT_BIN $DHCLIENT_ARGS $INTERFACE </dev/null &>/dev/null &
+
+			# wait some more time until dhcpcd has done its job.
+			# it would be easier to wait for the pidfile, but it is written later
+			for ((i=0; i<${DHCLIENT_WAIT_AT_BOOT:-15}; i++)); do 
+				if [ -e $info -a ! $info -ot $timestamp ]; then continue
+				else message_n .\ ; sleep 1
+				fi
+			done
+			if [ -e $info -a ! $info -ot $timestamp ]; then 
+				while read line; do
+					case "$line" in 
+						IPADDR*) message_n ${line/IPADDR=/IP/Netmask: };; 
+						NETMASK*) message_n " / ${line/NETMASK=/}";; 
+						HOSTNAME*) message_n " (${line/HOSTNAME=/})";; 
+					esac
+				done < $info
+				message " "
+				R_DHCP_BG=$R_SUCCESS
+			else
+				message "no IP address yet... backgrounding. "
+			fi
+			exit $R_DHCP_BG
+
+
+		else
+			# if we are here, then $DHCLIENT is the ISC dhclient
+
+			# don't write copyright info
+			DHCLIENT_ARGS="-q" 
+			# If ISC dhclient should be used for more than one interfaces, we have
+			# to stop it and restart it with all interfaces when adding an
+			# interface.  !!! Currently, we do not provide that.
+			if checkproc $DHCLIENT_BIN; then
+				logerror "$DHCLIENT is already running for some interface." \
+				         "Stop it first.\nIf you want to run dhcp on several " \
+				         "interfaces, please use dhcpcd."
+			else
+				startproc -f -t ${STARTPROC_TIMEOUT:-1} -q $DHCLIENT_BIN \
+				          $DHCLIENT_ARGS $INTERFACE
+			fi
+		fi
+
+		;;
+	stop)
+		debug "Shutting down service dhcp client on $INTERFACE"
+
+		case $DHCLIENT in 
+		dhcpcd) 
+			# let's first test if any dhcpcd processes are running on this
+			# interface.  Unfortunately, the pid file is not there when it starts
+			# up, so we can't rely on that.  Normally, only one process is running
+			# per interface. but we have made bad experiences with ...hotplug 
+			dhcpcd_on_device="`dhcpc_on_iface`"
+
+			test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" \
+			  && USE_SIGNAL="-HUP" || USE_SIGNAL="-TERM"
+
+			for i in $dhcpcd_on_device; do
+				kill $USE_SIGNAL $i &>/dev/null
+			done
+
+                        # wait until the processes are gone
+			for i in $dhcpcd_on_device; do
+				for ((wait=0; wait<30; wait++)); do
+					if test -d /proc/$i; then usleep 300000
+					else continue 2
+					fi
+					if [ $wait = 20 ]; then
+						echo process $i still not dead, sending SIGKILL
+						kill -KILL $i &>/dev/null
+					fi
+				done
+			done
+
+			if [ -z "$dhcpcd_on_device" ]; then 
+				# dhcpcd may not be running (it quits if it gets an 
+				# infinite lease)
+				info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
+				if test -s $info && grep -q LEASETIME=4294967295 $info; then
+					debug "dhcpcd is no longer running on $INTERFACE, since it got"
+					debug "an infinite lease. Manually shutting down the interface."
+					# Calling 'ip' if there is no interface (ifdown called from udev
+					# for remove event) would trigger automatic module loading
+					# (Bug 199456)
+					if [ -d /sys/class/net/$INTERFACE ] ; then
+						ip addr flush dev $INTERFACE &>/dev/null
+						ip link set dev $INTERFACE down &>/dev/null
+					fi
+				fi
+			fi
+
+			;;
+
+		dhclient)
+
+			# If ISC dhclient is used for more than one interfaces, we have to stop
+			# it and restart it without this interface when removing one interface,
+			# or we have to use the OMAPI interface
+			# !!! Currently, we do not provide that.
+			killproc $DHCLIENT_BIN &>/dev/null 
+			;;
+		esac
+
+		# We send -9 because interfaces have to stay up for STARTMODE==nfsroot
+		test "$INTERFACE" = all && killall -9 $DHCLIENT_BIN &>/dev/null
+
+		# delete primary flag from cache file
+		delete_from_cached_config_data primary yes $INTERFACE
+		commit_cached_config_data $INTERFACE
+
+		# This is useful for pcmcia interfaces... before the modules can be
+		# unloaded, the device must be unused.
+		if [ "$DHCLIENT_SET_DOWN_LINK" = yes ] ; then
+			ip link set down dev $INTERFACE
+		fi
+		;;
+	status)
+		if test -z "`ip -o -f inet addr show $INTERFACE`"; then
+			# interface has currently no ipv4 address assigned
+			if dhcpc_on_iface -q; then
+				message "`printf "    %-9s %s is still waiting for data" $INTERFACE $DHCLIENT`"
+				exit $R_DHCP_BG
+			elif ifup_on_iface ; then
+				message "`printf "    %-9s is just beeing set up" $INTERFACE`"
+				exit $R_DHCP_BG
+			else
+				message "`printf "    %-9s DHCP client NOT running" $INTERFACE`"
+				exit $R_NOTRUNNING
+			fi
+		else 
+			# interface has at least one ipv4 address
+			if dhcpc_on_iface -q; then
+				message "`printf "    %-9s DHCP client (%s) is running" $INTERFACE $DHCLIENT`"
+				# Show more info if not run from initscript
+				if [ "$RUN_FROM_RC" != yes ] ; then
+					case $DHCLIENT in 
+						dhcpcd)
+							if test -e /var/lib/dhcpcd/dhcpcd-$INTERFACE.info; then
+								# message "              current lease for $INTERFACE:" 
+								while read line; do
+									case "$line" in 
+										IPADDR*|NETMASK*|GATEWAY*|HOSTNAME*|DOMAIN*)
+											message "              "$line ;;
+										DNS*|DHCPCHADDR*|DHCPSIADDR*|REBINDTIME*)
+											message "              "$line ;;
+										*) ;;
+									esac
+								done < /var/lib/dhcpcd/dhcpcd-$INTERFACE.info
+							else 
+								message /var/lib/dhcpcd/dhcpcd-$INTERFACE.info file \
+								        not available
+							fi
+							;;
+						dhclient)
+							if test -e /var/lib/dhcp/dhclient.leases; then 
+								message last lease in /var/lib/dhcp/dhclient.leases:
+								awk 'BEGIN {RS="lease[[:blank:]]*{"; FS="}"} {lease=$1} END {print "{" lease "} "}' \
+								    /var/lib/dhcp/dhclient.leases
+							else
+								message /var/lib/dhcp/dhclient.leases file not available
+							fi
+							;;
+					esac
+				fi
+			elif ifup_on_iface ; then
+				message "`printf "    %-9s is just beeing set up" $INTERFACE`"
+				exit $R_DHCP_BG
+			else
+				# dhcpcd may not be running (it quits if it gets an infinite lease)
+				info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
+				if test -s $info && grep -q LEASETIME=4294967295 $info; then
+					EXTRA_INFO=", because it got an infinite lease"
+					RET_VAL=$R_SUCCESS
+				else
+					EXTRA_INFO=
+					RET_VAL=$R_NOTRUNNING
+				fi
+				message "`printf "    %-9s DHCP client NOT running%s" \
+				                 "$INTERFACE" "$EXTRA_INFO"`"
+				if [ "$RUN_FROM_RC" = yes ] ; then
+					while read a b c d e f g h i; do
+						message "`printf "    %-9s IP address: %s (DHCP)" ${i:-$b} $d`"
+					done < <(ip -o -4 addr show $INTERFACE)
+				else
+					message "$(ip addr show $INTERFACE)"
+				fi
+				exit $RET_VAL
+			fi
+
+
+		fi
+esac

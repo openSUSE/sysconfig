@@ -1,0 +1,156 @@
+#!/bin/bash
+#
+# /etc/ppp/poll.tcpip
+#
+# Script for polling mail and news, setting system
+# time, and sending mails over temporary TCP/IP connections.
+#
+# Author: Werner Fink <werner@suse.de>
+#
+
+#
+# Check our lock file
+#
+if test -e /var/run/poll.lock ; then
+    running=false
+    read lpid < /var/run/poll.lock
+    for l in /proc/$lpid/fd/* ; do
+	test -L $l || continue
+	test $0 -ef $l && running=true
+    done
+    test "$running" = "true" && exit 0
+    unset l lpid running
+fi
+trap 'echo' SIGHUP SIGINT SIGQUIT
+trap 'rm -f /var/run/poll.lock; exit 1' SIGTRAP SIGBUS SIGKILL SIGPIPE SIGTERM
+trap 'rm -f /var/run/poll.lock; exit 0' EXIT
+echo $$ > /var/run/poll.lock
+
+# Tell system what we're doing
+logger -t poll.tcpip -p mail.notice " Starting mail and news send/fetch"
+
+#
+# Check resources and settings
+#
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+set -- $(runlevel)
+PREVLEVEL=$1
+RUNLEVEL=$2
+export PATH PREVLEVEL RUNLEVEL
+
+#
+# Time to get a stable connenction
+#
+sleep 5
+
+#
+# Now set system time if we have some NTP servers
+# and no running ntp.
+#
+/usr/sbin/rcntp status &> /dev/null
+if test $? -eq 3 ; then
+    /usr/sbin/rcntp ntptimeset
+else
+    /usr/sbin/rcntp try-restart-iburst &> /dev/null \
+       || /usr/sbin/rcntp ntptimeset
+fi
+
+#
+# Do we get mails via UUCP over TCP/IP?
+# Note that we only support taylor configuration.
+# We seek for the available systems which are
+# connected with TCP/IP to do a UUCP file transfer.
+#
+while true ; do
+    test -x   /usr/lib/uucp/uucico         || break
+    test -r   /etc/uucp/call               || break
+    test -r   /etc/uucp/sys                || break
+    systems=""
+    while read sys login passwd rest ; do
+	case "$sys" in
+	    \#*|"") continue ;;
+	    *)      systems="$systems $sys"
+	esac
+    done < /etc/uucp/call
+    for sys in $systems ; do
+	type=$(sed -n "
+	    /^system[[:space:]]\+$sys/,/^\(system\|\$\)/ {
+		s/^port\W\+\(\w\+\)\$/\1/p
+	    }" < /etc/uucp/sys)
+	[[ "$type" == [tT][cC][pP] || "$type" == [sS][sS][hH] ]] || continue
+	/usr/lib/uucp/uucico -c -D -S $sys
+    done
+    break
+done
+
+#
+# Do we get mails with fetchmail over pop3/imap?
+# We support only a system wide configuration
+# file /etc/fetchmailrc.
+#
+while true ; do
+    test -x   /usr/bin/fetchmail           || break
+    test -r   /etc/fetchmailrc             || break
+    checkproc /usr/bin/fetchmail           && break
+    /usr/bin/fetchmail -f /etc/fetchmailrc
+    break
+done
+
+#
+# Do we get news with fetchnews?
+#
+while true ; do
+    test -x   /usr/sbin/fetchnews           || break
+    test -s   /etc/leafnode/config          || break
+    test -e   /var/lock/news/fetchnews.lck  && break
+    checkproc /usr/sbin/fetchnews           && break
+    /usr/sbin/fetchnews
+    break
+done
+
+#
+# Let's throw our mails out here. This is done as the last
+# point to avoid mail loops which could be caused if the
+# fetchmail call is done after /usr/sbin/sendmail. Also
+# remember that /usr/sbin/sendmail should be provided by
+# any other MTA like postfix or exim.
+#
+if test -s /etc/sendmail.cf -a -s /etc/mail/submit.cf ; then
+    send=no
+    for rc in /etc/init.d/rc${RUNLEVEL}.d/S*sendmail
+    do
+	if test -x $rc; then
+	    $rc status &> /dev/null && send=yes
+	else
+	    send=yes
+	fi
+	break
+    done
+    if test "$send" = "yes" ; then
+	/usr/sbin/sendmail -L sendmail-client -Ac -q
+	sleep 3
+	/usr/sbin/sendmail -L sendmail -Am -q
+    fi
+    unset send
+else
+    send=no
+    for rc in /etc/init.d/rc${RUNLEVEL}.d/S*postfix \
+	      /etc/init.d/rc${RUNLEVEL}.d/S*exim
+    do
+	if test -x $rc; then
+	    $rc status &> /dev/null && send=yes
+	else
+	    send=yes
+	fi
+	break
+    done
+    if test "$send" = "yes" ; then
+	/usr/sbin/sendmail -q
+    fi
+    unset send
+fi
+
+# Tell system what we're done
+logger -t poll.tcpip -p mail.notice " Done mail and news send/fetch"
+#
+exit 0

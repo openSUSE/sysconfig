@@ -1,0 +1,133 @@
+#!/bin/bash
+#
+# Copyright (c) 2002-2003 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Peter Poeml <poeml@suse.de>
+#
+# $Id$
+
+
+#
+# Hook script for dhcpcd (the DHCP client)
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#
+# It is called when an interface is brought "up", "down", or the IP address has
+# changed ("new").
+#
+# It calls "ifup <interface> -o dhcp", which does the following:
+#
+#  - set up routing according to /etc/sysconfig/network/ifroute-* 
+#    (where you can configure routes per interface)
+#
+#  - execute /etc/sysconfig/network/if-{up,down}.d/*
+#    (where you can place your own scripts)
+#
+#  - execute POST_UP scripts defined in /etc/sysconfig/network/ifcfg-* 
+#    (see "man 8 ifup")
+#
+# Thus, those are the hooks where you can add stuff.
+
+
+#  The following parameters are passed to this script by dhcpcd:
+#  $1 = HostInfoFilePath, e.g  "/var/lib/dhcpcd/dhcpcd-eth0.info"
+#  $2 = "up" if interface has been configured with the same
+#       IP address as before reboot;
+#  $2 = "down" if interface has been shut down;
+#  $2 = "new" if interface has been configured with new IP address;
+#  $3 (optional) = "-d" debug flag passed if dhcpcd daemon has been
+#       invoked with "-d" flag
+
+
+
+my_name=${0##*/}
+
+# log_err="logger -s -t $my_name -p daemon.err"
+# log_dbg="logger -s -t $my_name -p daemon.debug"
+log_err="logger -t $my_name -p daemon.err"
+log_dbg="logger -t $my_name -p daemon.debug"
+
+if [ $# -lt 2 ]; then
+	$log_err "wrong usage"
+	exit 1
+fi
+
+leaseinfo="$1"
+state="$2"
+debug="$3"
+
+if [ -n "$debug" ]; then
+	$log_dbg "State: $state. Leaseinfo: ${leaseinfo:-<none given>}"
+	debug=true
+else
+	debug=false
+fi
+
+# it is possible that the leaseinfo file does not exist:
+#  - when it has never been written (since a lease was never acquired)
+#  - when deleted manually
+# in this case, we don't even know which interface is concerned, and
+# there's nothing to do about it.
+# (in the 'leaseinfo does not exist case' the interface can still be 
+# guessed from the name, but I doubt it's useful to run ifdown then)
+if test -z $leaseinfo; then
+        $log_dbg "Skipping 'ifdown \$INTERFACE -o dhcp' call"
+        exit 0
+fi
+if ! test -e $leaseinfo; then
+        $log_dbg "$leaseinfo does not exist. Skipping 'ifdown \$INTERFACE -o dhcp' call"
+        exit 0
+fi
+
+
+
+while read line; do
+	case "$line" in
+		INTERFACE*|IPADDR*) eval $line;;
+	esac
+done < $leaseinfo
+
+
+case $state in
+up)
+	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
+	ifup $INTERFACE -o dhcp
+
+	# reload syslog so it knows the new hostname
+	/etc/init.d/syslog reload
+	;;
+down)
+	# We now call PRE_DOWN_SCRIPT directly from ifdown, because it was called
+	# POST from here (after IP address was removed). Thus we don't need this
+	# $debug && $log_dbg "Running ifdown $INTERFACE -o dhcp"
+	# ifdown $INTERFACE -o dhcp
+	;;
+new)
+	$debug && $log_dbg "new IP address: $IPADDR"
+
+	# reload syslog so it knows the new hostname
+	/etc/init.d/syslog reload
+
+	$debug && $log_dbg "Running ifdown $INTERFACE -o dhcp"
+	ifdown $INTERFACE -o dhcp
+	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
+	ifup $INTERFACE -o dhcp
+	;;
+esac
+
+
+exit 0

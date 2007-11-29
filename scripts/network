@@ -1,0 +1,928 @@
+#!/bin/bash
+#
+# Network interface configuration
+#
+# Copyright (c) 2001-2002 SuSE Linux AG, Nuernberg, Germany.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Michal Svec <msvec@suse.cz>
+#         Christian Zoz <zoz@suse.de>
+#         Mads Martin Jørgensen <mmj@suse.de>
+#
+# $Id$
+#
+# /etc/init.d/network
+#
+### BEGIN INIT INFO
+# Provides:       network
+# Required-Start: $local_fs dbus haldaemon
+# Should-Start: isdn SuSEfirewall2_init
+# Required-Stop:
+# Should-Stop:
+# Default-Start:  2 3 5
+# Default-Stop:
+# Description:    Configure the network interfaces and set up routing
+### END INIT INFO
+
+. /etc/rc.status
+rc_reset
+
+cd /etc/sysconfig/network
+test -f ./config && . ./config
+if ! . scripts/functions 2>/dev/null; then
+	echo -n "Network: file /etc/sysconfig/network/scripts/functions is missing."
+	rc_failed
+	rc_status -v
+	rc_exit
+fi
+
+# . scripts/extradebug
+
+# Only use ifup option 'onboot' if booting or changing runlevel
+# Therefore we check if we were called from init
+if [ -n "$INIT_VERSION" ] ; then
+	MODE=onboot
+fi
+
+######################################################################
+# Commandline parsing
+#
+SCRIPTNAME=${0##*/}
+debug $*
+ACTION=$1
+shift
+if [ "$1" != "-o" ] ; then INTERFACE=$1; shift; fi
+if [ -n "$1" -a "$1" != "-o" ] ; then CONFIG=$INTERFACE; INTERFACE=$1; shift; fi
+test "$1" = "-o" && shift
+OPTIONS=$@
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=onboot ;;
+		hotplug)     MODE=hotplug ;;
+		manual)      MODE=manual ;;
+		check)       CHECK=check ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		type*)       TYPE=${1#type=} ;;
+		fake)        FAKE=echo ;;
+		skip*)       SKIP=${1#skip=} ;;
+		nm)          NETWORKMANAGER=yes ;;
+		netcontrol)  NETWORKMANAGER=no ;;
+		*)           mesg "Unknown option $1"
+		             mesg "options: {[on]boot,hotplug,check,debug,type=<typelist>,fake}"
+			     exit 1 ;;
+	esac
+	shift
+done
+# Source functions.common again, because values of DEBUG and BE_QUIET might
+# have changed. These variable will be evaluated while sourcing the file.
+test -f scripts/functions.common \
+   && . scripts/functions.common \
+   || exit $R_INTERNAL
+
+
+######################################################################
+# Start NetworkManager if wanted
+#
+# Some variables and functions are defined in
+# /etc/sysconfig/network/scripts/functions
+# because they are also used in ifup
+#
+if [ ! -x "$NETWORKMANAGER_BIN" -a "$NETWORKMANAGER" == yes ] ; then
+	err_mesg "NetworkManager is not installed, thus using NetControl." \
+	         "Please set" \
+	         "\n/etc/sysconfig/network/config:NetworkManager=no" \
+	         "or install NetworkManager."
+	NETWORKMANAGER=no
+fi
+if [ "$NETWORKMANAGER" != yes ] ; then
+	NM_DISPATCHER=no
+fi
+if [ ! -x "$NM_DISPATCHER_BIN" -a "$NM_DISPATCHER" == yes ] ; then
+	err_mesg "NetworkManagerDispatcher is not installed, skipping it." \
+	         "Please set" \
+	         "\n/etc/sysconfig/network/config:NetworkManagerDispatcher=no" \
+	         "or install NetworkManagerDispatcher."
+	NM_DISPATCHER=no
+fi
+
+check_firewall() {
+	test "$MODE" = onboot && return -1
+	test "$FIREWALL" != yes && return -2
+	/sbin/SuSEfirewall2 -q status &>/dev/null || return -3
+	return 0
+}
+
+lock_firewall() {
+	check_firewall || return $?
+	/sbin/SuSEfirewall2 bootlock
+}
+
+reload_firewall() {
+	check_firewall || return $?
+	/sbin/SuSEfirewall2 --bootunlock start
+}
+
+start_nm_online() {
+	test -x "$NM_ONLINE_BIN" || return 0
+	if [ "$NM_ONLINE_TIMEOUT" == 0 ] ; then
+#		mesg "If service network should wait until connection is established"
+#		mesg "then set /etc/sysconfig/network/config:NM_ONLINE_TIMEOUT"
+		return 0
+	fi
+	local rc_startmode="${stat}${attn}waiting${norm}"
+	$NM_ONLINE_BIN $NM_ONLINE_TIMEOUT
+	case $? in
+		0) rc_status -v ;;
+		1) echo -e "$rc_startmode" 1>&2 ;;
+		*) rc_status -v ;;
+	esac
+}
+
+start_nm_dispatcher() {
+	test "$NM_DISPATCHER" == yes || return
+	checkproc $NM_DISPATCHER_BIN
+	if [ $? = 0 ]; then
+		mesg_n "NetworkManagerDispatcher already running"
+	else
+		mesg_n "Starting the NetworkManagerDispatcher"
+		startproc $NM_DISPATCHER_BIN
+	fi
+	rc_status -v
+}
+
+stop_nm_dispatcher() {
+	test -x "$NM_DISPATCHER_BIN" || return 0
+	checkproc $NM_DISPATCHER_BIN 2>/dev/null
+	if [ $? = 0 ]; then
+		mesg_n "Shutting down the NetworkManagerDispatcher"
+		killproc -TERM $NM_DISPATCHER_BIN
+		rc_status -v
+	fi
+}
+
+check_nm_dispatcher() {
+	test -x "$NM_DISPATCHER_BIN" || return 0
+	rc_status
+	NM_STATUS=$?
+	mesg_n "Checking for the NetworkManagerDispatcher: "
+	checkproc $NM_DISPATCHER_BIN
+	rc_status -v
+	NMD_STATUS=$?
+	if [ "$NM_DISPATCHER" != yes ] ; then
+		rc_reset
+		rc_failed $NM_STATUS
+	fi
+	return $NMD_STATUS
+}
+
+start_dhcdbd() {
+	test -x "$DHCDBD_BIN" || return 0
+	checkproc $DHCDBD_BIN
+	if [ $? = 0 ]; then
+		mesg_n "DHCP DBUS Daemon already running"
+	else
+		mesg_n "Starting the DHCP DBUS Daemon"
+		startproc $DHCDBD_BIN --system
+	fi
+	rc_status -v
+
+}
+
+stop_dhcdbd() {
+	test -x "$DHCDBD_BIN" || return 0
+	checkproc $DHCDBD_BIN 2>/dev/null
+	if [ $? = 0 ]; then
+		mesg_n "Shutting down the DHCP DBUS Daemon"
+		killproc -TERM $DHCDBD_BIN
+		rc_status -v
+	else
+		return 0
+	fi
+}
+
+check_dhcdbd() {
+	test -x "$DHCDBD_BIN" || return 0
+	rc_status
+	NM_STATUS=$?
+	mesg_n "Checking for the DHCP DBUS Daemon: "
+	checkproc $DHCDBD_BIN
+	rc_status -v
+	DHCDBD_STATUS=$?
+	return $DHCDBD_STATUS
+}
+
+cd "$OLDPWD"
+case "$ACTION" in
+	start)
+		if [ "$NETWORKMANAGER" == yes ] ; then
+			if nm_running; then
+				mesg_n "NetworkManager already running"
+				rc_status -v
+				start_nm_dispatcher
+			elif netcontrol_running; then
+				mesg "'NetControl' is active but" \
+				     "configuration says 'NetworkManager'."
+				mesg_n "Call $SCRIPTNAME restart instead".
+				rc_failed 7
+				rc_status -v
+			else
+				start_dhcdbd
+				start_nm_dispatcher
+				mesg_n "Starting the NetworkManager"
+				$FAKE startproc $NETWORKMANAGER_BIN
+				rc_status -v
+				start_nm_online
+			fi
+			rc_exit
+		else
+			if nm_running; then
+				mesg "'NetworkManager' is active but configuration" \
+				     "says 'NetControl'."
+				mesg_n "Call $SCRIPTNAME restart instead".
+				rc_failed 7
+				rc_status -v
+				rc_exit
+			fi
+		fi
+		# else fall through to NetControl
+		;;
+	stop)
+		if nm_running; then
+			mesg_n "Shutting down the NetworkManager"
+			$FAKE killproc -TERM $NETWORKMANAGER_BIN
+			rc_status -v
+			stop_dhcdbd
+		fi
+		stop_nm_dispatcher
+		if ! netcontrol_running ; then
+			rc_exit
+		fi
+		# else fall through to NetControl
+		;;
+	try-restart)
+		$0 status >/dev/null && \
+			$0 restart $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		rc_status
+		rc_exit
+		;;
+	restart|force-reload)
+		$0 stop $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		$0 start $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		rc_status
+		rc_exit
+		;;
+	stop-all-dhcp-clients)
+		if nm_running; then
+			mesg "$ACTION not avaliable when running NetworkManager"
+			exit 1
+		fi
+		lock_firewall
+		DHCP_INTERFACES=$(dhcp-interfaces)
+		for IFACE in $DHCP_INTERFACES; do
+			$0 stop $IFACE ${OPTIONS:+-o $OPTIONS}
+		done
+		rc_status
+		reload_firewall
+		rc_exit
+		;;
+	restart-all-dhcp-clients)
+		if nm_running; then
+			mesg "$ACTION not avaliable when running NetworkManager"
+			exit 1
+		fi
+		lock_firewall
+		DHCP_INTERFACES=$(dhcp-interfaces)
+		for IFACE in $DHCP_INTERFACES; do
+			$0 stop  $IFACE ${OPTIONS:+-o $OPTIONS}
+		done
+		for IFACE in $DHCP_INTERFACES; do
+			$0 start $IFACE ${OPTIONS:+-o $OPTIONS}
+		done
+		rc_status
+		reload_firewall
+		rc_exit
+		;;
+	reload)
+		# NetworkManager does not support reload (2005.01.15).
+		# If configuration and running system do not match exec restart.
+		# Fall through if NetControl is confiured and NM not active.
+		if [ "$NETWORKMANAGER" == yes ] ; then
+			if netcontrol_running; then
+				mesg "Changing Network Control System. Calling $0 restart"
+				exec $0 restart $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			else
+				# NetworkManager doesn't support signaling --> restarting
+				exec $0 restart $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			fi
+		else
+			if nm_running; then
+				mesg "Changing Network Control System. Calling $0 restart"
+				shift
+				exec $0 restart $*
+			fi
+		fi
+		;;
+	status)
+		if [ "$NETWORKMANAGER" == yes ] ; then
+			mesg_n "Checking for the NetworkManager: "
+			nm_running
+			rc_status -v
+			check_nm_dispatcher
+			check_dhcdbd
+			NM_STATUS=$?
+			if netcontrol_running; then
+				mesg "NetControl System is active as well." \
+				     "Check your config or restart network."
+			else
+				rc_exit
+			fi
+		else
+			if nm_running; then
+				mesg "NetworkManager is active even though not configured." \
+				     "\nCheck your config or restart network."
+			fi
+		fi
+		;;
+	*)
+		echo "Usage: $0 <action> [<config>] [<interface>] [-o <options>]"
+		echo "  actions: start|stop|status|reload|force-reload|try-restart"
+		echo "           restart|stop-all-dhcp-clients|restart-all-dhcp-clients"
+		echo "  options: [on]boot,hotplug,manual,check,debug,fake,nm,netcontrol"
+		echo "           type=<typelist>,skip=<skiplist>"
+		echo "  typelist: space seperated list of interface types"
+		echo "  skiplist: space seperated list of interfaces to skip for 'start'"
+		if [ "$NETWORKMANAGER" == yes ] ; then
+		echo
+			echo "Note:"
+			echo "  <config>, <interface> and options [on]boot,hotplug,manual" \
+			     "have no effect"
+			echo "  if service network is controlled by NetworkManager."
+		fi
+		exit 1
+		;;
+esac
+cd /etc/sysconfig/network
+
+
+######################################################################
+
+
+if [ "$MODE" = onboot -a "$ACTION" = start ] ; then
+	rm -f  ${RUN_FILES_BASE}/if-*
+	rm -f  ${RUN_FILES_BASE}/ifup-*
+	rm -Rf ${RUN_FILES_BASE}/tmp
+	rm -f  ${RUN_FILES_BASE}/route-stack-* 2>/dev/null
+fi
+mkdir -p ${RUN_FILES_BASE}/tmp
+
+# This has to happen early; don't move that into start section below!!!
+# (Writing NETWORK_RUNFILE means that service network is started. And only if
+# service network was started interfaces will be set up via hotplug. And it must
+# be started before checking which interfaces are already available and might
+# still have to be set up because the were registered to early. Bug 39005)
+if [ "$ACTION" = start ] ; then
+	date +%s > $NETWORK_RUNFILE
+fi
+
+if [ -n "$TYPE" ] ; then
+	type_filter() {
+		for i in $*; do
+			for t in $TYPE; do
+				case $i in
+					# $t*) echo -n "$i "; continue 2;;
+					$t*) echo $i; continue 2;;
+				esac
+			done
+		done
+		echo
+	}
+else
+	LO=lo
+	type_filter() {
+		echo $*
+	}
+fi
+
+
+
+######################################################################
+# Get interfaces to handle
+#
+# Seperate this interfaces into several sets, not all mutually exclisive;
+# none of them may contain lo, because it will always handled separately
+#
+# AVAILABLE_IFACES are all interfaces from /sys/class/net
+#                  these have to be shut down when stopping
+#
+# PHYSICAL_IFACES  are interfaces to present physical devices, they will be
+#                  derived from AVAILABLE_IFACES
+#
+# DIALUP_IFACES    are modemX, dslX, etc., they are derived from ifcfg-* files
+#
+# TUNNEL_IFACES    are interfaces that do not fit into PHYSICAL and DIALUP and
+#                  are as well derived from ifcfg-* files
+#
+#    PHYSICAL, DIALUP and TUNNEL are mutually exclusive. Their union contains
+#    AVAILABLE and MANDATORY and all of them have to be set up when starting
+#
+# MANDATORY_IFACES these must be up and well configured for success
+
+# At first get DIALUP and TUNNEL
+while IFS=- read a b; do
+	test -z "$b" && continue
+	b=`type_filter $b`
+	case "`get_iface_type_from_config $b`" in
+		lo|eth|tr|wlan|irda|ip6tnl|mip6mnha)
+			continue
+			;;
+		*ppp|dsl|modem|isdn)
+			DIALUP_IFACES="$DIALUP_IFACES $b"
+			;;
+		vlan|bond|bridge|ipip|sit|gre)
+			TUNNEL_IFACES="$TUNNEL_IFACES $b"
+			;;
+		*)
+			err_mesg "$b has unknown interface type. Please file a bug report."
+			;;
+	esac
+done < <(ls -d /etc/sysconfig/network/ifcfg-*)
+
+# Now get all available interfaces drop lo and separate them into physical and
+# not physical. Then get AVAILABLE_IFACES sorted to shutdown the not physical
+# first.
+# Interfaces may be renamed by udev after they are registered. In some cases
+# this may take some time. Therefore we check a 'renamed' flag if an interface
+# is ready to be set up. If an it is not ready now, it will be set up via
+# udev/ifup (because network is started now). We will just have to wait for it
+# later in the start section if it is considered mandatory (see next section).
+for a in $(type_filter `ls -A /sys/class/net/`); do
+	case "`get_iface_type $a`" in
+		eth|tr|wlan)	
+			STAMPFILE=$STAMPFILE_STUB`cat /sys/class/net/$a/ifindex`
+			if [ "$MODE" == onboot -a "$ACTION" == start ] ; then
+				if [ ! -e "$STAMPFILE" ] ; then
+					continue
+				fi
+			fi
+			;;
+		lo|wlan_aux)
+			continue
+			;;
+	esac
+	for b in $DIALUP_IFACES $TUNNEL_IFACES; do
+		if [ "$a" = "$b" ] ; then
+			NOT_PHYSICAL_IFACES="$NOT_PHYSICAL_IFACES $a"
+			continue 2
+		fi
+	done
+	case $a in
+		sit*)
+			NOT_PHYSICAL_IFACES="$NOT_PHYSICAL_IFACES $a"
+			continue 2
+			;;
+	esac
+	PHYSICAL_IFACES="$PHYSICAL_IFACES $a"
+done
+AVAILABLE_IFACES="$NOT_PHYSICAL_IFACES $PHYSICAL_IFACES"
+
+# mandatory interfaces may be specified in /etc/sysconfig/network/config
+# If $MANDATORY_DEVICES is empty we take all PHYSICAL_IFACES, which are
+# configured with STARMODE=auto, as mandatory
+if [ -z "$MANDATORY_DEVICES" ] ; then
+	# take all configurations except these
+	# -  which seem to be backup files
+	# -  which have STARTMODE != onboot/auto
+	# -  which are dialup or tunnel interfaces
+	# -  which serve as slave interfaces for bonding, vlan or tunnels
+	while IFS=- read a b; do
+		test -z "$b" && continue
+		case $b in
+			*~|*rpmnew|*rpmsave|lo)
+				continue;
+				;;
+		esac
+		case "`get_startmode $b`" in
+			on|boot|onboot|auto|ifplugd) : ;;
+			*) continue ;;
+		esac
+		for d in $DIALUP_IFACES; do
+			if [ "$b" = "$d" ] ; then
+				continue 2
+			fi
+		done
+		for d in $TUNNEL_IFACES; do
+			if [ "$b" = "$d" ] ; then
+				b="`get_slaves $b`"
+				test $? = 0 || continue 2
+				TUNNEL_SLAVES="$TUNNEL_SLAVES $b"
+				continue 2
+			fi
+		done
+		MANDATORY_DEVICES="$MANDATORY_DEVICES $b"
+	done < <(ls -d /etc/sysconfig/network/ifcfg-*)
+	if [    -n "$MANDATORY_DEVICES" \
+	     -a "$MODE" != onboot \
+	     -a "$ACTION" = start ] ; then
+		echo "Hint: you may set mandatory devices in" \
+		     "/etc/sysconfig/network/config"
+	fi
+fi
+MANDATORY_DEVICES="$MANDATORY_DEVICES __NSC__ $TUNNEL_SLAVES"
+# Check for mandatory devices only when booting
+test "$MODE" = onboot || MANDATORY_DEVICES=""
+
+debug "CONFIG      = $CONFIG"
+debug "INTERFACE   = $INTERFACE"
+debug "AVAILABLE_IFACES = $AVAILABLE_IFACES"
+debug "PHYSICAL_IFACES  = $PHYSICAL_IFACES"
+debug "DIALUP_IFACES    = $DIALUP_IFACES"
+debug "TUNNEL_IFACES    = $TUNNEL_IFACES"
+debug "MANDATORY_DEVICES = $MANDATORY_DEVICES"
+debug "SKIP             = $SKIP"
+
+status() {
+	local M IFACE
+	# declare -i R=0 F=0
+	declare -i F=0
+	if [ "$1" = "-m" ]; then
+		M=yes
+		shift
+	fi
+	for IFACE in $@; do
+		$FAKE ifstatus $CONFIG $IFACE -o rc $CHECK $MODE
+		RET=$?
+		debug && printf "    %-9s returned %s\n" $IFACE $RET
+		case $RET in
+			$R_SUCCESS|$R_BUSY)
+				# : $((R++))
+				rc_failed 0
+				rc_status -v1
+				;;
+			$R_DHCP_BG)
+				if [ -f "$NETWORK_RUNFILE" -a "$M" = yes ] ; then
+					: $((F++))
+				fi
+	 			rc_startmode="${esc}[1A${stat}${attn}waiting${norm}"
+	 			echo -e "$rc_startmode" 1>&2
+				;;
+			$R_INACTIVE|$R_NOTCONFIGURED)
+				rc_failed 3
+				rc_status -v1
+				;;
+			$R_NOCONFIG)
+				if [ -f "$NETWORK_RUNFILE" -a "$M" = yes ] ; then
+					: $((F++))
+					rc_failed 1
+				else
+					rc_failed 3
+				fi
+				rc_status -v1
+				;;
+			*)
+				if [ -f "$NETWORK_RUNFILE" ] ; then
+					test "$M" = yes && : $((F++))
+					rc_failed 1
+				else
+					rc_failed 3
+				fi
+				rc_status -v1
+				;;
+		esac
+		rc_reset
+	done
+	test "$F" -gt 0 && return 1
+	# test "$R" = 0 && return 3
+	return 0
+}
+
+rc_reset
+declare -i FAILED=0
+if [ "$NETWORKMANAGER" == yes -a ${NM_STATUS:-0} -ne 0 ] ; then
+	FAILED=1
+fi
+
+case "$ACTION" in
+	start)
+		echo Setting up network interfaces:
+		lock_firewall
+		/sbin/ifstatus $LO &>/dev/null && unset $LO;
+		for IFACE in ${INTERFACE:- $LO
+		                           $PHYSICAL_IFACES   }; do
+			for SI in $SKIP; do
+				test "$IFACE" = "$SI" && continue 2
+			done
+			$FAKE ifup $CONFIG $IFACE -o rc $MODE
+			RET=$?
+			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			case "$RET" in
+	 			$R_SUCCESS)
+	 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
+	 				rc_status -v1
+	 				;;
+				$R_DHCP_BG)
+	 				startmode=waiting
+	 				rc_startmode="${esc}[1A${stat}${attn}$startmode${norm}"
+	 				echo -en "$rc_startmode" 1>&2
+	 				echo
+					;;
+				$R_NOCONFIG)
+					rc_failed 6
+					rc_status -v1
+					;;
+	 			$R_NOTCONFIGURED|$R_INACTIVE)
+	 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
+					rc_failed 5
+					rc_status -v1
+	 				;;
+	 			*)
+	 				rc_failed 7
+	 				rc_status -v1
+	 				;;
+			esac
+			rc_reset
+		done
+
+		# Wait $WAIT_FOR_INTERFACES seconds after interface setup started for
+		# hotplug interfaces to become available
+		NEWLINE=no
+		while true; do
+
+			debug ... still waiting for hotplug devices:
+			debug SUCCESS_IFACES=$SUCCESS_IFACES
+			debug MANDATORY_DEVICES=$MANDATORY_DEVICES
+			TMP=$MANDATORY_DEVICES
+			MANDATORY_DEVICES=
+			STATUS_CHECK=yes
+			for D in $TMP; do
+				if [ "$D" = "__NSC__" ] ; then
+					STATUS_CHECK=no
+					MANDATORY_DEVICES="$MANDATORY_DEVICES $D"
+					continue
+				fi
+				IFACE=$D
+				if [ ! -d /sys/class/net/$IFACE ] ; then
+					MANDATORY_DEVICES="$MANDATORY_DEVICES $D"
+					continue	
+				fi
+				for S in $SUCCESS_IFACES; do
+					test "$IFACE" = "$S" && continue 2
+				done
+				if [ "$STATUS_CHECK" = no ] ; then
+					echo
+					NEWLINE=no
+					continue
+				fi
+				IFACE="`type_filter $IFACE`"
+				test -z "$IFACE" && continue
+				status -m $IFACE &>/dev/null
+				RET=$?
+				if [ $RET = 0 ] ; then
+					SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
+					if [ "$NEWLINE" = yes ] ; then
+						echo
+						NEWLINE=no
+					fi
+					status -m $IFACE
+					continue
+				fi	
+				MANDATORY_DEVICES="$MANDATORY_DEVICES $D"
+			done
+
+			# If only the seperator remains we are done and thus remove it
+			test "`echo $MANDATORY_DEVICES`" = __NSC__ && MANDATORY_DEVICES=
+
+			TTWAIT=$((`date +%s` - `cat $NETWORK_RUNFILE`))
+			test $TTWAIT -gt $((WAIT_FOR_INTERFACES)) \
+			     -o -z "$MANDATORY_DEVICES" && break
+
+			debug "Time to wait: $((WAIT_FOR_INTERFACES - TTWAIT))"
+			if [ "$NEWLINE" != yes ] ; then
+				echo "Waiting for mandatory devices: $MANDATORY_DEVICES"
+			fi
+			echo -n "$((WAIT_FOR_INTERFACES - TTWAIT)) "
+			NEWLINE=yes
+			sleep 1
+		done
+
+		if [ "$NEWLINE" = yes ] ; then
+			echo
+		fi
+
+		for D in $MANDATORY_DEVICES; do
+			# Don't check the seperator
+			test "$D" = __NSC__ && continue
+			IFACE=$D
+			if [ -d /sys/class/net/$IFACE ] ; then
+				status -m $IFACE && continue
+				printf "    %-9s interface could not be set up until now\n" $IFACE
+			else
+				printf "    %-35s No interface found\n" $D
+			fi
+			rc_failed
+			rc_status -v1
+			: $((FAILED++))
+		done
+
+		debug ... final
+		debug SUCCESS_IFACES=$SUCCESS_IFACES
+		debug MANDATORY_DEVICES=$MANDATORY_DEVICES
+		debug FAILED=$FAILED
+
+
+		if [ -z "$INTERFACE" ] ; then
+			for IFACE in $DIALUP_IFACES $TUNNEL_IFACES ; do
+				$FAKE ifup $CONFIG $IFACE -o rc $MODE
+				RET=$?
+				debug && printf "    %-9s returned %s\n" $IFACE $RET
+				case "$RET" in
+		 			$R_SUCCESS)
+		 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
+		 				rc_status -v1
+		 				;;
+					$R_DHCP_BG)
+		 				startmode=waiting
+		 				rc_startmode="${esc}[1A${stat}${attn}$startmode${norm}"
+		 				echo -en "$rc_startmode" 1>&2
+		 				echo
+						;;
+					$R_NOCONFIG)
+						rc_failed 6
+						rc_status -v1
+						: $((FAILED++))
+						;;
+		 			$R_NOTCONFIGURED|$R_INACTIVE)
+		 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
+						rc_failed 5
+						rc_status -v1
+		 				;;
+		 			*)
+		 				rc_failed 7
+		 				rc_status -v1
+						: $((FAILED++))
+		 				;;
+				esac
+				rc_reset
+			done
+		fi
+
+
+		rc_reset
+		if [ -z "$INTERFACE" ] ; then
+			$FAKE ifup-route noiface -o rc $MODE
+			rc_status
+			test $FAILED -gt 0 && rc_failed 7
+			echo -n "Setting up service network  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
+			rc_status -v
+		fi
+
+		reload_firewall
+
+		;;
+
+	stop)
+
+		echo Shutting down network interfaces:
+
+		if [ -z "$INTERFACE" ] ; then
+			$FAKE ifdown-route noiface -o rc $MODE
+		fi
+
+		for IFACE in ${INTERFACE:-$AVAILABLE_IFACES} ; do
+			# printf "    %-9s " $IFACE
+			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
+			RET=$?
+			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			rc_failed $RET
+			case "$RET" in
+				$R_NODEV|$R_NOTCONFIGURED|$R_INACTIVE)
+					rc_failed 5
+					rc_status -v1 ;;
+				*)
+					rc_status -v1 ;;
+			esac
+			rc_reset
+		done
+
+		if [ -z "$INTERFACE" -a -z "$TYPE" ] ; then
+			# At last stop any remaining dhcp client
+			$FAKE ifdown-dhcp all -o rc
+			rc_status
+			rm -f $RUN_FILES_BASE/if-*
+			rm -f $RUN_FILES_BASE/config-*
+#			rm -f $STAMPFILE_STUB*
+			rm -f $NETWORK_RUNFILE
+			echo -n "Shutting down service network  .  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
+			rc_status -v
+		fi
+
+		;;
+
+	reload)
+		if ! $0 status >/dev/null; then
+			echo -n service network not active
+			rc_failed 7
+			rc_status -v
+			rc_exit
+		fi
+		if [ -z "$INTERFACE" -a routes -nt $NETWORK_RUNFILE ] ; then
+			$FAKE ifdown-route noiface -o rc $MODE
+		fi
+		UP2DATE_IFACES=lo
+		for IFACE in ${INTERFACE:-$AVAILABLE_IFACES} ; do
+			# ifprobe checks if iface configuration changed
+			if ifprobe $IFACE ; then
+				UP2DATE_IFACES="$UP2DATE_IFACES $IFACE"
+				continue
+			fi
+			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
+			RET=$?
+			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			rc_failed $RET
+			case "$RET" in
+				$R_NODEV|$R_NOTCONFIGURED|$R_INACTIVE)
+					rc_failed 5
+					rc_status -v1 ;;
+				*)
+					rc_status -v1 ;;
+			esac
+			rc_reset
+		done
+		# And we we start all interfaces to catch also new virtual interfaces
+		cd "$OLDPWD" # we went to /etc/sysconfig/network, so we have to go back.
+		$0 start $CONFIG $INTERFACE -o $OPTIONS skip="$UP2DATE_IFACES"
+		rc_status
+		;;
+
+	status)
+
+		if [ -z "$INTERFACE" ] ; then
+ 	 		for D in $LO $MANDATORY_DEVICES; do
+				test "$D" = __NSC__ && continue
+ 	 			IFACE=$D
+				if [ ! -d /sys/class/net/$IFACE ] ; then
+					printf "    %-35s No interface found\n" $D
+ 	 				: $((FAILED++))
+ 	 				continue
+ 	 			fi
+ 	 			MANDATORY_IFACES="$MANDATORY_IFACES `type_filter $IFACE`"
+ 	 		done
+			debug getting MANDATORY_IFACES: FAILED=$FAILED
+ 	 
+ 	 		for IFACE in $AVAILABLE_IFACES $DIALUP_IFACES $TUNNEL_IFACES; do
+ 	 			for MI in $MANDATORY_IFACES $TOCHECK_IFACES; do
+ 	 				test "$IFACE" = "$MI" && continue 2
+ 	 			done
+ 	 			TOCHECK_IFACES="$TOCHECK_IFACES $IFACE"
+ 	 		done
+ 	 
+ 			debug MANDATORY_DEVICES=$MANDATORY_DEVICES
+ 			debug MANDATORY_IFACES=$MANDATORY_IFACES
+ 			debug TOCHECK_IFACES=$TOCHECK_IFACES
+ 
+			if [ -n "$TOCHECK_IFACES" ] ; then
+				echo Checking optional network interfaces:
+ 	 			status $TOCHECK_IFACES
+			fi
+			if [ -n "$MANDATORY_IFACES" ] ; then
+				echo Checking mandatory network interfaces:
+ 	 			status -m $MANDATORY_IFACES
+ 	 			test $? != 0 && : $((FAILED++))
+				debug checking MANDATORY_IFACES: FAILED=$FAILED
+			else
+				echo No interfaces declared as mandatory
+			fi
+
+ 			$FAKE ifstatus-route noiface -o rc $MODE
+ 			rc_status 
+			test $FAILED -gt 0 && rc_failed 1
+		else
+			status $INTERFACE
+			rc_status
+		fi
+
+		if [ ! -f $NETWORK_RUNFILE ] ; then
+			rc_failed 3 # unused
+		fi
+
+		echo -n "Checking service network .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
+		rc_status -v
+
+		;;
+
+esac
+
+rc_exit
+

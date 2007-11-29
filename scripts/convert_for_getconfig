@@ -1,0 +1,820 @@
+#!/bin/bash
+
+echo "This script has to be fixed (it uses getcfg)"
+echo "Don't use it"
+echo "Or fix it"
+exit 1
+
+LC_CTYPE=POSIX
+
+dir=${1:?need argument: directory to work on}
+uuid_keys_dir="../../../var/lib/hardware/unique-keys"
+updatelog=update-log
+debuglog=update-log.debug
+incomplete=false
+
+
+echo
+echo Updating $dir
+
+cd $dir ||
+{
+	echo >&2 could not change into directory $dir. Exiting.
+	exit 1
+}
+
+
+test -f $updatelog && old $updatelog
+test -f $debuglog && old $debuglog
+echo logging to $dir/$updatelog
+echo > $updatelog
+( date; echo ) > $debuglog
+echo Updating $dir >> $updatelog
+chmod 600 $updatelog $debuglog
+
+
+if test -w /var/adm/backup; then
+	backupdir=/var/adm/backup/sysconfig-backup
+	mkdir $backupdir 2>/dev/null || \
+	backupdir=$(mktemp -q -d /var/adm/backup/sysconfig.XXXXXX)
+else
+	backupdir=/tmp/sysconfig-update
+	mkdir $backupdir 2>/dev/null || \
+	backupdir=$(mktemp -q -d /tmp/sysconfig.backup.XXXXXX)
+fi
+chmod 700 $backupdir
+	
+echo Backup copies of the original ifcfg files are saved in $backupdir >> $updatelog
+
+if test -w /var/log; then
+	test -f /var/log/$(basename $0).log && old /var/log/$(basename $0).log
+	exec 2>/var/log/$(basename $0).log
+	export PS4="+ \$LINENO: "
+	set -x
+fi
+
+
+function debuglog () {
+	cat >> $debuglog
+}
+
+function log () {
+	tee -a $updatelog
+	echo >> $updatelog
+}
+
+function my_diff () {
+	if test -x /usr/bin/diff; then
+		/usr/bin/diff $*
+	else
+		echo
+	fi
+}
+
+function get_uuid () {
+	local UNIQUE
+	eval $(grep "^UNIQUE=" $1)
+	echo $UNIQUE
+}
+
+function get_data_from_uuid () {
+	local Bus Slot Function Configured Available
+
+	# note: Slot in unique file is really bus and slot
+	eval $(grep "^\(Bus\|Slot\|Function\|Configured\|Available\)=" $1)
+
+	#if test "$Configured" != yes; then
+	#	echo unconfigured
+	#	return 
+	#fi
+	if test "$Available" != yes; then
+		echo unavailable
+		return 
+	fi
+
+	if test -z "$Slot"; then
+		return
+	fi
+
+	make_up_devpath $Slot $Function
+}
+
+function lookup_id () {
+	local devpath=$1
+	unset HWD_ID
+	eval $( getcfg -- bus-pci-$devpath 2>&1 )
+	if test -n "$HWD_ID"; then 
+		echo $HWD_ID
+	fi
+}
+
+function get_slot () {
+	local Slot
+	eval $(grep "^Slot=" $1)
+	echo $Slot
+}
+function get_function () {
+	local Function
+	eval $(grep "^Function=" $1)
+	echo $Function
+}
+function get_bus () {
+	local Bus
+	eval $(grep "^Bus=" $1)
+	echo $Bus
+}
+
+function get_parent_device () {
+	local DEVICE ETHERDEVICE parent_device=$2
+	# dsl uses "DEVICE", vlan uses "ETHERDEVICE", we get the name as $2
+	eval $(grep "^$parent_device=" $1)
+	eval echo \$$parent_device
+}
+
+function get_bootproto () {
+	local BOOTPROTO
+	eval $(grep "^BOOTPROTO=" $1)
+	echo $BOOTPROTO
+}
+
+
+function make_up_devpath () {
+	local devpath slot=$1 function=$2
+
+	slot=${slot#0x}
+	while test ${#slot} -lt 4; do
+		slot="0$slot"
+	done
+
+	function=${function#0x}
+	if test -z "$function"; then function=0; fi
+
+	# we can only assume a default for the PCI domain, since it doesn't
+	# seem to be in the hardware database.
+	domain=0000
+
+	devpath=${domain}":"${slot:0:2}":"${slot:2:2}"."${function}
+	echo $devpath
+}
+
+function find_options () {
+	local modconf=$1 iface=$2 a b rest
+
+	echo searching module options for $iface | debuglog
+	grep "^options[[:space:]]*$iface" $modconf | debuglog
+
+	grep "^options[[:space:]]*$iface" $modconf \
+	| tail -n 1 \
+	| while read a b rest; do echo $rest; done
+
+}
+
+function my_cat () {
+	local i
+	for i in $*; do
+		if test -e $i; then
+			echo
+			echo ">>> begin $i"
+			sed 's/^/    /' $i
+			echo "<<<"
+			echo
+		else
+			echo file $i does not exist
+		fi
+	done
+
+}
+
+if test -e do_not_run_convert_for_getconfig; then
+	echo found do_not_run_convert_for_getconfig, exiting. | log
+	exit 0
+fi
+
+if ! test -d /sys/bus; then 
+	trap "umount /sys &>/dev/null" 0 1 2 11 15
+	mount -t sysfs sysfs /sys 2>&1 | debuglog
+fi
+
+
+
+# find files eligible for conversion
+( ls -l | grep ifcfg | sort; echo ) | debuglog
+ifcfg_files=$(find . \
+		-name "ifcfg-*" \
+		-type f \
+		-maxdepth 1 \
+		'!' -name "ifcfg-lo" \
+		'!' -name "*~" \
+		'!' -name "*.rpm*" \
+		'!' -name "*.swap" \
+		'!' -name "*.bak" \
+		'!' -name "*.orig" \
+		'!' -name "#*" \
+		'!' -regex ".*-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$" \
+		| sed 's_^./__g' \
+		| sort
+	     )
+( echo valid files:; for i in $ifcfg_files; do echo $i; done; echo ) | debuglog
+
+if test -z "$ifcfg_files"; then # nothing to do
+	echo "nothing to do." | debuglog
+	exit 0
+fi
+
+#( my_cat $ifcfg_files; echo) | debuglog
+cp -p $ifcfg_files $backupdir
+
+
+
+# same for routing configuration files. For later use.
+( ls -l | grep ifroute | sort; echo ) | debuglog
+ifroute_files=$(find . \
+		-name "ifroute-*" \
+		-type f \
+		-maxdepth 1 \
+		'!' -name "ifroute-lo" \
+		'!' -name "*~" \
+		'!' -name "*.rpm*" \
+		'!' -name "*.swap" \
+		'!' -name "*.bak" \
+		'!' -name "*.orig" \
+		'!' -name "#*" \
+		'!' -regex ".*-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$" \
+		| sed 's_^./__g' \
+		| sort
+	     )
+
+test -e routes && ifroute_files="routes $ifroute_files"
+( echo valid files:; for i in $ifroute_files; do echo $i; done; echo ) | debuglog
+for i in $ifroute_files; do 
+	cp -p $i $backupdir
+done
+
+
+# set up an array with old interface names, and make a mapping to the new names.
+# And, count interfaces of particular types (to see whether there is more than one)
+unset n
+count_eth=0
+for file in $ifcfg_files; do 
+	((n++))
+	old_names_array[$n]=$file
+	new_names_array[$n]=$file
+
+	case $file in
+	ifcfg-eth[0-9]*:*) ;; # don't count aliases
+	ifcfg-eth[0-9]*) 
+		((count_eth++))
+		# try to gather info about it, might make use of it later
+		dev=${file#ifcfg-}
+		ls -l /sys/class/net/$dev/device /sys/class/net/$dev/device/driver 2>&1 | debuglog
+		;;
+	esac
+
+done
+( echo count of plain eth interfaces found: $count_eth; echo ) | debuglog
+
+
+#
+# convert aliases for network drivers into hwcfg-static-0 file for backwards
+# compatibility
+#
+convert_aliases=false
+# aaa_base update could have been run already, and converted modules.conf into
+# modprobe.conf (without aliases for network drivers, though).  It leaves
+# modules.conf.rpmsave where previous updates only left
+# modules.conf.rpmsave.old
+# also, it might leave an empty modules.conf, so we use modules.conf.rpmsave as
+# second choice
+for modconf in ../../modules.conf ../../modules.conf.rpmsave; do 
+	if test -e $modconf; then
+		echo found $modconf | debuglog
+		if test -s $modconf; then
+			convert_aliases=true
+			break
+		else
+			echo $modconf is empty | debuglog
+		fi
+	fi
+done
+
+if ! $convert_aliases; then
+	echo "no modules.conf (or backup file) for conversion found" | debuglog
+fi
+
+#if $convert_aliases && grep -vq "\<off\>" $modconf | grep -q "^alias[[:space:]]*\(eth\|tr\)[[:digit:]]"; then
+#	echo modules.conf contains no active aliases | debuglog
+#	convert_aliases=false
+#fi
+	
+if $convert_aliases; then 
+	tmpfile=$(mktemp modconf.XXXXXX)
+	tmpfile2=$(mktemp hwcfg.XXXXXX)
+	grep -v "\<off\>" $modconf \
+	| grep "^alias[[:space:]]*\(eth\|tr\)[[:digit:]]" \
+	| sort -k 2 > $tmpfile
+	echo configured network driver modules: | debuglog
+	my_cat $tmpfile | debuglog
+
+	cat <<-EOF > $tmpfile2
+	# This file has been created during sysconfig update for reasons of backward 
+	# compatibility. It is not necessary in the new sysconfig concept, and could 
+	# theoretically be deleted.
+	#
+	# It ensures that the drivers below are loaded in the same order as
+	# before the system update, to make sure that the network interface names 
+	# are not changed on your system.
+	
+	STARTMODE='auto'
+	EOF
+	mod_count=0
+	mod_count_eth=0
+	mod_count_tr=0
+	while read a iface mod; do
+		((mod_count++))
+		case "$iface" in 
+		eth*) ((mod_count_eth++));;
+		tr*) ((mod_count_tr++));;
+		esac
+		options=$(find_options $modconf $mod)
+		(
+		echo 
+		echo "MODULE_$mod_count='$mod'"
+		echo "MODULE_OPTIONS_$mod_count='$options'"
+		) >> $tmpfile2
+		unset iface mod
+	done < $tmpfile
+	my_cat $tmpfile | debuglog
+	echo found $mod_count aliases | debuglog
+	echo found $mod_count_eth ethernet aliases | debuglog
+	echo found $mod_count_tr tr aliases | debuglog
+
+	# if only one module was configured, or none at all (all off), then 
+	# just forget about the hwcfg file.
+	if test $mod_count = 0; then
+		echo no active aliases found | debuglog
+	elif test $mod_count = 1; then
+		echo only 1 active alias found. Nothing to do. | debuglog
+	elif test $mod_count_eth -le 1 -a $mod_count_tr -le 1; then
+		echo not more than 1 active alias of type ethernet / tr found. | debuglog
+	else
+		printf "%-35s" "processing modules.conf..." | log
+		echo creating /etc/sysconfig/hardware/hwcfg-static-0 | log
+		echo creating /etc/sysconfig/hardware/hwcfg-static-0 | debuglog
+		test -d ../hardware || mkdir ../hardware
+		test -e ../hardware/
+		test -e ../hardware/hwcfg-static-0 && old ../hardware/hwcfg-static-0
+		cp $tmpfile2 ../hardware/hwcfg-static-0
+		my_cat ../hardware/hwcfg-static-0 | debuglog
+	fi
+	#my_cat $tmpfile $tmpfile2 ../hardware/hwcfg-static-0
+
+	rm -f $tmpfile $tmpfile2
+
+fi
+
+
+#
+# first, process everything but aliases
+#
+for i in `seq 1 $n`; do
+	file=${old_names_array[$i]}
+
+	# skip aliases 
+	case $file in 
+	ifcfg-*:*) continue;;
+	esac
+
+	printf "%-35s" "processing $file..." | log
+	echo processing $file... | debuglog
+	my_cat $file | debuglog
+
+	case $file in
+	# ifcfg-eth-pcmcia -> ifcfg-eth-bus-pcmcia
+	ifcfg-eth-pcmcia*)
+		if grep -q "^WIRELESS_" $file; then 
+			new_file=${file/eth/wlan-bus}
+		else
+			new_file=${file/eth/eth-bus}
+		fi
+		echo renamed to $new_file | log
+		new_names_array[$i]=$new_file
+		mv $file $new_file
+		;;
+
+	# ifcfg-wlan-pcmcia -> ifcfg-wlan-bus-pcmcia
+	ifcfg-wlan-pcmcia*)
+		new_file=${file/wlan/wlan-bus}
+		echo renamed to $new_file | log
+		new_names_array[$i]=$new_file
+		mv $file $new_file
+		;;
+
+	# ifcfg-ppp -> ifcfg-type-modem etc
+	ifcfg-ppp)
+		new_file=ifcfg-type-modem
+		echo renamed to $new_file | log
+		new_names_array[$i]=$new_file
+		mv $file $new_file
+		;;
+
+	# ifcfg-ppp<N> -> ifcfg-modem<N> etc
+	ifcfg-ppp*)
+		new_file=${file/ifcfg-ppp/ifcfg-modem}
+		echo renamed to $new_file | log
+		new_names_array[$i]=$new_file
+		mv $file $new_file
+		;;
+
+	# ifcfg-eth -> ifcfg-type-eth etc
+	ifcfg-eth|ifcfg-ippp|ifcfg-isdn|ifcfg-dummy|ifcfg-wlan|ifcfg-plip|ifcfg-slip|ifcfg-tr)
+		new_file=${file/ifcfg/ifcfg-type}
+		echo renamed to $new_file | log
+		new_names_array[$i]=$new_file
+		mv $file $new_file
+		;;
+
+
+
+
+	## process ifcfg-eth* files. they will be renamed to the corresponding bus-location
+	# ifcfg-eth* -> ifcfg-bus-pci-0000:00:00.0
+	ifcfg-eth[0-9]*|ifcfg-wlan[0-9]*)
+
+		wireless=false
+		case $file in 
+			*wlan*) wireless=true;; 
+		esac
+		if grep -q "^WIRELESS_" $file; then 
+			wireless=true
+		fi
+		if $wireless; then
+			interface_type=wlan
+			persistent_prefix=wn
+		else
+			interface_type=eth
+			persistent_prefix=en
+		fi
+		echo wireless=$wireless, interface_type=$interface_type | debuglog
+
+
+		unset uuid
+		uuid=$(get_uuid $file)
+
+		# don't change this interface configuration if it the only one of its kind.
+		#if test $count_eth -le 1; then
+		#	echo unchanged, since there is no other device of this type | log
+		#	continue
+		#fi
+
+		if test -n "$uuid"; then 
+			echo found unique string: $uuid" " | debuglog
+			uuid_file="$uuid_keys_dir/$uuid"
+			#ls -l "$uuid_keys_dir/$uuid" 2>&1 | debuglog
+			my_cat "$uuid_keys_dir/$uuid" 2>&1 | debuglog
+			if test -e $uuid_file; then
+
+				unset devpath
+				unset new_file
+				devpath=$(get_data_from_uuid $uuid_file)
+				if test "$devpath" = unconfigured; then
+					echo found matching entry in hardware database, but card has not been configured | log
+					continue
+				elif test "$devpath" = unavailable; then
+					echo found matching entry in hardware database, but card is currently unavailable | log
+					continue
+				elif test -n "$devpath"; then
+					echo "resulting devpath for $file: $devpath" | debuglog
+					if ! $wireless; then
+						new_file=ifcfg-bus-pci-$devpath
+					else
+						new_file=ifcfg-wlan-bus-pci-$devpath
+					fi
+					echo will use filename $new_file | debuglog
+				fi
+				if test -n "$devpath" -a -d /sys/bus; then
+					echo sysfs is mounted, trying to look up hardware address... | debuglog
+					id=$(lookup_id $devpath 2>/dev/null)
+					if test -n "$id"; then
+						echo found id: $if | debuglog
+						new_file=ifcfg-$interface_type-id-$id
+						echo will use filename $new_file | debuglog
+					fi
+				else
+					echo sysfs does not seem to be mounted, no look up of hardware address possible... | debuglog
+				fi
+				
+				if test -n "$new_file"; then
+					echo -n converted to $new_file | log
+					( echo; echo converted to $new_file ) | debuglog
+					echo "# converted during sysconfig update from $file" > $new_file
+					echo "# (which was backed up to $backupdir/$file)" >> $new_file
+					chmod --reference $file $new_file
+					cat $file >> $new_file
+					#bootproto=$(get_bootproto $file)
+					#if test "$bootproto" != dhcp; then
+						iface_number=${file#ifcfg-wlan} # can't use variables in parameter substitution, too bad
+						iface_number=${iface_number#ifcfg-eth}
+						persistent_name="$persistent_prefix$iface_number"
+						(
+						echo "# You may set an interface name which is independant of the order of driver loading."
+						echo "# Note, though, that the genuine names (e.g. eth*) cannot be used here."
+						echo "#PERSISTENT_NAME='$persistent_name'"
+						) >> $new_file
+					#fi
+					my_cat $new_file | debuglog
+					( my_diff -u $file $new_file 2>&1; echo ) | debuglog
+					rm $file
+					new_names_array[$i]=$new_file
+				fi
+				
+			else
+				echo -n no file matching uuid $uuid found | log
+				incomplete=true
+			fi
+		else
+			echo -n not found in hardware database. Probably /etc/init.d/hwscan was disabled. | log
+			incomplete=true
+		fi
+		
+		echo
+		;;
+
+
+	# ifcfg-<MAC> -> ifcfg-id-<MAC>
+	ifcfg-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]*)
+		new_file=${file/ifcfg/ifcfg-id}
+		echo renamed to $new_file | log
+		echo $file renamed to $new_file | debuglog
+		mv $file $new_file
+		new_names_array[$i]=$new_file
+		;;
+
+	*)
+		echo
+		;;
+	esac
+done
+echo "pass #1 done." | log
+echo "pass #1 done." | debuglog
+
+
+# looking for wlan interfaces that are not converted yet (no busid found etc)
+for i in `seq 1 $n`; do
+	file=${old_names_array[$i]}
+
+	case $file in
+	ifcfg-wlan|ifcfg-wlan0)
+		printf "%-35s" "processing $file..." | log
+		echo processing $file... | debuglog
+
+		if test ${old_names_array[$i]} = ${new_names_array[$i]}; then
+			# this means, it has not been handled above, and it's probably the only one of it's kind
+			new_file=ifcfg-type-wlan
+			echo renamed to $new_file | log
+			echo $file renamed to $new_file | debuglog
+			mv $file $new_file
+			new_names_array[$i]=$new_file
+		fi
+		;;
+	esac
+
+done
+echo "pass #2 done." | log
+echo "pass #2 done." | debuglog
+
+
+#
+# process files that have been skipped so far: the ip aliases
+#
+for i in `seq 1 $n`; do
+	file=${old_names_array[$i]}
+
+	# files other than aliases have already be processed above
+	case $file in 
+	ifcfg-eth-*) continue;; # these ones contain colons but are no aliases
+	ifcfg-*:*) ;;
+	*) continue;;
+	esac
+	printf "%-35s" "processing $file..." | log
+	echo processing $file... | debuglog
+	my_cat $file | debuglog
+
+	unset base_interface
+	for parent in `seq 1 $n`; do 
+		if test ${old_names_array[$parent]} = ${file%:*}; then
+			echo parent interface was ${old_names_array[$parent]}, is now ${new_names_array[$parent]} | debuglog
+			base_interface=${new_names_array[$parent]}
+			break
+		fi
+	done
+
+	if ! test -f $base_interface; then
+		echo warning: file $file defines an alias to $base_interface, but base interface does not exist | log
+		continue
+	fi
+
+	label=${file#*:}
+
+	unset address network netmask broadcast startmode commented_out
+	while read line; do 
+		case $line in
+		IPADDR=*) address=${line/IPADDR=} ;;
+		NETWORK=*) network=${line/NETWORK=} ;;
+		NETMASK=*) netmask=${line/NETMASK=} ;;
+		BROADCAST=*) broadcast=${line/BROADCAST=} ;;
+		STARTMODE=*) startmode=${line/STARTMODE=} ;;
+		esac
+	done < $file
+	if test -n "$address"; then
+		(
+		echo -n "added to $base_interface "
+		if test ${old_names_array[$parent]} != ${new_names_array[$parent]}; then
+			echo -n "(former ${old_names_array[$parent]}) "
+		fi
+		echo "as IPADDR_${label}"
+		) | log
+		echo >> $base_interface
+		echo "# Added during conversion from former $file file." >> $base_interface
+		case "$startmode" in 
+			*off*|*manual*) 
+				commented_out="#"
+				echo "# This entry has been added as comment because STARTMODE was off or manual." >> $base_interface
+		esac
+		(
+		echo ${commented_out}IPADDR_${label}=$address
+		echo ${commented_out}LABEL_${label}=${label}
+		if test -n "$network"; then echo ${commented_out}NETWORK_${label}=${network}; fi
+		if test -n "$netmask"; then echo ${commented_out}NETMASK_${label}=${netmask}; fi
+		if test -n "$broadcast"; then echo ${commented_out}BROADCAST_${label}=${broadcast}; fi
+		) >> $base_interface
+		my_cat $base_interface | debuglog
+	else
+		echo
+	fi
+	rm $file
+done
+echo "pass #3 done." | log
+echo "pass #3 done." | debuglog
+
+#
+# find new master devices of dsl and vlan
+#
+for i in `seq 1 $n`; do
+	file=${old_names_array[$i]}
+
+	# files other than aliases have already be processed above
+	case $file in 
+	ifcfg-*:*) continue;; # skip aliases
+	ifcfg-dsl*) parent_variable=DEVICE;;
+	ifcfg-vlan*) parent_variable=ETHERDEVICE;;
+	*) continue ;;
+	esac
+	printf "%-35s" "processing $file..." | log
+	echo processing $file... | debuglog
+	my_cat $file | debuglog
+
+	unset device
+	device=$(get_parent_device $file $parent_variable)
+	echo device: $device | debuglog
+	unset base_interface
+	for parent in `seq 1 $n`; do 
+		if test ${old_names_array[$parent]} = ifcfg-$device; then
+			echo parent interface was ${old_names_array[$parent]}, is now ${new_names_array[$parent]} | debuglog
+			base_interface=${new_names_array[$parent]}
+			break
+		fi
+	done
+	echo base_interface: $base_interface |debuglog
+
+	if ! test -f $base_interface; then
+		echo warning: file $file uses $base_interface as parent device, but that does not exist | log
+		continue
+	fi
+
+	
+	new_device=$base_interface
+	new_device=${new_device#ifcfg-}
+	old_device=$device
+	#echo old_ $old_device new_ $new_device
+	if test "$new_device" != "$old_device"; then
+		echo "$parent_variable='$new_device'" | debuglog
+		tmpfile=$(mktemp ifcfg.XXXXXX)
+		chmod --reference $file $tmpfile
+		sed "s/^$parent_variable=.*/$parent_variable='$new_device'/" \
+		  < $file > $tmpfile
+		mv $tmpfile $file
+		echo "new parent device '$new_device' added to $file" | log
+	else
+		echo unchanged | log
+	fi
+
+done
+echo "pass #4 done." | log
+echo "pass #4 done." | debuglog
+
+
+for file in routes; do
+
+	test -e $file || continue
+	echo "processing $file..." | log
+	echo processing $file... | debuglog
+	my_cat $file | debuglog
+	tmpfile=$(mktemp ifcfg.XXXXXX)
+	touch $tmpfile
+	chmod --reference $file $tmpfile
+	while read addr gw mask route_to_iface rest; do
+		route_to_iface_new=$route_to_iface
+		case "$addr" in
+		def*|[0-9]*) # this is a line that contains a route
+			for interface in `seq 1 $n`; do 
+				if test ifcfg-$route_to_iface = ${old_names_array[$interface]}; then
+					if test ${old_names_array[$interface]} != ${new_names_array[$interface]}; then
+						route_to_iface_new=${new_names_array[$interface]}
+						route_to_iface_new=${route_to_iface_new#ifcfg-}
+						echo route to $route_to_iface changed to $route_to_iface_new | log
+					fi
+					break
+				fi
+			done
+			;;
+		esac
+		# special case (bug #38285) -- if there is only one route line, and only 
+		# one configured interface _without_ UNIQUE key, we may replace "eth0" by "-":
+		if test $count_eth = 1 \
+			-a "$addr" = "default" \
+			-a "$route_to_iface_new" = "eth0" \
+			-a $(wc -l < $file) = 1
+		then
+			route_to_iface_new="-"
+		fi
+		echo "$addr $gw $mask $route_to_iface_new $rest" >> $tmpfile
+	done < $file
+	( my_diff -u $backupdir/$file $tmpfile 2>&1; echo ) | debuglog
+	if cmp -s $file $tmpfile; then
+		rm $tmpfile
+	else
+		rm $file
+		mv $tmpfile $file
+	fi
+
+
+done
+echo "pass #5 done." | log
+echo "pass #5 done." | debuglog
+
+
+# # ifroute-* files might need to be renamed.
+# for file in $ifroute_files; do
+# 	case $file in
+# 	ifroute-eth*)
+# 	# FIXME
+# 
+# done
+# echo "pass #6 done." | log
+# echo "pass #6 done." | debuglog
+
+(
+	if $incomplete; then
+		cat <<-EOF
+		
+		Update is INCOMPLETE
+		The conversion of the network configuration could not completed
+		due to missing data. Please check the log file
+		     /etc/sysconfig/network/$updatelog
+		backup files in 
+		     $backupdir
+		and documentation
+		     /usr/share/doc/packages/sysconfig/README.
+		
+		EOF
+	fi
+) | log
+
+
+if test -w /var/adm/notify/messages; then
+	(
+		cat <<-EOF
+		Dear Sysadmin,
+		
+		the network configuration scheme has been changed. 
+		
+		Please refer to the release notes and the update log file 
+		(/etc/sysconfig/network/$updatelog) to check for any changes that were done on
+		system update.
+		
+		
+		EOF
+
+		if $incomplete; then
+			echo Warning: the update of network configuration could not be 
+			echo completed. Please check /etc/sysconfig/network/$updatelog,
+			echo backup files in $backupdir and
+			echo /usr/share/doc/packages/sysconfig/README
+			echo 
+		fi
+
+		echo "                  Your SuSE Team" 
+	) > /var/adm/notify/messages/sysconfig-update-notify
+fi
+
+exit 0

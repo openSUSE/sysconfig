@@ -1,0 +1,734 @@
+#! /bin/bash
+#
+# Copyright (c) 2005 SUSE LINUX Products GmbH Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Joachim Gleissner <jg@suse.de>, 2005
+#
+# $Id$
+#
+
+usage () {
+        echo $@
+        echo "Usage: if{up,down,status}-wireless [<config>] <hwdesc> [-o <options>]"
+        echo "  hwdesc may be the interface name or any valid description"
+        echo "  of the corresponding device, for details see ifup(8)."
+        echo "Options are: [on]boot : we are currently booting (or shutting down)"
+        echo "             hotplug  : we are handling a hotplug event"
+        echo "All other or wrong options are silently ignored."
+        exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+ACTION=${SCRIPTNAME#if}
+ACTION=${ACTION%%-wireless}
+case "${ACTION}" in
+    up|down|status) ;;
+    check) exit $R_SUCCESS ;;
+    *) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS=$@
+MODE=manual
+while [ $# -gt 0 ]; do
+        case $1 in
+                boot|onboot) MODE=onboot ;;
+                hotplug)     MODE=hotplug ;;
+                quiet)       be_quiet_has_gone ;;
+                debug)       DEBUG=yes ;;
+                *)           debug "unknown option $1 ignored" ;;
+        esac
+        shift
+done
+
+
+######################################################################
+# check presence of global configuration file and source it
+#
+test -f ./wireless && . ./wireless
+# ifcfg-* is more important and fragile then wireless
+if [ -f ./ifcfg-$CONFIG ] ; then
+   . ./ifcfg-$CONFIG
+elif [ "$ACTION" != down ] ; then
+   err_mesg "could not find configuration file ifcfg-$CONFIG"
+fi
+
+
+######################################################################
+# get the interface and check if it is available and wireless
+# skip check on action "down", possibly running wpa_supplicant needs
+# to be shut down even when the interface is already gone
+#
+# $WIRELESS=yes/no can be set in a config file if there is no other way to
+# find out. If it is empty we use the type we got from ifup/down (INTERFACETYPE)
+if [ "$WIRELESS" != yes -a "$INTERFACETYPE" != wlan ]; then
+    info_mesg "'$INTERFACE' is not wireless, exiting"
+    exit 0
+fi
+if [ "${ACTION}" != "down" ]; then
+    if ! is_iface_available  ${INTERFACE} ; then
+        test "$ACTION" != status && logerror "interface ${INTERFACE} is not available"
+        exit $R_NODEV
+    fi
+    DRIVER="`( cd -P /sys/class/net/$INTERFACE/device/driver;
+               echo ${PWD##*/}; )`"
+fi
+
+######################################################################
+# helper functions
+#
+get_network_count()
+{
+    count=0
+    for i in `seq 1 9` ; do
+        W="`eval echo \\$WIRELESS_AUTH_MODE_$i`"
+        if [ -n "`eval echo $\"$W\"`" ]; then
+            count=$((count+1))
+        fi
+    done
+    return $count
+}
+
+get_first_index()
+{
+    test -n "$WIRELESS_AUTH_MODE" && return 0
+    for i in 0 1 2 3 4 5 6 7 8 9 ; do
+        eval W="\$WIRELESS_AUTH_MODE_$i"
+        test -n "$W" && return $i
+    done
+    return 255
+}
+
+get_next_index()
+{
+    local i=$1
+    while [ $i -lt 9 ]; do
+        i=$((i+1))
+        eval W="\$WIRELESS_AUTH_MODE_$i"
+        test -n "$W" && return $i
+    done
+    return 255
+}
+
+need_wpa_supplicant()
+{
+    case "$WIRELESS_AUTH_MODE" in
+    wpa-*|WPA-*|psk|PSK|eap|EAP)
+        return 0
+    esac
+    # check whether we have more than one network configured
+    get_network_count
+    if [ $? -gt 1 ]; then
+        return 0
+    fi
+    return 1
+}
+
+applicable_wpa_supplicant()
+{
+    test "$WPA_DRIVER" = "unsupported" && return 1
+    case "$WIRELESS_ESSID" in
+        any|"") return 1;;
+    esac
+    case "$WIRELESS_MODE" in
+        Managed|managed|"") return 0;;
+    esac
+    return 1
+}
+
+
+
+######################################################################
+# using wpa_supplicant for non-WPA connections often makes trouble
+# so we do not prefer it if not explicitly set
+#
+test -z "$PREFER_WPA_SUPPLICANT" && PREFER_WPA_SUPPLICANT=no
+info_mesg "prefer wpa_supplicant: $PREFER_WPA_SUPPLICANT"
+
+######################################################################
+# check for needed tools
+#
+for i in iwconfig hexdump sed awk ; do
+if [ -z "`type -p $i`" ] ; then
+    err_mesg "cannot find '$i', please install"
+    exit $R_ERROR
+fi
+done
+
+if [ -z "`type -p wpa_supplicant`" ]; then
+    if need_wpa_supplicant ; then
+        err_mesg "cannot find 'wpa_supplicant', please install"
+        exit $R_ERROR
+    fi
+    PREFER_WPA_SUPPLICANT=no
+fi
+
+run_iw_tool() {
+        local COMMAND MESSAGE
+        RETVAL=$R_SUCCESS
+        test -z "$3" && return
+        info_mesg "run_iw_tool()" "$@"
+        case $1 in 
+                config|spy|priv) IWTOOL=iw${1} ;;
+                *) exit $R_INTERNAL ;;
+        esac
+        shift
+        MESSAGE=`$IWTOOL $INTERFACE "$@" 2>&1` || RETVAL=$?
+        test -z "$MESSAGE" && return
+        err_mesg "command '$IWTOOL $INTERFACE $*' returned\n $MESSAGE"
+}
+
+RETVAL=$R_SUCCESS
+
+wlanctl()
+{
+        local MESSAGE
+        test -z "$1" && return
+        info_mesg "running wlanctl-ng $INTERFACE $@"
+        MESSAGE=`wlanctl-ng $INTERFACE "$@" 2>&1` || RETVAL=$?
+        info_mesg $MESSAGE
+}
+
+ascii_to_hex()
+{
+        if [ -z "${1:7:1}" ]; then
+                echo -n ${1#s:*} | hexdump -e '5/1 "%2x"' | sed -e 's/ /0/g'
+        elif [ -z "${1:15:1}" ]; then
+                echo -n ${1#s:*} | hexdump -e '13/1 "%2x"' | sed -e 's/ /0/g'
+        elif [ -z "${1:18:1}" ]; then
+                echo -n ${1#s:*} | hexdump -e '16/1 "%2x"' | sed -e 's/ /0/g'
+        elif [ -z "${1:21:1}" ]; then
+                echo -n ${1#s:*} | hexdump -e '19/1 "%2x"' | sed -e 's/ /0/g'
+        elif [ -z "${1:31:1}" ]; then
+                echo -n ${1#s:*} | hexdump -e '29/1 "%2x"' | sed -e 's/ /0/g'
+        else
+                err_mesg "Unsupported WEP key length"
+                exit $R_ERROR
+        fi
+}
+
+generate_keys()
+{
+        test -z "$WIRELESS_KEY_0" && WIRELESS_KEY_0="$WIRELESS_KEY"
+        if [ -z "$WIRELESS_KEY_0" -a  \
+                 -z "$WIRELESS_KEY_1" -a \
+                 -z "$WIRELESS_KEY_2" -a \
+                 -z "$WIRELESS_KEY_3" -a \
+                 "$WIRELESS_AUTH_MODE" != "psk" -a \
+                 "$WIRELESS_AUTH_MODE" != "wpa-psk" ]; then
+                message "`printf "    %-9s warning: using NO encryption" $INTERFACE`"
+                # message "warning: using NO encryption"
+                ENCRYPTION=no
+                return
+        fi
+        for i in 0 1 2 3 ; do
+                eval K=\$WIRELESS_KEY_$i
+                eval WIRELESS_KEY_$i="$(print_key "$K" $WIRELESS_KEY_LENGTH)"
+        done
+        ENCRYPTION=yes
+}
+
+format_key()
+{
+        # key has usually format XXXX-XXXX-XX [...]
+        echo $1 | tr -d '-' | awk '{ KEY=$0 ;
+                if (length()>10) for (i=0;i<26-length();i++) KEY=KEY"0"
+                for (i=1;i<length(KEY)-1;i+=2) FKEY=FKEY substr(KEY, i, 2)":"
+                FKEY=FKEY substr(KEY, i, 2)
+                print FKEY }' 
+}
+
+setup_iwdev()
+{
+        # Mode need to be first : some settings apply only in a specific mode !
+        run_iw_tool config mode $WIRELESS_MODE
+        # This is a bit hackish, but should do the job right...
+        if [ -n "$WIRELESS_ESSID" -o -n "$WIRELESS_MODE" ] ; then
+                test -z "$WIRELESS_NICK" && WIRELESS_NICK=`/bin/hostname`
+        fi
+        # Regular stuff...
+        while read OPT ARG; do
+                run_iw_tool config $OPT "$ARG"
+        done <<-EOL
+nick $WIRELESS_NICK
+nwid $WIRELESS_NWID
+freq $WIRELESS_FREQ
+channel $WIRELESS_CHANNEL
+sens $WIRELESS_SENS
+rate $WIRELESS_RATE
+rts $WIRELESS_RTS
+frag $WIRELESS_FRAG
+$WIRELESS_IWCONFIG_OPTIONS
+EOL
+        # set encryption key(s)
+        run_iw_tool config key off
+        # special hack for madwifi
+        test "$DRIVER" = "ath_pci" && run_iw_tool priv authmode 1
+        if [ -z "$WIRELESS_SEC_MODE" ]; then
+                case "$WIRELESS_AUTH_MODE" in
+                shared|sharedkey|restricted)
+                        WIRELESS_SEC_MODE="restricted"
+                        # special hack for madwifi
+                        test "$DRIVER" = "ath_pci" && run_iw_tool priv authmode 2
+                        ;;
+                open|opensystem|"") WIRELESS_SEC_MODE="open";;
+                esac
+        fi
+        if [ -n "$WIRELESS_KEY_0" -a \
+             -z "$WIRELESS_KEY_1" -a \
+             -z "$WIRELESS_KEY_2" -a \
+             -z "$WIRELESS_KEY_3" ]; then
+                # some drivers (at least madwifi) do not like multiple keys
+                # so we do not use that setting method when we have only one
+                run_iw_tool config key $WIRELESS_SEC_MODE $WIRELESS_KEY_0
+        elif [ -n "$WIRELESS_KEY_0" ]; then
+                ARG="key $WIRELESS_SEC_MODE $WIRELESS_KEY_0 [1]"
+                for i in 1 2 3 ; do 
+                        eval K=\$WIRELESS_KEY_$i
+                        test -n "$K" && ARG="$ARG key $K [$((i+1))]"
+                done
+                run_iw_tool config $ARG
+                if [ $RETVAL -ne 0 ]; then
+                        err_mesg "setting encryption key FAILED, aborting interface setup"
+                        exit $R_ERROR
+                fi
+                test -z "$WIRELESS_DEFAULT_KEY" && WIRELESS_DEFAULT_KEY=0
+                run_iw_tool config key [$((WIRELESS_DEFAULT_KEY+1))]
+        fi
+        run_iw_tool spy $WIRELESS_IWSPY_OPTIONS
+        run_iw_tool priv $WIRELESS_IWPRIV_OPTIONS
+        # ESSID need to be last : most device re-perform the scanning/discovery
+        # when this is set, and things like encryption keys are better be
+        # defined if we want to discover the right set of APs/nodes.
+        test -z "$WIRELESS_ESSID" && WIRELESS_ESSID="any"
+        run_iw_tool config essid "$WIRELESS_ESSID"
+}
+
+setup_wlanngdev()
+{
+	if [ -z "`type -p wlanctl-ng`" ] ; then
+	    err_mesg "cannot find 'wlanctl-ng', please install package 'wlan-ng'"
+	    exit $R_ERROR
+	fi
+	wlanctl lnxreq_ifstate ifstate=enable
+        wlanctl dot11req_reset setdefaultmib=false
+        test "$WIRELESS_ESSID" = "any"  && WIRELESS_ESSID=""
+        if [ "$ENCRYPTION" = "no" ]; then
+                wlanctl dot11req_mibset mibattribute=dot11PrivacyInvoked=false
+                wlanctl dot11req_mibset mibattribute=dot11ExcludeUnencrypted=false
+                AUTHTYPE=opensystem
+        else
+                result=`wlanctl-ng $INTERFACE dot11req_mibget mibattribute=dot11PrivacyOptionImplemented`
+                if [ $? = 0 ] ; then
+                        eval $result
+                        eval $mibattribute
+                else
+                        err_mesg "Could not query device: $result"
+                        exit $R_ERROR
+                fi
+                if [ "$dot11PrivacyOptionImplemented" = "false" ]; then
+                        err_mesg "Could not set encryption, device does not support it"
+                        exit $R_ERROR
+                fi
+                wlanctl dot11req_mibset mibattribute=dot11PrivacyInvoked=true
+                test -z "$WIRELESS_DEFAULT_KEY" && WIRELESS_DEFAULT_KEY=0
+                wlanctl dot11req_mibset mibattribute=dot11WEPDefaultKeyID=$WIRELESS_DEFAULT_KEY
+                for i in 0 1 2 3 ; do
+                        eval K=\$WIRELESS_KEY_$i
+                        if [ -n "$K" ]; then
+                                wlanctl dot11req_mibset mibattribute=dot11WEPDefaultKey$i=$( format_key $K )
+                                test $RETVAL -ne 0 && 
+                                        { err_mesg "Setting encryption key failed, aborting interface setup" ;
+                                          exit $R_ERROR ; }
+                        fi
+                done
+                case "$WIRELESS_AUTH_MODE" in
+                        shared|sharedkey|restricted) 
+                        wlanctl dot11req_mibset mibattribute=dot11ExcludeUnencrypted=true
+                        AUTHTYPE=sharedkey
+                        ;;
+                        open|opensystem|"")
+                        wlanctl dot11req_mibset mibattribute=dot11ExcludeUnencrypted=false
+                        AUTHTYPE=opensystem
+                        ;;
+                esac
+        fi
+        case "$WIRELESS_MODE" in
+                [M,m]anaged)
+                wlanctl lnxreq_autojoin ssid="$WIRELESS_ESSID" authtype=$AUTHTYPE
+                ;;
+                [A,a]d-hoc)
+                test -z "$WIRELESS_ESSID" && WIRELESS_ESSID="linux"
+                test -z "$WIRLEESS_CHANNEL" && WIRELESS_CHANNEL=7
+                wlanctl dot11req_start \
+                                ssid=$WIRELESS_ESSID \
+                                bsstype=independent \
+                                beaconperiod=100 \
+                                dtimperiod=3 \
+                                cfpollable=false \
+                                cfpollreq=false \
+                                cfpperiod=3 \
+                                cfpmaxduration=100 \
+                                probedelay=100 \
+                                dschannel=$WIRELESS_CHANNEL \
+                                basicrate1=2 \
+                                basicrate2=4 \
+                                operationalrate1=2 \
+                                operationalrate2=4 \
+                                operationalrate3=11 \
+                                operationalrate4=22
+                ;;
+                [M,m]aster|[R,r]epeater|[S,s]econdary)
+                err_mesg "Mode $WIRELESS_MODE is not supported yet for wlanng devices"
+                exit $R_ERROR
+                ;;
+        esac
+}
+
+old_setup()
+{
+    info_mesg "warning: debug mode logs your encryption keys!"
+    generate_keys
+    if [ -z "$WIRELESS_MODE" ]; then
+        info_mesg "WIRELESS_MODE is unset, using Managed"
+        WIRELESS_MODE="Managed"
+    fi
+    # some drivers seem to have extensions like wlan-ng,
+    # although they do not
+    case "$DRIVER" in
+
+	prism2_*)
+        setup_wlanngdev
+	;;
+
+	*)
+        setup_iwdev
+	;;
+    esac
+}
+
+print_key()
+{
+    test -z "$1" && return
+    K="$1"
+    L="$2"
+    test -z "$2" && L=104
+    if [ -n "$K" ]; then
+        if [ ${K:0:1} = "s" ]; then
+        # we are using ascii key representation (iwconfig method)
+        echo "$(ascii_to_hex "$K")"
+        elif [ ${K:0:1} = "h" ]; then
+            case $L in
+            40|64)
+                echo "$(lwepgen "${K:2}" | head -n 1 | tr -d ':')"
+                ;;
+            104|128)
+                echo "$(lwepgen -s "${K:2}" | head -n 1 | tr -d ':')"
+                ;;
+            *)
+                err_mesg "Unsupported key length $L in hash mode"
+                exit $R_ERROR
+                ;;
+            esac
+        else
+            echo "${K//[:-]/}"
+        fi
+    fi
+}
+
+
+######################################################################
+# helper to print a line of the wpa_supplicant.conf network block
+# format print_network_line tag value suffix [default_value]
+print_network_line()
+{
+    TAG="$1"
+    eval VALUE="\$$2$3"
+    test -z "$VALUE" && VALUE="$4"
+    test -n "$VALUE" && echo "  $TAG=\"$VALUE\""
+}
+
+print_network_line_unquoted()
+{
+    TAG="$1"
+    eval VALUE="\$$2$3"
+    test -z "$VALUE" && VALUE="$4"
+    test -n "$VALUE" && echo "  $TAG=$VALUE"
+}
+
+print_network_block()
+{
+    SUFFIX="_$1"
+    # special case for index 0 (may go away in the future)
+    test "$1" = "0"  && SUFFIX=""
+    echo "network={"
+    if [ "`eval echo \\$WIRELESS_HIDDEN_SSID$SUFFIX`" = "no" ]; then
+        echo "  scan_ssid=0"
+    else
+        echo "  scan_ssid=1"
+    fi
+    print_network_line ssid WIRELESS_ESSID "$SUFFIX"
+    print_network_line_unquoted priority WIRELESS_PRIORITY "$SUFFIX"
+    case "`eval echo \\$WIRELESS_AUTH_MODE$SUFFIX`" in
+    open)
+        echo "  key_mgmt=NONE"
+        for i in 0 1 2 3 ; do
+            KEY="`eval print_key \\"\\$WIRELESS_KEY_$i$SUFFIX\\" \\$WIRELESS_KEY_LENGTH$SUFFIX`"
+            test -n "$KEY" && echo "  wep_key$i=$KEY"
+        done
+        print_network_line_unquoted wep_tx_keyidx WIRELESS_DEFAULT_KEY "$SUFFIX"
+        ;;
+    shared|sharedkey)
+        echo "  key_mgmt=NONE"
+        for i in 0 1 2 3 ; do
+            KEY="`eval print_key \\"\\$WIRELESS_KEY_$i$SUFFIX\\" \\$WIRELESS_KEY_LENGTH$SUFFIX`"
+            test -n "$KEY" && echo "  wep_key$i=$KEY"
+        done
+        print_network_line_unquoted wep_tx_keyidx WIRELESS_DEFAULT_KEY "$SUFFIX"
+        echo "  auth_alg=SHARED"
+        ;;
+    *psk|*PSK)
+        echo "  key_mgmt=WPA-PSK"
+        eval L=\$WIRELESS_WPA_PSK$SUFFIX
+        if [ ${#L} = 64 ]; then
+            echo "  psk=$L"
+        else
+            echo "  psk=\"$L\""
+        fi
+        if [ "$WIRELESS_AP_SCANMODE" = "2" ]; then
+            print_network_line_unquoted proto WIRELESS_WPA_PROTO "$SUFFIX" WPA
+            print_network_line_unquoted pairwise WIRELESS_CIPHER_PAIRWISE "$SUFFIX" TKIP
+            print_network_line_unquoted group WIRELESS_CIPHER_GROUP "$SUFFIX" TKIP
+        else
+            print_network_line_unquoted proto WIRELESS_WPA_PROTO "$SUFFIX"
+            print_network_line_unquoted pairwise WIRELESS_CIPHER_PAIRWISE "$SUFFIX"
+            print_network_line_unquoted group WIRELESS_CIPHER_GROUP "$SUFFIX"
+        fi
+        ;;
+     eap|EAP|wpa-eap|WPA-EAP)
+        echo "  key_mgmt=WPA-EAP"
+        eval EAP_MODE=\$WIRELESS_EAP_MODE$SUFFIX
+        if [ -n "$EAP_MODE" ]; then
+	    print_network_line_unquoted eap WIRELESS_EAP_MODE "$SUFFIX"
+        else
+	    echo "  eap=TTLS PEAP TLS"
+	fi
+        if [ "$WIRELESS_AP_SCANMODE" = "2" ]; then
+            print_network_line_unquoted proto WIRELESS_WPA_PROTO "$SUFFIX" WPA
+            print_network_line_unquoted pairwise WIRELESS_CIPHER_PAIRWISE "$SUFFIX" TKIP
+            print_network_line_unquoted group WIRELESS_CIPHER_GROUP "$SUFFIX" TKIP
+        else
+            print_network_line_unquoted proto WIRELESS_WPA_PROTO "$SUFFIX"
+            print_network_line_unquoted pairwise WIRELESS_CIPHER_PAIRWISE "$SUFFIX"
+            print_network_line_unquoted group WIRELESS_CIPHER_GROUP "$SUFFIX"
+        fi
+        print_network_line identity WIRELESS_WPA_IDENTITY "$SUFFIX"
+        print_network_line password WIRELESS_WPA_PASSWORD "$SUFFIX"
+        print_network_line anonymous_identity WIRELESS_WPA_ANONID "$SUFFIX"
+        print_network_line ca_cert WIRELESS_CA_CERT "$SUFFIX"
+        print_network_line client_cert WIRELESS_CLIENT_CERT "$SUFFIX"
+        print_network_line private_key WIRELESS_CLIENT_KEY "$SUFFIX"
+        print_network_line private_key_passwd WIRELESS_CLIENT_KEY_PASSWORD "$SUFFIX"
+        eval PEAPVER=\$WIRELESS_PEAP_VERSION$SUFFIX
+        if [ -n "$PEAPVER" ]; then
+	    echo "  phase1=\"peaplabel=0 peapver=$PEAPVER\""
+        else
+	    echo "  phase1=\"peaplabel=0\""
+	fi
+	
+        eval EAP_AUTH=\$WIRELESS_EAP_AUTH$SUFFIX
+        if [ -n "$EAP_AUTH" ]; then
+	    echo "  phase2=\"auth=$EAP_AUTH\""
+	fi
+        ;;
+    esac        
+    echo "}"
+}
+    
+print_wpa_conf()
+{
+    # header
+    echo "ctrl_interface=/var/run/wpa_supplicant"
+    test -n "$WIRELESS_AP_SCANMODE" && echo "ap_scan=$WIRELESS_AP_SCANMODE"
+
+    get_first_index
+    local index=$?
+
+    while [ $index -ne 255 ]; do
+        print_network_block $index
+        get_next_index $index
+        index=$?
+    done
+}
+
+start_wpa_supplicant()
+{
+    if [ -e /var/run/wpa_supplicant-$INTERFACE.conf ]; then
+        if [ -f /var/run/wpa_supplicant/${INTERFACE}.pid ]; then
+            pid=$( cat /var/run/wpa_supplicant/${INTERFACE}.pid)
+        else
+            pid=$(pgrep -f ".*wpa_supplicant-$INTERFACE.conf.*")
+        fi
+        wpa_dead=y
+        if [ -n "$pid" ]; then
+            kill -0 $pid && wpa_dead=n
+        fi
+        case "$wpa_dead" in
+            y)
+                info_mesg "Stale wpa_supplicant-$INTERFACE.conf found, removing"
+                rm -f /var/run/wpa_supplicant-$INTERFACE.conf
+                ;;
+            n)
+                message "`printf "    %-9s warning: wpa_supplicant already running on interface" $INTERFACE`"
+                return
+                ;;
+        esac
+    fi
+    if [ -n "$WIRELESS_WPA_CONF" ]; then
+        if [ -e "$WIRELESS_WPA_CONF" ]; then
+            WPA_SUPP_CONF="$WIRELESS_WPA_CONF"
+        else
+            err_mesg "Unable to setup wpa (could not open $WIRELESS_WPA_CONF)"
+            exit $R_ERROR
+        fi
+    else
+        WPA_SUPP_CONF="/var/run/wpa_supplicant-$INTERFACE.conf"
+        umask 0077
+        print_wpa_conf > $WPA_SUPP_CONF
+    fi
+    if [ "$DEBUG" = "yes" ]; then
+        SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid -d 2>&1 | logger &"
+    else
+        SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid -B"
+    fi
+    mkdir -p /var/run/wpa_supplicant
+    message "`printf "    %-9s starting wpa_supplicant" $INTERFACE`"
+    eval wpa_supplicant -i$INTERFACE -c$WPA_SUPP_CONF -D$WPA_DRIVER $SUPPARGS
+}
+
+kill_wpa_supplicant()
+{
+    if [ -f /var/run/wpa_supplicant/${INTERFACE}.pid ]; then
+        pid=$( cat /var/run/wpa_supplicant/${INTERFACE}.pid)
+    else
+        pid=$(pgrep -f ".*wpa_supplicant-$INTERFACE.conf.*")
+    fi
+    if [ -z "$pid" ]; then
+        info_mesg "No wpa_supplicant running on interface $INTERFACE"
+        return
+    fi
+    kill $pid
+    rm -f /var/run/wpa_supplicant-$INTERFACE.conf
+}
+
+show_status()
+{
+    if [ -f /var/run/wpa_supplicant/${INTERFACE}.pid ]; then
+        wpa_cli -i$INTERFACE status
+    else
+        iwconfig $INTERFACE
+    fi
+}
+
+case $ACTION in
+    up)
+        case "${DRIVER}" in
+            ath_pci)
+                WPA_DRIVER=wext
+                ;;
+            at76c5*)
+                WPA_DRIVER=atmel
+                PREFER_WPA_SUPPLICANT=no
+                ;;
+            prism54)
+                WPA_DRIVER=prism54
+                PREFER_WPA_SUPPLICANT=no
+                ;;
+            ipw2200|ipw3945|hostap_*)
+                WPA_DRIVER=wext
+                ;;
+            ipw2100)
+                WPA_DRIVER=wext
+                ;;
+            ndiswrapper|*.sys)
+                WPA_DRIVER=wext
+                ;;
+            rt2500*)
+                WPA_DRIVER=wext
+                ;;
+            *)
+                WPA_DRIVER=unsupported
+                PREFER_WPA_SUPPLICANT=no
+                ;;
+        esac
+        if need_wpa_supplicant ; then
+            info_mesg "configuration requires wpa_supplicant"
+            if [ "$WPA_DRIVER" = "unsupported" ]; then
+                message "`printf "    %-9s warning: WPA configured but may be unsupported" $INTERFACE`"
+                message "`printf "    %-9s warning: by this device" $INTERFACE`"
+                info_mesg "using WPA driver 'wext' for interface $INTERFACE"
+                WPA_DRIVER=wext
+            fi
+            start_wpa_supplicant
+        elif [ "$PREFER_WPA_SUPPLICANT" = "yes" ]; then
+            if applicable_wpa_supplicant ; then
+                start_wpa_supplicant
+            else
+                info_mesg "setting up $INTERFACE w/o wpa_supplicant"
+                old_setup
+            fi
+        else
+            old_setup
+        fi
+        ;;
+    down)
+        kill_wpa_supplicant
+        ;;
+    status)
+        if is_iface_up $INTERFACE ; then
+            # do not show status output on boot, this may log
+            # the WEP key in the boot log
+            test "$MODE" = "onboot" || show_status
+            RETVAL=$R_SUCCESS
+        else
+            RETVAL=$R_NOTRUNNING
+        fi
+        ;;
+esac
+
+exit $RETVAL

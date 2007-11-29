@@ -1,0 +1,115 @@
+#!/bin/bash
+#
+# Copyright (c) 2002 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# Author: Olaf Kirch <okir@suse.de>, 2002
+#
+# $Id$
+#
+
+usage () {
+	echo $@
+	echo "Usage: if{up,down}-802.1q [<config>] <hwdesc> [-o <options>]"
+	echo "  hwdesc may be the interface name or any valid description"
+	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Any option will be ignored."
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+case "${SCRIPTNAME}" in
+	ifup-*) ACTION=start ;;
+	ifdown-*) ACTION=stop ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=onboot ;;
+		hotplug)     MODE=hotplug ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		*)           debug unknown option $1 ;;
+	esac
+	shift
+done
+
+######################################################################
+# Check needed tools
+#
+if ! [ -x /usr/sbin/vconfig ]; then
+	logerror "VLAN utilities not installed"
+	exit $R_INTERNAL
+fi
+
+######################################################################
+# check presence of configuration file and source it
+#
+test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+
+######################################################################
+# get the base interface and check if it is available or up
+#
+# ETHERDEVICE may contain a device description which must first be
+# converted to the current interface name of that device
+if [ "$ACTION" = start ] ; then
+	if ! is_iface_available  $ETHERDEVICE ; then
+		logerror "interface ${ETHERDEVICE} is not available"
+		exit $R_NODEV
+	fi
+	if ! is_iface_up $ETHERDEVICE ; then
+		#logerror "interface ${ETHERDEVICE} is not up"
+		#exit $R_NOTRUNNING
+		ip link set up dev $ETHERDEVICE
+	fi
+fi
+
+######################################################################
+case $ACTION in
+start)	/sbin/modprobe 8021q
+	# Switches the naming type to vlan<N>
+	# The default is ethN.M but that's hard to reconcile
+	# with the network script framework
+	/usr/sbin/vconfig set_name_type vlan_plus_vid_no_pad >/dev/null
+	#/usr/sbin/vconfig set_bind_type per_kernel
+
+	# Now create the VLAN interface
+	id=${INTERFACE#vlan}
+	if [ "$INTERFACE" = "$id" ]; then
+		logerror "interface $INTERFACE not named vlanNNN"
+		exit $R_INTERNAL
+	fi
+
+	/usr/sbin/vconfig add $ETHERDEVICE $id >/dev/null
+	;;
+stop)
+	if [ -d /sys/class/net/$INTERFACE ] ; then
+		/usr/sbin/vconfig rem $INTERFACE >/dev/null
+	fi
+	;;
+esac
+

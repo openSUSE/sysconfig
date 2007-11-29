@@ -1,0 +1,47 @@
+#! /bin/bash
+#
+# Copyright (c) 2002-2006 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Christian Zoz <zoz@suse.de>
+#
+# $Id: $
+#
+# Description:
+# This script calls hooked scripts in /etc/sysconfig/network/if{up,down}.d
+# See manpage ifup.8 for details.
+# Note that hooked scripts are called always _after_ the interface is up/down.
+# Calling them earlier would require a change in NetworkManager itself.
+
+cd /etc/sysconfig/network/ || exit
+test -r ./config && . ./config
+test -r scripts/functions && . scripts/functions
+
+INTERFACE=$1
+ACTION=$2
+
+test "$ACTION" == down -a "$GLOBAL_PRE_DOWN_EXEC" != yes && exit
+test "$ACTION" == up   -a "$GLOBAL_POST_UP_EXEC"  != yes && exit
+
+shopt -s nullglob
+for a in if-${ACTION}.d/*; do
+	test -x "$a" || continue
+	get_config_name
+	info_mesg "calling '`pwd`/$a '${INTERFACE}' ${INTERFACE} -o nm'"
+	$a "${INTERFACE}" ${INTERFACE} -o nm
+done
+

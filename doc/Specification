@@ -1,0 +1,1287 @@
+Specification for sysconfig
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Version: $Id$
+
+This document describes how we will initialize devices and set up interfaces in
+SLES9 and SL9.1. It is not only about network stuff (like today). It tries to
+be as general as possible and to handle network and storage as well as
+other input and output devices. But currently important are network and storage.
+It includes a description of the hotplug system.
+(SLES9 implies that we deal with kernel 2.6.x only.)
+
+Note:
+Sometimes we speak just of network stuff. That does not mean that the affected
+scope should be limited to networking. Rather these parts of the texts were
+written at times where we were concentrating on networking.
+
+Content:
+^^^^^^^^
+0. Terminology
+
+1. Overview And Rationale
+1.1. Devices
+1.2. Interfaces
+
+2. Booting, Coldplug and Hotplug
+2.1. Device initialisation and interface setup at boottime
+2.2. Hotplugging at runtime
+2.3. Persistant interface naming
+2.4. Controlling Bus Subsystems
+2.5. Controlling Class Subsystems
+2.6. Implementation of Hotplug and Coldplug
+
+3. Controlling Devices
+3.1 Syntax of hwup
+3.2 Content of hwcfg-* configuration files
+3.3 Workflow of hw{up,status,down}
+
+4. Dealing with Interfaces
+4.1. Networking Interfaces
+4.1.1. Types of Network Devices
+4.1.1.1. Modem
+4.1.1.2. ISDN
+4.1.1.3. DSL
+4.1.1.4. WLAN
+4.1.1.5. <S390 stuff>
+4.1.1.6. Token Ring
+4.1.1.7. Others
+4.1.2. Routing
+4.1.3. DNS
+4.1.4. Firewalls
+4.1.5. Tunnel and virtual LANs
+4.2. Storage Interfaces
+
+5. Configuration Matching
+5.1. Configuration Names / Hardware Descriptions
+5.2. Central tools
+
+6. YaST default configuration names
+
+7. Controlling Services
+7.1. Network
+
+8. Depending Services
+
+A. Additonal Notions
+
+
+0. Terminology
+^^^^^^^^^^^^^^
+In this document we will strictly distinguish between 'devices' and
+'interfaces'. Unfortunately these two terms are very often mixed up which does
+harm when discussing this topic. Therefore a
+DEVICE    is a physical thing. Something that may break apart if you drop it. A
+          device usually needs to be initialized by a driver. After
+          initialization the driver creates interfaces to that device. So an
+INTERFACE is a software thing. It has a name and a set of functions. There may
+          be several interfaces per device.
+In network area the device is e.g. a PCI NIC that may be addresses via a
+devicepath /sys/devices/pci0000:00/0000:00:1e.0/0000:02:06.0/0000:03:00.0 and
+the interface is eth1. As far as storage is concerned, a device is a IDE disk
+with devicepath /sys/devices/pci0000:00/0000:00:1f.1/ide0/0.0 and the
+interfaces are /dev/hda*.
+
+Another term we will use frequently is a 'configuration'. A
+CONFIGURATION is a set of information needed to initialize a device or to set up
+              an interface. A configuration may be used for several devices or
+              interfaces.
+
+
+1. Overview And Rationale
+^^^^^^^^^^^^^^^^^^^^^^^^^
+Up to now we used different schemes to initialite devices and set up interfaces
+according to the type. Beside this many schemes have to be learned to be able to
+do a proper computer configuration manually, there were many drawbacks. And now
+there are additional slightly different schemes for hotpluggable hardware.
+
+From now on we like to simplify this situation from a users point of view and
+make it more flexible for personal needs. The main idea is the following:
+- Use a tool named 'hwup' to initialize _all_ devices. There will be
+  configurations for these devices stored in files named 
+  /etc/sysconfig/hardware/hwcfg-<name>.
+- Use a tool named 'ifup' to set up _all_ interfaces. There will be
+  configurations for these devices stored in files named
+  /etc/sysconfig/<interface type>/hwcfg-<name>.
+- The configuration of as much as possible devices and interfaces is triggered
+  by hotplug. If there is no hotplug event for any entity we will generate it.
+  This is called coldplug. For all entities which may or must not be probed
+  there will be a static list of events stored in a file.
+- There is a n:m relation between devices/interfaces and configurations. The
+  tool 'get_config' will search the best matching configuration(s) for a given
+  hardware description. 'get_config' will not only be used by 'hwup' and 'ifup',
+  but also by YaST, to find out if a device is already configured or not.
+
+We think that this approach is reasonal, because
+- Hotplug needs this way of initializing every single device, which we get an
+  event for. The same for all interfaces.
+- Linux is moving towards a device and interface centric view, omitting the old
+  style module centric view. AFAIK in 2.7++ devices will be controllable
+  individually even if driven be the same kernel module or drivers compiled into
+  the kernel.
+- It provides enough flexibility to handle all types of hardware which is not
+  controllable in a modern way.
+
+1.1. Devices
+^^^^^^^^^^^^
+At first some examples of what a 'device' means in this scope and how it will be
+addressed:
+- PCI devices 
+- USB devices
+- FW devices
+- PCMCIA cards
+- IDE storage devices
+- SCSI devices
+- anything connected to a serial/paralell connector
+- ISA devices
+*FIXME*: Complete the examples
+
+1.2. Interfaces
+^^^^^^^^^^^^^^^
+After a device has been initialized there are one or several interfaces to the
+device. These interfaces may be well known networking interfaces like eth0 or
+ppp0, storage interfaces like /dev/sda or /dev/hda2, input interfaces like
+/dev/psaux or /dev/input/mice or sound or video interfaces like /dev/mixer,
+/dev/dsp or /dev/fb0.
+
+Setting up these interfaces means to establish a networking connection, mount a
+partition, preset the mixer or dial up a modem connection. Except networking
+interfaces these were seldom called interfaces, but there are interfaces not the
+device itself. To stress the difference once again: One must set DMA modes for
+storage devices. It matters which kind of hardware the disk is. But mount
+options work on the interface and do not depend on the hardware.
+
+To give an example of possible problems we will look at networking stuff:
+Former network setup scripts used to set up known interfaces and some routes
+for them. The allocation of drivers to interface names was always done in
+/etc/modules.conf. Therefore we could mostly rely on interface names as names
+for the devices. So all that was to be done was to look for a network
+configuration assigned to an interface name and set it up accordingly.
+
+All this was based on two assumptions:
+1) a certain interface name is always registered for the same physical device
+2) all interfaces are always present
+
+Despite both assumptions were always theoretically wrong it worked in most
+cases. But now hotpluggable NIC are spreading and show even in practice that
+these assumptions are no longer valid.
+
+It's easy to see that assumption 2 is basically wrong, but why assumption 1?.
+Interface names are assigned to devices dynamically by the kernel in the order
+that devices are registered. Let's magine two NICs using different drivers. We
+set
+  alias eth0 driver0 # for device0
+  alias eth1 driver1 # for device1
+in /etc/modules.conf. No driver loaded. Then we do an 'ifconfig eth1'. That will
+load driver1 for device1, but the interface will be registered as eth0. This
+situation could be avoided for built in devices but not for hotplugged devices,
+because we do not know when devices will be plugged and in wich order.
+
+As we usually want to configure a certain device and not any device we must not
+assign a network configuration to an interface. Instead we should assign a
+network configuration to a device. The configuration will then be applied to
+the interface of that device.
+
+Next are the different needs of devices to be initialized. It is not always just
+loading a module with some options. Sometimes there are usermode drivers or
+enabler. And even in hotplug area, where one expects devices to be initialized
+automatically, we sometimes need information provided by the user (select one of
+multiple possible drivers, driver unknown, module options). Therefore we will
+write configurations for every known device. A tool named 'hwup/hwdown' will do
+the job.
+
+Additionally we must not start services that require network connections
+unconditionally at boottime. Instead they should always be triggered by the
+network setup sripts as soon as the network connection has been established. And
+of course stopped before a network interface goes down.
+*FIXME* detail out further possible implications on the runlevel/boot scheme
+	and necessary changes
+
+
+2. Booting, Coldplug and Hotplug
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Hotplug originally meant there is a system where devices may be (dis)connected
+at runtime. This needs a kind of daemon watching the system and reporting any
+changes to be able to initialize or release a device. In Linux this job is done
+by the kernel and the device drivers (except PC-Cards, where we still need the
+cardmgr). Every plug in or pull out of a device results in a hotplug event:
+/sbin/hotplug is called with sufficiant information about what happened.
+
+After initialization of a device most of the cases an interface to this device
+will be registered in the kernel. This again results in a hotplug event. The
+kernel calls a user mode helper which may then set up the initerface
+accordingly.
+
+If devices were plugged into a subsystem before the bridge to this subsystem was
+initialized we got no information about them. But as soon as the bridge driver
+loads it will recognize all cold connected devices and trigger 'add' events for
+each of them. This also happens on bus systems which are not able to deal with
+hot plugged devices. This part is named coldplug.
+
+Since Kernel 2.6 the kernel triggers hotplug events for each device and
+interface that is recognized or registered. In a very early stage at the boot
+process a PCI bridge is recognized. We do not need to react, because this bridge
+is initialized by the kernel anyway. But after initialization of the PCI bus
+there are again hotplug events for every device on this bus. Some of these
+devices will also be initialized by the kernel (e.g. bridges to sub busses or
+e.g. IDE controllers). Others would need any action from userspace, e.g. loading
+of a suitable kernel module. But we still have no set up root device and there
+is still no init running. We could handle these events in the initramfs but we
+just drop them. The root device has to initialized has to be set up as before
+from some hardcoded routine, but all the rest has to wait. (Room for improvement
+in later products.)
+
+Later, after init has been launched we react on any hotplug event. The hotplug
+agents do always call 'hwup' for new devices and 'ifup' for new interfaces. Now
+any new device will be initialized properly. But there might be devices whose
+'add' events were missed but still have to be initialized. There may even be
+registered interface which still have to be set up. How to solve this is the
+topic of the next subsection.
+
+
+2.1. Device initialisation and interface setup at boottime
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The very first job must be to enable the handling of hotplug events. This means
+no action, just prepare and switch on handling of possible hotplug events. This
+will be done by "rchotplug start".
+
+The next step is to start hardware detection and trigger hotplug events for all
+detetced devices. There are several possible problems:
+- A detected device was already initialized:
+  This does not matter, because calling 'hwup' for an already initialized device
+  must not harm.
+- There are devices that are not visible, because they reside behind an
+  uninitialized bridge:
+  Such devices need not to be detected now. As soon as the bridge will be
+  initialized it will scan the subsystem and trigger hotplug events for every
+  device on that subsystem. If the driver(s) for that subsystem don't scan then
+  it may be done via 'hwup'.
+- There are devices that cannot be safely detected, because mere searching for
+  such devices locks the device or the whole system:
+  Don't try to detect them. Consider them as undetectable.
+- There are undetectable devices:
+  Such devices have to be listed in a file together with all information needed
+  to trigger proper hotplug events. Play hotplug events from a fixed hardware
+  list.
+- The user does not like hardware detection:
+  Consider all devices as undetectable.
+With or without autodetection of devices all device initialization is triggerd
+by a hotplug event. Either a real event from the kernel or an synthesized event
+from userspace. But there should not be any other way. Single exception is of
+course the root device which was already initialized before init.
+All this will be done by "rccoldplug start".
+
+There is no needed order for the initialization of devices. Just handle these
+which are there. Devices which depend on base devices are invisible as long as
+the base device is not initialized and will be reported after base device is up
+and working. So hotplug cares implicitely about the right order. Only devices
+which are not handled by hotplug and which are mostly not detectable, too, have
+to be set up via the mentioned hardware list. There we can easily achieve the
+wanted order of device initialization.
+
+There won't be any longer services like PCMCIA, USB, etc. These subsystems are
+also controlled via 'hwup'. Each CardBus bridge or USB host controller has it's
+device configuration file where the user may control if such a subsystem should
+be initalized automatically or manually. To (de)activate them one has to call
+'hwdown' or 'hwup' respectively. For the convenience of the user we can of
+course provide wrapper which may be called as 'pcmcia start/stop'.
+
+
+2.2. Hotplugging at runtime
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Hotplug means that there is a way to add or remove devices at runtime without
+needing to switch of power of the system. Adding devices is no problem. But
+removing is. Hotplug does _not_ mean that you may remove a device at any time.
+Before unplugging the device has to be released by software. Therefore think of
+hotplugging in the following way:
+
+Adding:   Plug in a device, this will be recognized by the driver of the bus
+          system, which calls /sbin/hotplug. Now the new device will be
+          initialized via 'hwup'. If the initialization process registers
+          interfaces, /sbin/hotplug will be called for each new registered
+          interface. Now the interfaces will be set up via 'ifup'.
+
+Removing: At first launch a command to release a device. Up to now 'cardctl
+          eject' did that for PCMCIA devices. Now 'hwdown' should do this job.
+          It has to check if the device is still in use. There may be interfaces
+          to this device still used by any application or there may be other
+          devices connected to this one. All this will be checked by 'hwdown'
+          and 'ifdown' respectively. In some cases we may set down all connected
+          devices and interfaces silently, in other cases we have to ask the
+          user to release.
+          After the device is completely freed it may be unplugged safely.
+
+Just unplugging the device works in some cases, but is not always possible in a
+sane way. It may even harm and therefore we should discourage everybody from
+doing so. There are command line (hotplugctl) and GUI (suseplugger) applications
+which list all hotplugged devices, show their state and offer to realease them.
+
+
+2.3. Persistant interface naming
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+With former kernels it was sometimes not possible to decide which device
+provides a given interface. At these times the order of device initialization
+was very important. Even worse, sometimes interfaces got another name at each
+subsequential plug in. Now with sysfs we get the relations between interfaces
+and devices. We know the bus location or an individual device id. There is a
+tool named 'udev' which creates block or character special files for every
+plugged in or recognized device. It can assign a device always the same
+interface name depending on the bus location or individual id.  Unfortunately it
+depends on the drivers which information they provide. Therefore it does still
+not work on all device types, but things become much better. Fallback for 'udev'
+are the major/minor number.
+*FIXME*: describe all bustypes: PCI, USB, PCMCIA, IEEE1392, SCSI, IDE, <s390>
+
+The old /dev/* interface names were tied to the minor, major numbers assigned
+dynamically by the kernel. We will get these old names in an hotplug event. But
+then 'udev' is called which looks for interface information in sysfs and creates
+interface nodes in /udev. The names udev will use for the interfaces must be
+defined in an configuration file. These names now will be persistant.
+
+*Note* The path /udev is a temporary path, which is currently in use during
+development of the udev software. It will eventually be /dev, but for now it is
+possible to use/develop udev on a system that still uses the "classical" scheme
+with mostly static device nodes under /dev/
+
+
+2.4. Controlling Bus Subsystems
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+There are often problems with peripheral bus systems like USB, PCMCIA or
+Firewire. Therefore we should be able to control them seperately. 
+
+In an unlimited hotplug system _all_ devices are handled in the same way.
+Imagine a pci event for e.g. an USB hostcontroller. The required action is to
+call 'hwup' for this controller. There will be a scan of devices connected to
+this controller which in turn triggers new events for each device.
+
+Now we can control every host controller or bridge via it's hardware
+configuration file. If a controller is set to STARTMODE=manual, it won't be
+initialized automatically. Another switch may affect if hotplug events for
+devices behind that controller are handled at all (HANDLE_EVENTS=yes/no, default
+yes). With that we have full control over every subsystem.
+
+With a 'hwup <host controller>' we may indirectly initialize the whole subsystem
+and shut it down with 'hwdown <host controller>'. To make it easier for the user
+there might be scripts named 'usb' or 'pcmcia' which know
+all host controller or bridges of this type. If these scripts are called with
+'start' they call 'hwup' for all controllers/bridges and if called with 'stop'
+they use 'hwdown'.
+
+
+2.5. Controlling Class Subsystems
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+We need also a way to control all interfaces of a certain class like network or
+storage. There is a runlevel concept in Unix. In  some runlevels there should be
+networking in others not.
+
+For long time we had the situation that plugging in a PCMCIA or USB NIC was
+setting up the corresponding interfaces even if network subsystem was never
+started. Stopping the network did set them down, but plugging them again made
+them available again. This is not a clean way.
+
+Therefore we need init scripts for network and storage (and perhaps other) that
+do not only set up already available interfaces but also control the hotplug
+agents.  When starting enable the adequate hotplug agent. From now on it should
+process all events. Additionally look for already available interfaces of that
+type and call 'ifup' for all of them. When stopping shut down all appropriate
+interfaces and disable processing of events in the right agent.
+
+This should be implemented at least for network and storage interfaces.
+
+
+2.6. Implementation of Hotplug and Coldplug
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The upstream hotplug package does not fit at all to our needs. Even in the past
+this package was heavily patched in SuSE Linux. Therefore we will write our own
+scripts from scratch. These will be mostly simple because most of the work will
+be done by hwup.
+
+/sbin/hotplug does
+  - if hotplug is switched off, exit
+  - write debug info
+  - call exactly one agent per event type
+
+/etc/hotplug/*agents do
+  - call udev
+  - check if this event should be handled:
+    Is this interface class enabled?
+    Is the device attached via a controller that allows event handling?
+  - call 'hwup'/'ifup' or 'hwdown'/'ifdown'
+
+
+3. Controlling Devices
+^^^^^^^^^^^^^^^^^^^^^^
+Devices are initialized by a tool named 'hwup'. There are also 'hwstatus',
+'hwcheck' and 'hwdown'. These tools are called with a hardware description. They
+look for a matching configuration for the described device and initialize, check
+or shut down the device. They use 'get_config' to find a matching configuration.
+If there is no configuration, 'hwup' uses 'create_config' to create a new one
+which does that automatically or asks the user depending of some settings.
+
+It does not use /etc/modprobe.conf. All information needed to handle a device is
+placed in an individual configuration file.  In most cases the device
+configuration files will just contain a module name and optional module options.
+But there is also a hook for an individual device setup script. For other
+architecures then ix86, hwup may work in a specialized way.  Therefore there may
+be any arbitrary variable needed for device setup.
+
+
+3.1 Syntax of hwup
+^^^^^^^^^^^^^^^^^^
+  hw{up,status,down} [<config name>] <hw description> [-o options]
+
+Normally you describe the device you like to initialize. This description must
+comply the names described in section 5.1. or be a sysfs devpath. If it is
+called via hotplug the device is described exactly. If called manually the
+needed precision of the hardware description depends on the situation.
+
+On ix86 you mostly need only a configuration and not the name of the device to
+be configured, because it will just load a module without any influence which
+devices will be initialized by that module. For example there could exist a
+configuration named 'net' which loads all modules needed for all NICs. This
+configuration name does not describe the affected devices very exactly, but will
+suffice as a hardware description: 'hwup net' does the job.
+
+In a more specific way there may exist one configuration per device. For example
+two different PCI NICs: bus-pci-0-3 and bus-pci-0-4. Then you will have to call
+hwup for each device, but also the hardware description is enough.
+
+Some other architectures have a explicit device initialisation. There you
+address the device explicitly. Also in this case it would suffice to call 'hwup
+<hardware description>', but you are allowed to give another configuration
+calling 'hwup <configuration name> <hardware description>'.
+(Even in ix86 we will get the possibility to initialize, suspend, resume and
+shut down a specific device. I read somewhere i can't remember, that there are
+such plans for 2.7. That would be at least nice for powermanagement.)
+
+So hwup will always take the first argument in order to find a configuration.
+If there is a second argument it will only serve as a pointer to the device to
+deal with.
+
+There are some options:
+auto        This option indicates that there is some automatic process that
+            wants to initialize the device. These processes are mainly
+            runlevel and hotplug scripts and SCPM.
+            When this option is given the device will only be initialized if
+            the configuration has STARTMODE=auto. Therefore devices with
+            'manual' or 'off' configurations will be skipped.
+rcmanual    This means that a central script (runlevel script) is called
+            manually. Now only 'off' configurations will be skipped.
+rc          Show only special formatted messages for runlevel scripts. It does
+            only change messages for stdout but not for syslog.
+debug       Give some additional information what is beeing done.
+second      hwup is calling itself recursively. Don't do this again.
+
+The most common way to use hwup will be just "hwup <configuration name>".
+Runlevel script will use this way to initialize the devices with options 'auto'
+and 'rc'. Hotplug scripts do it the nearly the same way calling "hwup <hw
+description> -o auto"
+
+
+3.2 Content of hwcfg-* configuration files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The format of these files follows the sh syntax. It does contain just variable
+assigments and comments. There are predefined variables:
+STARTMODE      may be 'auto', 'manual' or 'off'. With 'auto' the device will be
+               initialized at runlevel changes, when plugged in or if SCPM
+               switches profiles. If set to 'manual' it is necessary to call the
+               appropriate start script. 'off' configurations will only be used
+               if hwup is called explicitely for a certain device.
+MODULE         contains the kernel module to load for this device. This variable
+               may be suffixed with '_<number>'
+MODULE_OPTIONS contains options for the kernel module. If multiple modules have
+               to be loaded MODULE_OPTIONS must have the same suffix as MODULE.
+MODULE_UNLOAD  tells hwdown if the module should be unloaded or not. The default
+               is to unload modules if they are not longer used. I.e. an unset
+               or empty MODULE_UNLOAD means MODULE_UNLOAD=yes. With multiple
+               modules it must have the same suffix as MODULE.
+SCRIPT         contains the base name of a script that will be called after
+               module loading, before module unloading and at the end of
+               hwstatus. The scripts must be named ${SCRIPT}{up,status,down}.
+FAILURE_ACTION may be 'off', 'auto-off', 'auto-manual' or 'manual'. It defines
+               the behavior if no matching configuration was found. 'off' does
+               just nothing. With 'auto-*' we try to create a configuration
+               automatically. 'auto-off' means be happy if 'auto-*" fails.
+               'auto-manual' means to ask the user if automatic configuration
+               was not possible. If set to 'manual' we always ask the user.
+               (See below, why this variable makes sense in a configuration.)
+There may be any additional variable you need for special kind of hardware.
+
+
+3.3 Workflow of hw{up,status,down}
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+At the very first the command line will be parsed. If there are wrong of missing
+arguments exit with R_USAGE. Global configuration file
+/etc/sysconfig/hardware/common will be sourced.
+
+Then we call the configuration finder 'get_config' which provides us a lot of
+information. Beside the name of the best matching configuration it returns the
+information in the hardware description splitted into its parts. And it searches
+additional information to the device from e.g. sysfs. If we were called with two
+arguments we pass them to 'get_config'. It will then provide device informaton
+based on the second argument and look for a configuration with the first.
+
+If there was a configuration found then source it. If there was no valid
+configuration then call 'create_config'. Exit if there is still no
+configuration.  Else use the new configuration
+
+*FIXME*: When 'create_config'? up? down?
+
+The next step is to 
+Now it depends on how we are called:
+hwup     modprobes all specified modules with their options. Then it will
+         execute hwup-<bustype>. Finally it calls <SCRIPT>up.
+hwstatus may check if all modules are loaded correctly and call
+         hwstatus-<bustype> and <SCRIPT>status.
+         Additionally it may show all interfaces for that device.
+hwdown   first it checks all interfaces for that device and sets them down. Then
+         it calls <SCRIPT>down then hwdown-<bustype>. Finally it will unload
+         these modules that should not stay loaded.
+
+*FIXME*: recursivly check and down depending devices and interfaces.
+
+The scripts will be called with <configuration name> <devpath> and the same
+options hw{up,status,down} was called with.
+
+If necessary hw{up,down} can provide a module usage counter to ensure that we do
+not set down multiple devices at once that should be handled seperately. The
+usage counter of the kernel does not always help, because it shows only how
+often the module is currently used. That means there are cases where the kernel
+module usage counter shows zero even if there is a device handled by this
+module.
+
+3.4 Static configurations
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+reggane:~ # hwup -h
+
+Usage: hw{up,down,status} [<config>] <hwdesc> [-o <options>]
+
+Options are:
+    auto     : we were called from an automated process (e.g. hotplug)
+reggane:~ # 
+
+One argument is interpreted as hardware description and hwup is looking for a
+best matching configuration. If there are two args, the first one is the
+configuration to be used and the second one is still the hardware description.
+The hardware description is parsed and splitted from getcfg.
+
+If you just call 'hwup static-<ext>' then getcfg will also find the config
+static-<ext> but it will interpret the hardware as device of type static with
+interface name '<ext>'. That does not matter as long as only modules have to be
+loaded. But for some devices we need info from the hardware description. Their
+config files will then be called hwcfg-static-<hwdesc>. Calling 'hwup
+static-<hwdesc> <hwdesc>' will then do the job: 1) Using static-<hwdesc> as
+configuration and  2) interpreting <hwdesc> correctly.
+
+See also http://bugzilla.suse.de/show_bug.cgi?id=44626
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+IDE DMA
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+ISA is identified by port,irq, which is configured by isapnp or by hand.
+
+Show examples for devices:
+- network
+- storage
+- input
+- modem
+- isdn
+
+4. Dealing with Interfaces
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section is very WIP. In short: ifup will behave very similar as before.
+
+4.1 Syntax of if{up,status,down}
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  if{up,status,check,down} [<config name>] {<hw description><interface>}
+                           [-o options]
+
+Parse command line. The last argument before a possible '-o' is the mandatory
+argument. Perhaps there is an additional configuration name.  Call parse_hwdesc
+for the mandatory argument.
+If it is an interface name:
+| If it is already available then try to get the hardware description of the
+| | device of that interface.
+| Else:
+| | If CALL_HWUP=yes try to find out which device should provide this interface.
+| | | Do that via udev configuration or some other magic but this step will very
+| | | probably fail.
+| | | If device could be determined notify user and call hwup for it and exit
+| | | |  with hwups return value.
+| | | Else:
+| | | | If there is a configuration name notify user and call hwup for it and
+| | | | | exit with hwups return value.
+| | | | Else exit with "interface not available".
+| | Else exit with "interface not available".
+Else it is a hardware description. Try to find out which available interfaces
+| belong to that device.
+| If there is no interface:
+| | If CALL_HWUP=yes call hwup with the hardware description and exit with it's
+| | | return value.
+| | Else exit with "don't know interface name.
+
+Now we have at least one available interface and we can try to find
+configurations for them,
+For all interfaces:
+| call get_config -h "<hardware description>" (maybe empty)
+|                 -c "<configuration name>"   (maybe empty)
+|                 -i <interface>
+| If there is a configuration setup interface.
+If no interface were set up exit with "no configuration for interface".
+
+xxxxxxxxxxxxxxx
+If we have two arguments only the first one should be used to find a
+configuration.
+xxxxxxxxxxxxxxx
+
+
+
+Options are:
+ - auto        This option has to be used by any script that itself is launched
+               automatically. There is mainly
+                - /etc/init.d/network
+                - /etc/hotplug/net.agent
+                - SCPM
+               If this option is not given ifup assumes manually setup of the
+               interface.
+ - prov[ider]  With provider=<name> ppp or ippp dialup connections will use the
+               provider <name> instead of the default provider.
+ - rc          To be used by /etc/init.d/network: show only speciaal formatted
+               messages for the network start script (*)
+ - debug       Be verbose at stdout and syslog (*)
+(*) Messages will always be written to syslog.
+
+
+=>=>=>=> STORING OF dev/iface <--> cfg
+- should this be done by the matcher?
+- this information is needed by YaST and other tools (modem/dsl)
+- store additional option given with '-o'
+
+=>=>=>=> HOOKS, CONDITIONAL HOOKS (dhcp)
+=>=>=>=> RETURN VALUES
+
+FOR BOTH hwup and ifup
+UP
+If a configuration was found it stores the connection between interface and
+configuration name in the configuration data cache. If not it stores the
+connection between interface and device description. This has to be done for
+every configuration, not only for STARTMODE=hotplug, All that is needed to make
+'rcnetwork restart' work properly.
+
+Now, if the given/determined interface is present and there is a matching
+configuration the interface will be set up accordingly. There are hooks for
+individual actions before and after we configure the interface. Also other
+network setup scripts for routing or wireless/ppp/isdn stuff are called. Finally
+we trigger all network based services.
+
+If ifup is called for an already active interface it will check if configuration
+has changed. Exit if nothing has changed. If there were changes try to change
+interface configuration without setting it down.
+
+Last but not least we will drop deprecated Linux-2.0 interface aliases. Instead
+we allow to assign multiple adresses to one interface, if necessary even both
+dhcp and fixed addresses. In order to preserve compatibility with Linux-2.0
+network aliases each address may be tagged with a label string.
+
+FIXME: specify return values
+
+STATUS/CHECK/CONNECTION
+It shows the state of an interface and all special settings and routing
+information concerning this initerface. It it was called with an interface name
+it will additionally show the name of the used configuration. If called with an
+configuration name it shows information about all interfaces that use this
+configuration or informs that this configuration is currently unused.
+
+If requested by global or individual switches we may perform a check of the
+interface. This will show which connections are currently estabished and if the
+interface could be set down savely. If it could not be set down it would by very
+nice if it gives hints what to do to rellease it properly. If better accepted we
+could split ifstatus in ifcheck and ifstatus, but that is merely cosmetical.
+
+We have to specify reasonable reaturn values for if{status,check}.
+
+Options:
+- interface: show only the interface name for a given configuration
+- config:    show only the configuration name for a given interface
+
+FIXME: specify return values
+
+DOWN
+- conditional down, only if no connection
+- (hwdown/ifdown may possibly recognize a different setup
+    for device/iface then stored in used (hw/if)cfg-* file and may store this
+    changed setup if wanted)
+
+
+#^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^
+
+
+
+
+up
+
+status
+
+down
+- (hwdown/ifdown may possibly recognize a different setup
+    for device/iface then stored in used (hw/if)cfg-* file and may store this
+    changed setup if wanted)
+
+connection
+
+#vvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvv
+
+????????????????????????
+If 'ifup' is called for a not existing interface or for a not initialized device
+then it will call 'hwup' and exit. If 'hwdown' is called for an active interface
+then it will call 'ifdown' for this interface first.  When if* and hw* call each
+other they use exactly the same arguments.
+????????????????????????
+#^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^
+
+4.x Configuration Data Cache
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+#############################################################################
+In 9.1 kinternet has to control all kind of network connections.
+Therefore ifup/down and smpppd have to communicate:
+
+2) smpppd uses ifup, ifstatus and ifdown to control interfaces
+
+3) ifup and ifdown writes the current state of an interface into
+   /var/run/sysconfig/if-<interface> and smpppd watches these files
+   via dnotify. There have to be the following fields:
+   - config = configuration used for that interface
+              (as in ifcfg-<config>)
+   - hwdesc = the argument ifup was called with.
+              currently unused
+   ( - uiname=<name to be shown in kinternet>
+     This may be the PERSISTENT_NAME or an additional name for the interface )
+   - status=
+     + disconnected: interface is down
+     + connected:    interface is up. This does mean that routing,
+                     firewall or any service, that depends on that
+                     interface, is set up properly. But hooked individual
+                     scripts must not have been finished
+     + connecting:   interface is configured for dhcp and is currently
+                     waiting for an answer from the sever
+     + disconnecting:
+     + no link:      interface is up or waiting for a dhcp lease but
+                     there is no cable attached. If interface is wlan it
+                     means that access point or ad-hoc peer cannot be
+                     reached.
+     + smpppd-ignore: smpppd should ignore this interface
+     + lurking:      pppd is running in dial on demand mode and waiting
+                     for traffic.  When there is traffic on the
+                     interface the pppd will establish the real connection.
+   The files have to be created/changed at once to avoid unnecessary dnotify
+   events. They will be created in a subdir 'tmp' and moved then.
+3b) ifplugd has to run and change the state accordingly
+
+4) ifup and ifdown write a seperate logfile for every interface they
+   work on. These will be named /var/log/sysconfig/<interface>.log.
+   The loggged information should be understandable by the interested
+   user.
+
+x) ifdown/up have to check if there is a ifup/down still running for this
+   interface. The last command must win.
+
+5) For future releases:
+   It is still unclear, how passwords, encryption keys or a wlan SSID
+   should be passed to ifup. Somehow smpppd has to know, that is must
+   provide this information. Because smpppd does not easily know which
+   configuration will be used for a given interface, it cannot read
+   this from the configuration files itself.
+
+
+#############################################################################
+
+
+4.1. Networking Interfaces
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+#vvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvv
+If there are multiple adresses for one interface and there is no label given for
+an address, then use the suffix of the variable IPADDR as label for this
+address.
+
+I just found out that IPADDRxxx is also supported apart from IPADDR_xxx.
+I'd vote for keeping only _xxx version as it's then clear what's suffix
+and what's the rest. And the latter is almost only announced anyways.
+
+IPv6
+
+#^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^
+
+4.1.1. Types of Network Devices
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+4.1.1.1. Modem
+4.1.1.2. ISDN
+4.1.1.3. DSL
+4.1.1.4. WLAN
+4.1.1.5. <S390 stuff>
+4.1.1.6. Token Ring
+4.1.1.7. Others
+
+4.1.2. Routing
+^^^^^^^^^^^^^^
+- Konfiguration von tables ermöglichen
+
+4.1.3. DNS
+^^^^^^^^^^
+
+4.1.4. Firewalls
+^^^^^^^^^^^^^^^^
+
+4.1.5. Tunnel and virtual LANs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ -> Tunnel
+ -> VLAN 802.1q
+ -> TUN/TAP interfaces for UML
+ -> Bonding
+
+4.2. Storage Interfaces
+^^^^^^^^^^^^^^^^^^^^^^
+For storage interfaces if{up,down} will mostly do a (u)mount. Perhaps in any
+enhanced way. FIXME: to be specified
+
+
+5. Configuration Matching
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+This section specifies hardware descriptions and configuration names and how
+they fit together. I will describe tools that do parsing and composing of such
+names and that help to find always the best matching configuration. The
+configuration finder should also be used from a configuration UI to determine if
+a given device is already configured.
+
+5.1. Configuration Names / Hardware Descriptions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Configuration names describe the device or interface they belong to. They need
+not to describe it exactly, because they may be used for several devices or for
+a device plugged in at different locations. There are different types of
+configuration names. They may contain a (parts of) a individual number like link
+layer addresses or serial numbers. Alternatively they may describe (parts of)
+the location or specify the type of the device. To be backward compatible they
+may also just be the interface name traditionally given by the kernel.
+
+Configuration names refer to a set of configuration data. Hardware descriptions
+are configuration names that indicate exactly one device. There is a
+configuration finder 'get_config' that looks for the best matching available
+configuration for a given hardware description.
+
+The names consist of several parts which are separated by a hyphen '-'. 
+
+         <config name>:=[<device type>-]{<interface name>|<device description>}
+  <device description>:={id-<identifier>
+                        |bus-<bus location>
+                        |devpath-<sysfs devpath>}
+                        |interface-<interface name>}
+                        |vpid-<vendor id>[-<product id>[-<vendor sub id>[-<product sub id>]]]
+                        |type-<device type>
+        <bus location>:=<bus name>[-<bus id>][-<bus location>]
+
+         <device type>:=Any valid string except "id", "bus", "devpath",
+                        "interface", "vpid", or "type".
+                        This describes the type of the device. We will use the
+                        event types from hotplug for this purpose. If there is
+                        need for a finer differentiation we will have to specify
+                        it here in this document.
+      <interface name>:=Any valid string
+                        The interface name or the device file.
+          <identifier>:=Any valid string
+                        The identifier for this device. The interpretation of
+                        the identifier depends on the device type. For this
+                        reason the device type is mandatory when using "id".
+           <vendor id>:=Any valid string
+       <vendor sub id>:=Any valid string
+          <product id>:=Any valid string
+      <product sub id>:=Any valid string
+                        These are identifiers that describe the product and not
+                        an individual device. Think of PCI ids for example.
+            <bus name>:={pci|scsi|ide|pcmcia|usb|ieee1394|css|ccw}
+              <bus id>:=Any valid string except a bus name
+       <sysfs devpath>:=Any path in /sys
+      Any valid string:=String that does not contain characters which
+                        are invalid in a filename (e.g. a slash '/').
+
+(NOTE: Old names like "eth-pcmcia-0" are invalid now. They now need the keyword
+'bus' inside: "eth-bus-pcmcia-0".
+
+Lets see if all possible names are unique:
+1 The name consists of one single part:
+  ==> must be an <interface name>
+2 The name consists of two parts:
+2.1 Part 1 is "id":
+    ==> Part 2 is <identifier>
+2.2 Part 1 is "vpid":
+    ==> Part 2 is <vendor id>
+2.3 Part 1 is "bus":
+    ==> Part 2 is <bus name>
+2.4 Part 1 is "type":
+    ==> Part 2 is <device type>
+2.5 Part 1 is anything else:
+    ==> Part 1 is <device type>
+        Part 2 is <interface name>
+3 The name consists of three parts:
+3.1 Part 1 is "id" or "type":
+    ==> invalid name
+3.2 Part 1 is "bus":
+    ==> Part 2 is <bus name>
+        Part 3 is <bus number> or <device id>[:<lun>]    --> (NU)
+3.3 Part 1 is "vpid":
+    ==> Part 2 is <vendor id>
+        Part 3 is <product id>
+3.4 Part 1 is anything else:
+3.4.1 Part 2 is "id":
+      ==> Part 1 is <device type>
+          Part 3 is <identifier>
+3.4.2 Part 2 is "vpid":
+      ==> Part 1 is <device type>
+          Part 3 is <vendor id>
+3.4.3 Part 2 is "bus":
+      ==> Part 1 is <device type>
+          Part 3 is <bus name>
+3.4.4 Part 2 is "type":
+      ==> Part 1 is <device type>
+          Part 3 is dropped
+3.4.5 Part 2 is anything else.
+      ==> invalid name
+4 The name consists of four parts:
+4.1 Part 1 is "id" or "type":
+    ==> invalid name
+4.2 Part 1 is "vpid":
+    ==> Part 2 is <vendor id>
+        Part 3 is <product id>
+        Part 4 is <vendor sub id>
+4.3 Part 1 is "bus":
+    ==> Part 2 is <bus name>
+        Part 3 is <bus number>
+        Part 4 is <bus number> or <device id>[:<lun>]    --> (NU)
+4.4 Part 1 is anything else:
+4.4.1 Part 2 is "bus":
+      ==> Part 1 is <device type>
+          Part 3 is <bus name>
+          Part 4 is <bus number> or <device id>[:<lun>]  --> (NU)
+4.4.2 Part 2 is "vpid":
+      ==> Part 1 is <device type>
+          Part 3 is <vendor id>
+          Part 4 is <product id>
+4.4.3 Part 2 is anything else:
+      ==> invalid name
+5 The name consists of five or more parts:
+5.1 Part 1 is "id" or "type":
+    ==> invalid name
+5.2 Part 1 is "vpid":   (*** and max 5 parts, else invalid ***)
+    ==> Part 2 is <vendor id>
+        Part 3 is <product id>
+        Part 4 is <vendor sub id>
+        Part 5 is <product sub id>
+5.3 Part 1 is "bus":
+    ==> Part 2 is <bus name>
+        Part 3 to n-1 is <bus number>
+        Part n is <bus number> or <device id>[:<lun>]    --> (NU)
+5.4 Part 1 is anything else:
+5.4.1 Part 2 is "vpid":  (*** and max 6 parts, else invalid ***)
+    ==> Part 1 is <device type>
+        Part 3 is <vendor id>
+        Part 4 is <product id>
+        Part 5 is <vendor sub id>
+        Part 6 is <product sub id>
+5.4.2 Part 2 is "bus":
+      ==> Part 1 is <device type>
+          Part 3 is <bus name>
+          Part 4 to n-1 is <bus number>
+          Part n is <bus number> or <device id>[:<lun>]  --> (NU)
+5.4.3 Part 2 is anything else:
+      ==> invalid name
+
+NU (not unique): I dont think it's necessary to differ between <bus number> and 
+                 <device id>, because both are just nodes on the bus tree.
+                 Every node on this tree is a device. Either it is a bridge then
+                 <bus number> is the <device id> of the bridge. Or it is an end
+                 device then <device id> fits well.
+
+5.2. Central tools
+^^^^^^^^^^^^^^^^^^
+There will be just one such tool, which may be called with different names for
+different purposes. It does all the magic stuff in an unique way:
+A) parsing hardware descriptions or configuration names
+B) assemble a valid configuration name
+C) list the interfaces of a device or list the device behind an interface
+D) collecting as much info as possible for a device or interface
+E) look for best matching configuration(s)
+
+It may be called as
+- 'parse_hwdesc'               (performs A)
+- 'make_hwdesc'                (performs B)
+- 'get_device'/'get_interface' (performs A and C)
+- 'get_all_info'               (performs A, C and D)
+- 'get_config'                 (performs A, C, D and E)
+
+Except for 'make_hwdesc' it always expects exactly one argument namely the
+hardware description or interface name and some options. In most cases it
+returns a whole set of information. Therefore it always returns a newline
+seperated list of <name>=<value> pairs that may be just evaluated by the shell.
+Additional it prints "export <space seperated list of names>" as a last line. To
+avoid problems in namespace all <names> will be prefixed with 'HWD_'.
+
+'make_hwdesc' expects a spaceseperated list of <name>=<value> pairs and prints
+avalid hardware description.
+
+Options are handled in the same way as hwup or ifup does. After all argumants
+there has to be a '-o' followed by a list of space seperated options. Common
+options are:
+  'noexport'        Don't add "export <space seperated list of names>" as a last
+                    line.
+  'prefix=<string>' Use another prefix instead 'HWD_'. To supress the prefix use
+                    'prefix=""'
+
+There may be the following names in the output (or input for 'make_hwdesc'):
+(Note: Don't use '_' in property names, except in property arrays for the number
+       suffix. If this becomes necessary, then make_hwdesc has to be adapted.)
+  HWD_DEVTYPE       for <device type>
+  HWD_INTERFACE_<N> for <interface name>
+  HWD_INTERFACE_N   for the number of interfaces
+  HWD_ID            for <identifier>
+  HWD_BUSNAME       for <bus name>
+  HWD_BUSNUMBER_<N> for <bus number>
+  HWD_BUSNUMBER_N   for the number of bus numbers
+  HWD_DEVID         for <device id>
+  HWD_VENDORID      for <vendor id>
+  HWD_VENDORSUBID   for <vendor sub id>
+  HWD_PRODUCTID     for <product id>
+  HWD_PRODUCTSUBID  for <product sub id>
+  HWD_LUN           for <lun>
+  HWD_CONFIG_<N>    for a matching configuration
+  HWD_CONFIG_N      for the number of matching configurations
+
+'parse_hwdesc'  just takes a given hardware description, splits it and return
+                the information. 'parse_hwdesc `make_hwdesc <list>`' will just
+                return <list> (but maybe in a different order).
+'make_hwdesc'   takes a list of information and creates a valid hardware
+                description. 'make_hwdesc `parse_hwdesc <hwdesc>`' will return
+                <hwdesc>. If there is to much information to know which kind of
+                hardware description should be created, it can be specified as
+                an option. Therefore 'make_hwdesc' has additional options:
+                  'bus'       describe the bus location
+                  'id'        use the individual id
+                  'vpid'      use vendor and product ids
+                  'interface' use the interface name
+                  'type'      use only the type
+'get_device'    takes an interface name or configuration name as an argument and
+                returns a list of devices that belong to that interface or that
+                were initialized with that configuration.
+                Option
+                  --config, -c lets 'get_device' interpret the argument as an
+                               configuration name.
+'get_interface' takes a hardware description or a configurtation name. In the
+                first case it returns all interfaces provided by devices which
+                match the given description. In the latter case it returns all
+                interfaces that are currently set up with that configuration.
+                Option
+                  --config, -c lets 'get_interface' interpret the argument as an
+                               configuration name.
+'get_all_info'  collect all information we can obtain for a given hardware
+                description. Information can be obtained from:
+                  sysfs
+                    Always look for a 'device' link
+                  /lib/modules/<version>/modules.*map
+                  ...
+'get_config'    takes a hardware description, parses it, collect all additional
+                information for the device. Always use the information we get
+                via the 'device' link in sysfs. Finally look for matching
+                configurations. It looks for matches in the following order:
+                  Id matches exactly
+                  Vendor/product id matches exactly
+                  Bus location matches exactly
+                  Id matches partially: i.e. the id string of the configuration
+                    name contains of the first n characters of the id string of
+                    the device. If there are several, bigger n wins.
+                  Vendor/product id matches partially: i.e. not all of these
+                    four ids are in the configuration name, but these which are
+                    there match exactly.
+                    PCI device: Class 0200: 10b7:9200 Subsystem: 1028:00d4
+                    vpid-10b7-9200       matches best
+                    vpid-10b7--1028-00d4 matches less
+                    vpid-10b7-92         does not match
+                  Bus location matches partially
+                  Interface name matches
+                  Device type matches
+                We don't stop if a match was found but look for all ot them and
+                store them. The best matching configuration will be stored in
+                HWD_CONFIG_0, the next in HWD_CONFIG_1 and so on. With this the
+                calling hw* of if* script may source all configurations in the
+                right order to enable incremental usage of configuration files.
+
+
+TODO for getcfg:
+- differ between interface types and device types
+- better detection for interface types
+  http://bugzilla/show_bug.cgi?id=41134
+- avoid searching for buspath
+- distinguish better between decimal and hex numbers (pci ids)
+
+5.3. create_config
+^^^^^^^^^^^^^^^^^^
+'create_config' is called by 'hwup' and 'ifup' if these did not find a valid
+configuration. There is a difference if they did not find a configuration or if
+the found configuration was not valid. In the first case a completely new
+configuration has to be created in the second case we have to change an existing
+one. But if hwdesc was more precise then the found config we also create a new
+one.
+
+To create a new configuration we need the following information:
+- a precise hardware description
+- the name of the invalid configuration
+- FAILURE_ACTION
+
+If FAILURE_ACTION=off do nothing.
+Else if FAILURE_ACTION=auto-* try to create a configuration automatically. This
+does only work for some kind of devices: USB, PCI, PCMCIA, FW and only if we
+need just module loading.
+If autoconfig fails and if FAILURE_ACTION=auto-off do nothing.
+If autoconfig fails and if FAILURE_ACTION=auto-manual or if
+FAILURE_ACTION=manual then call YaST for configuration. Do that via dbus.
+
+
+7. Controlling Services  <<<<==>>>> 2.4.
+^^^^^^^^^^^^^^^^^^^^^^^
+
+7.1. Network
+^^^^^^^^^^^^
+
+#vvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvv
+- if fw_active=enabled then initial fw script closes _all_ doors
+- rcnetwork start
+  - sets ifup general active flag to enabled
+  - sets up existing ifaces
+  - sets up configured devices, which results in setting up related ifaces via
+    hotplug
+  + fw is adapted via ifup if fw_active=enabled
+rcnetwork stop
+  - sets down all ifaces and then the devices
+  + fw is adapted via ifup if fw_active=enabled
+  - sets ifup general active flag to disabled
+
+#^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^
+#vvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvv
+Start/Stop Script
+The networking devices and interfaces will both be controlled by
+/etc/init.d/network. When called with 'start' it will look into /proc/net/dev
+and trigger hotplug events for these interfaces. Then it will go through the
+list of hwcfg-* files and initialize all remaining devices. The registration of
+their interfaces will trigger hotplug events.
+ifup will only called via hotplug.
+
+All action can be restricted to a certain interface, device, configuration or
+an interface type.
+
+There is a difference if it is called manually or via the runlevel links at
+boottime. When called at bootime only configurations with STARTMODE 'onboot' are
+used. If called manually 'start' will set up
+>>>>>>>>>>>> STARTMODE NOW ONLY auto OR manual <<<<<<<<<<<<<<<<<<<<<<
+- configurations with STARTMODE=onboot
+- configurations with STARMODE=manual which were already activated manually
+  (activating manually means using ifup or calling rcnetwork with giving an
+  interface or an configuration as an argument)
+  THIS HAS TO BE DISCUSSED! Some would like that configurations with
+  STARMODE=manual would never be activated by rcnbetwork start.
+- configurations with STARTMODE=hotplug which have currently a device present
+
+Another problem is 'rcnetwork status'. There are mostly a whole bunch of
+possible states. Some interfaces up, some down, all of them with differrent
+startmodes. It is easy to print a report with all interface states listed. But
+what value should be returned?
+Answer from dist-team: return 0 only if all 'onboot' configuration are properly
+up. I propose to extend this to all 'hotplug' configuration which are currently
+connected to an interface (i.e. device present). But does 'properly' include
+routing as well?
+
+from dist team meeting:
+- rcnetwork restart does 'rcnetwork stop; rcnetwork start' as always
+- rcnetwork stop shuts down _all_ interfaces. If called via a runlevel link,
+  respect a switch per config that does not allow to shut it down. This may be
+  used for root filesystem mounted via nfs.
+- rcnetwork start does start all 'onboot' configurations and all 'hotplug'
+  configs that are currently used for a interface. 'manual' configurations won't
+  be set up.
+- rcnetwork reload checks all currently used configurations and reconfigures it
+  if something has changed.
+
+#^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^
+#vvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvv
+Setting up non physical devices in which order? E.g. one tunnel over another:
+On 2004-04-20, Christian Deckelmann <deckel@suse.de> wrote:
+> I have a router where an GRE tunnel is setup over an ipsec tunnel.
+>
+> When booting the GRE tunnels can?t be setup because the ipsec tunnel
+> will be started later.
+>
+> How can this be solved?
+Care about dependencies between interfaces in general
+#^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^
+
+8. Depending Services
+^^^^^^^^^^^^^^^^^^^^^^
+
+#vvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv REVIEW vvvvvvvvvvvvvvvvvvv
+There are services that require a external network connection to work properly.
+For example ypbind, autofs, firewall, cipe, (FIXME: more services). These may be
+started by runlevel links if there are only build in network interfaces that
+normally are present at boot time. But if we deal with hotpluggable HW which may
+be inserted at any time we should provide a way to start these services after a
+network connection has been established.
+To achieve this we need to change:
+- Only use runlevel links for these services if there are only network
+  configurations with STARTMODE=onboot
+- Instead of runlevel links add service names somehow to the network
+  configuration if there are only configuration with STARTMODE=hotplug or
+  STARTMODE=manual. 'Somehow' means:
+  + add them to a variable in ifcfg-* files or
+  + add links to a subdir ifcfg-*.d or
+  + ... (any other idea)
+- Let the user decide how to start if he uses a mixed setup
+When a hotplugged device is to be released we have to check the state of all
+this services and stop them if possible/necessary. I this can't be done (e.g.
+nfs mounted directory still in use) don't allow the release of the device.
+
+Which services may be assigned to a certain network device and which need just
+any network device and which need just local network?
+
+Some services currently have problems with network configurations which are not
+named by an interface name. These just look in /etc/sysconfig/network for all
+ifcfg-* files and strip ifcfg-. But what they get are configuration names and
+not interface names, they are just sometimes equal.
+
+These services could call a ifup helper script which translates the
+configuration names to interface names, at least for used configurations.
+But if ifup would call such a startscript it will provide the right interface
+name.
+
+Affected services:
+- ypbind
+- autofs
+- firewall
+- cipe
+- ntp
+
+--------------------
+
+Currently we have differnet hooks, but it would be nice to have variables
+SERVICES_TO_{START,STOP}. For that we need an unique way for passing information
+like interface name to the service scripts.
+
+
+#^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ REVIEW ^^^^^^^^^^^^^^^^^^^
+
+A. Additonal Notions
+^^^^^^^^^^^^^^^^^^^^
+
+
+
+

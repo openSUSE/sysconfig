@@ -1,0 +1,197 @@
+#! /bin/bash
+#
+# Copyright (c) 2002 SuSE Linux AG Nuernberg, Germany. All rights reserved.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Michael Schroeder <mls@suse.de>, 2004
+#
+
+usage () {
+	echo $@
+	echo "Usage: if{up,down,status}-autoip [<config>] <hwdesc> [-o <options>]"
+	echo "  hwdesc may be the interface name or any valid description"
+	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Options are: boot         : we are currently booting"
+	echo "             hotplug      : we are handling a hotplug event"
+	echo "All other or wrong options are silently ignored."
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+
+case "${SCRIPTNAME}" in
+	ifup-*) ACTION=start ;;
+	ifdown-*) ACTION=stop ;;
+	ifstatus-*) ACTION=status ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+PREPARE=
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=onboot ;;
+		hotplug)     MODE=hotplug ;;
+		prepare)     PREPARE=yes ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		rc)          RUN_FROM_RC=yes ;;
+		*)           debug unknown option $1 ;;
+	esac
+	shift
+done
+
+test -n "$PREPARE" -a "$ACTION" != start && exit $R_SUCCESS
+
+######################################################################
+# check presence of configuration files
+#
+test -f ./autoip && . ./autoip
+test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+
+######################################################################
+# get the interface and check if it is up
+#
+if [ -z "$INTERFACE" ] ; then
+	usage "No interface given"
+fi
+if ! is_iface_available $INTERFACE && [ "$ACTION" = start ] ; then
+	logerror "interface ${INTERFACE} is not available"
+	exit $R_NODEV
+fi
+
+
+case "$ACTION" in
+	start)
+		info=/var/lib/autoip/autoip-$INTERFACE.info
+		test -d /var/lib/autoip || mkdir -p /var/lib/autoip # just in case /var is not mounted
+
+		status=`/sbin/autoip -q $INTERFACE`
+
+		if test -n "$PREPARE" ; then
+		    test "$status" = BEATEN -o "$status" = CHOOSING -o "$status" = DEFENDING && exit $R_SUCCESS
+		    ip link set $INTERFACE up
+		    for a in 1 2 3 4 5; do is_iface_up $INTERFACE && break; sleep 1; done
+		    # three seconds grace period
+		    /sbin/autoip -B -g 3 $INTERFACE || exit $R_ERROR
+		    exit $R_SUCCESS
+		fi
+
+		ip link set $INTERFACE up ${MTU:+mtu $MTU} \
+		                          ${LLADDR:+address $LLADDR} $LINK_OPTIONS
+		for a in 1 2 3 4 5; do is_iface_up $INTERFACE && break; sleep 1; done
+
+		if test "$RUN_FROM_RC" = yes; then 
+			message_n "(autoip) " 
+		else
+			message_n "Starting autoip on $INTERFACE... "
+		fi
+		if test "$status" = BEATEN ; then
+		    message_n "already configured"
+		    test "$RUN_FROM_RC" = yes || message " "
+		    exit $R_SUCCESS
+		fi
+		if test "$status" != CHOOSING -a "$status" != DEFENDING ; then
+		    /sbin/autoip -B $INTERFACE || exit $R_ERROR
+		fi
+
+		for ((i=0; i<30; i++)); do 
+			pid= status= ipaddr=
+			if test -e $info ; then
+			    while read l ; do
+				case $l in
+				    PID=*)    pid="${l#PID=}" ;;
+				    STATUS=*) status="${l#STATUS=}" ;;
+				    IPADDR=*) ipaddr="${l#IPADDR=}" ;;
+				esac
+			    done < $info
+			fi
+			test -n "$status" -a "$status" != CHOOSING && break
+			test -n "$pid" -a ! -d /proc/$pid && {
+			    status=FAILED
+			    break
+			}
+			message_n .\ ; sleep 1
+		done
+		if test "$status" = BEATEN ; then
+			message_n "already configured"
+			test "$RUN_FROM_RC" = yes || message " "
+			exit $R_SUCCESS
+		fi
+		if test "$status" != DEFENDING -o ! -n "$ipaddr" ; then
+			message_n failed
+			test "$RUN_FROM_RC" = yes || message " "
+			exit $R_ERROR
+		fi
+		message_n "IP: $ipaddr"
+		test "$RUN_FROM_RC" = yes || message " "
+
+		;;
+	stop)
+		debug "Shutting down service autoip on $INTERFACE"
+		info=/var/lib/autoip/autoip-$INTERFACE.info
+	        pid=`sed -ne 's/PID=//p' < $info`
+	        test -n "$pid" && kill $pid
+		if [ "$AUTOIP_SET_DOWN_LINK" = yes ] ; then
+			ip link set down dev $INTERFACE
+		fi
+		;;
+	status)
+		if checkproc autoip; then 
+			message_if_not_run_from_rc autoip running 
+		else
+			message_if_not_run_from_rc autoip not running
+		fi
+
+		if test -z "`ip -o -f inet addr show $INTERFACE`"; then
+			message_if_not_run_from_rc $INTERFACE not up
+			exit $R_NOTRUNNING
+		else 
+			message_if_not_run_from_rc $INTERFACE is up
+			message_if_not_run_from_rc "$(ip addr show $INTERFACE)"
+			message_if_not_run_from_rc " "
+
+			case "$BOOTPROTO" in 
+				*autoip*) ;;
+				*)      message $INTERFACE not configured for autoip in
+/etc/sysconfig/network/ifcfg-$CONFIG 
+					message " "
+					exit $R_NOTCONFIGURED
+					;;
+			esac 
+		fi
+esac

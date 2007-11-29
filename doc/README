@@ -1,0 +1,287 @@
+SUSE Linux device and interface configuration
+=============================================
+(Christian Zoz <zoz@suse.de>)
+
+
+This document describes the new concept of device initialization and interface
+configuration. Also if many other services and processes have configuration
+files in /etc/sysconfig these will be described in documents that come with the
+respective package.
+
+The first part explains the background needed to understand the changes we did.
+Then will be explained how device initialization and interface configuration are
+handled. Finally there will be solutions for some problems you may occur.
+
+CONTENTS:
+1) General Concept And Background
+2) Device Initialization
+3) Network Configuration
+4) Storage Configuration
+5) Configuration matching (getcfg)
+6) Solutions For Possible Problems
+
+
+
+===============================================================================
+===============================================================================
+
+1) General Concept And Background
+=================================
+
+
+Introduction, terminology and the old problem
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+With SuSE Linux 9.1 resp. SuSE Linux Enterprise Server 9.0 and all product which
+base on it, we have redesigned initialization of devices and the setup of their
+interfaces. It  bases on hotplug and the new sysfs of kernel 2.6.
+As usual there was not enough time to realize the whole concept, but
+this will be done in further releases.
+
+For better understanding of the new concept you should know what we mean with
+the terms 'device' and 'interface' (*):
+device    is a physical thing. Something that may break apart if you drop it. A
+          device usually needs to be initialized by a driver. After
+          initialization the driver creates interfaces to that device. So an
+interface is a software thing. It has a name and a set of functions. There may
+          be several interfaces per device.
+
+Normally a device and it's interface are an unit. For example a PCI NIC is an
+unit that consists of a device of type PCI and an interface of type network.
+What was really missing in kernels before 2.6 was the information which
+interface was belonging to which device. If a device was initialized the kernel
+numbered the new interface. But this number did not depend on the device of that
+interface, but depended on which other interfaces of the same class have already
+been there.
+
+The only relation we had between devices and interfaces were alias lines in
+modules.conf. But these did never guarantee anything. For example there was
+  alias eth0 driver0 # for device0
+  alias eth1 driver1 # for device1
+Now device0 had a problem and could not be initialized, therefore eth0 was not
+registered. Then a ifup eth1 did trigger the loading of driver1, but the new
+interface was named eth0 and not eth1. This was a rare problem in former times,
+but with more and more hotpluggable devices this became a real problem.
+
+The same happens with other devices as well for example storage devices. The
+kernel does assign interface names like /dev/sd<X> not fixed to certain devices.
+It just enumerates them in the order they come up. Imagine the second of four
+SCSI disks fails, then you get sdb and sdc for what was sdc and sdd before.
+
+
+sysfs and persistent names
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Now everybody cried for persistent interface names. It is possible to have
+persistent interface names since we have sysfs. Mainly of interest in sysfs are
+the subdirs /sys/devices/, /sys/bus, /sys/class and /sys/block. /sys/devices and
+/sys/bus are two different views to the hardware, the devices. And /sys/class
+and /sys/block contain all interfaces which can be addresses from applications.
+(Even if you were used to call /dev/sda a device file, in our terminology this
+is the interface to a storage device).
+
+The main key which makes the new concept possible are links named 'device' which
+point from an certain interface subdir below /sys/class or /sys/block to an
+device subdir below /sys/devices. Only if there is exactly this link we can know
+which interface belongs to which device:
+
+    /sys/block/sda/device ->
+        ../../devices/pci0000:00/0000:00:1d.0/usb1/1-1/1-1:1.0/host0/0:0:0:0
+    /sys/block/sdb/device ->
+        ../../devices/pci0000:20/0000:20:01.1/host1/1:0:0:0
+    /sys/class/net/eth0/device ->
+        ../../../devices/pci0000:00/0000:00:1e.0/0000:02:00.0
+    /sys/class/net/eth2/device ->
+        ../../../devices/pci0000:00/0000:00:1e.0/0000:02:01.1/0000:07:00.0
+
+Now we that we know these relations we can assign persistent names to
+interfaces. Therefore we need a kind of table which maps a the device to
+interface names. For all devices that have /dev/* nodes as interfaces this can
+be done in /etc/udev/udev.conf. For network devices we are going to name the
+configurations files in /etc/sysconfig/network/ifcfg-* with a hardware
+description. For example the configuration ifcfg-id-00:e0:98:a0:83:c2 will
+always be used for the device with MAC address 00:e0:98:a0:83:c2. And inside
+this configuration name you may specify a persistent interface name in the
+variable PERSISTENT_NAME.
+
+
+Reversal of device initialization and interface configuration 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Setting up network interfaces formerly started with the interface. There was a
+configuration for a network interface which did not need to exist. An ifup
+interface triggered a modprobe of the module specified in modules.conf. The
+driver did look for hardware it can handle and registered all interfaces it
+created. The only exception were USB and PCMCIA which are hotpluggable.
+
+From now on, since we know the device interface relations, we start at the other
+end, namely the device. At boot time we scan for available devices and trigger a
+hotplug events for each device found. Devices which are plugged at runtime also
+trigger an event. Hotplug handles these events and call the appropriate agent
+for them to initialize the devices i.e. loads the driver. When the driver
+registers new interfaces, it again triggers hotplug events, this time for the
+interfaces. These events are handled by one of the interface agents.
+
+Therefore we don't need alias lines in modprobe.conf. These are even deprecated,
+because they can cause weird effects now. Formerly these aliases helped to
+automatically initialize a device if some operation from a still not existing
+interface was requested. Now we take the other direction. We initialize the
+devices and automatically set up their interfaces. 
+Imagine you just want to test with ifconfig (*) if a certain interface is
+available and this interface is currently not there, no driver loaded for the
+device. Now when you call 'ifconfig eth1', which does a 'modprobe eth1', which
+loads the driver specified in the alias eth1 line. This driver triggers an event
+which sets up the interface via ifup. That was not what you wanted.
+
+'ifup' does load modules. It just acts on existing interfaces. In normal
+operation all available devices will be initialized at boot time, so that there
+is no need to do this later. But if you configured your system to leave a
+certain device uninitialized, you can initialize it later manually with hwup.
+And if the interface of that device has STARTMODE 'auto', then it will be set up
+automatically as well.
+
+(*) 'ifconfig' is deprecated as well but for other reasons. Better get used to
+    'ip'. Or much better use ifup, ifstatus, ifdown.
+
+
+===============================================================================
+===============================================================================
+
+2) Device Initialization
+========================
+
+Devices should normally be initialized via hwup and stopped via hwdown. The
+configurations for devices can be found in /etc/sysconfig/hardware. Mostly these
+scripts are called from hotplug agents, but also the profile manager (SCPM) or
+power management can stop or start devices. A hwup on a node of the hardware
+trees should trigger the initialization of all devices connected to this node via
+hotplug. And hwdown on a node should first stop connected devices before
+stopping this node. One problem in this concept is that we often cannot
+initialize one single device, if there are multiple devices served by the same
+kernel module. But this will probably change in the future
+
+In SUSE Linux 9.1 resp. SLES 9 this concept is not far evolved. We use hwup for
+hotplug, but if there is no configuration for a device we still go the old way
+of Linux hotplug and try to find a driver automatically. For details read
+/usr/share/doc/packages/hotplug/README.
+
+Currently hwup does only load kernel modules and call possible helper scripts.
+It is called from hotplug with a description of the device (mostly the sysfs
+devpath). It uses getcfg to find a matching configuration and applies that
+configuration. See also man 8 hwup. You may also add a STARTMODE to a
+configuration. To let a device uninitialized at boot time or when plugged then
+STARTMODE=manual (or off) in the configuration file is enough.
+
+The configuration files are /etc/sysconfig/hardware/hwcfg-<configuration name>.
+Configuration names are described in section 5 of this document.
+
+
+===============================================================================
+===============================================================================
+
+3) Network Configuration
+========================
+
+Network interfaces are always set up (down) with ifup (ifdown). These scripts
+are called from hotplug net.agent and from rcnetwork or may be used manually.
+Note that ifup is not designed to load device drivers; it does only act on
+interfaces. Use hwup to initialize devices manually.
+
+
+
+The configuration files are /etc/sysconfig/network/ifcfg-<configuration name>.
+Configuration names are described in section 5 of this document.
+
+------------------------------------------------------------
+Mandatory interfaces:
+
+Rcnetwork (via ifup) sets up only available network interfaces. No
+drivers are loaded as was formerly the case using an alias in
+modprobe.conf. Since SL9.1/SLES9 it is done the other way around:
+Available hardware is reported by the kernel. This triggers the
+initialization of the HW (usually loading modules) and network
+interfaces are registered. They are then set up either by hotplug or
+by rcnetwork.
+
+As this happens asynchronously, it is not guaranteed that all
+interfaces are available when the network script is started. That's
+why the script must wait for interfaces that are missing but marked as
+mandatory. Furthermore it waits until the available interfaces are
+fully set up (eg. get the address via DHCP).
+
+Only when all mandatory interfaces have been successfully set up does
+the network script report success. To prevent it from waiting
+endlessly, there's a timeout:
+/etc/sysconfig/network/config:WAIT_FOR_INTERFACES="20". All this is
+necessary because LSB requires the boot process to have a point in
+time at which the basic network functions are set up so that network
+services can start.
+
+Mandatory interfaces are either those of the devices that are entered
+in /etc/sysconfig/network/config:MANDATORY_DEVICES, or, if the
+variable is empty, those determined by the network script. They are
+all configurations that are neither "bus-pcmcia" nor "bus-usb" nor
+those having STARTMODE "hotplug", "manual" or "off".
+
+This automatic determination is only a fallback because it is allowed
+to have more configurations than available devices. Then it's
+naturally not possible to find a device for every configuration. In
+such case MANDATORY_DEVICES can be set. If one wants to declare all
+devices as optional, it is done by MANDATORY_DEVICES=" " (a blank).
+
+When the timeout expires there are two error cases:
+1) "<HW description> No interface found"
+No interface was found that matches this hardware
+description. Either the (hotplug) device is not available, it could
+not be initialized, or the automatic determination of the mandatory
+devices is not appropriate.
+2) "<interface> interface could not be set up"
+The interface is available but it could not be (fully) set up. Either
+because no configuration was found, or because eg. a DHCP configured
+interface hasn't obtained an address yet. In the latter case the error
+may be temporary.
+
+/etc/sysconfig/network/dhcp:DHCLIENT_WAIT_AT_BOOT="5"
+------------------------------------------------------------
+
+
+===============================================================================
+===============================================================================
+
+4) Storage Configuration
+========================
+
+
+===============================================================================
+===============================================================================
+
+5) Configuration matching (getcfg)
+==================================
+
+
+
+===============================================================================
+===============================================================================
+
+6) Solutions For Possible Problems
+==================================
+
+- both wired and wireless NIC with DHCP: -> ifplugd (seife)
+
+
+##########################
+REVIEW and /or DELETE
+#########################
+
+(*) devices and interfaces:
+This can also be seen much more general. It does not matter if one of this two
+parts are physical or not. It is more the fact that every i/o component of an
+computer has two sides: one side which we call the device is connected somehow
+to the physical main system. The other side provides connection (an interface)
+to another device or to an application:
+A PCI bridge (the device) is connected to a bus system and provides several
+slots (the interfaces) to connect to other devices, maybe a SCSI controller or a
+network interface card.
+A SCSI controller (the device) is connected to a PCI bus and provides several
+connectors (interfaces) to storage devices.
+The (driver of the) storage device now provides several connectors (software
+interfaces) to applications (/dev/sda, /dev/sda<N>)
+The network interface card (the device) provides connectors (software
+interfaces)

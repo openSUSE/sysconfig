@@ -1,0 +1,263 @@
+#!/bin/bash
+#
+# converts S390 hwcfg files to udev rules.
+#
+
+UDEVDIR=/etc/udev/rules.d
+RULE=51
+
+write_dasd_rules () {
+    local file=$UDEVDIR/$RULE-$type-${busid}.rules
+
+    echo "# Rules converted from $cfgname" > $file
+    cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$busid", IMPORT{program}="collect $busid %k $busid $ccwtype-$subtype"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype-$subtype", IMPORT{program}="collect $busid %k $busid $ccwtype-$subtype"
+ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/0.0.0150]online}="1"
+EOF
+}
+    
+write_ctc_rules () {
+    local file=$UDEVDIR/$RULE-$type-${busid}.rules
+    local attr
+
+    echo "# Rules converted from $cfgname" > $file
+    cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $ccwtype"
+EOF
+    for chan in $CCW_CHAN_IDS ; do
+	cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", RUN+="/sbin/modprobe --quiet $MODULE"
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $ccwtype"
+EOF
+    done
+    attr=$(echo $CCW_CHAN_IDS | sed 's/ /,/g')
+    cat >> $file <<EOF
+TEST=="[ccwgroup/$busid]", GOTO="$type-${busid}_end"
+ACTION=="add", SUBSYSTEM=="$bus", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
+EOF
+    if [ "$CCW_CHAN_MODE" -ne 0 ] ; then
+        cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{protocol}="$CCW_CHAN_MODE"
+EOF
+    fi
+    cat >> $file <<EOF
+LABEL="$type-${busid}_end"
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{online}="1"
+EOF
+}
+
+write_qeth_rules () {
+    local file=$UDEVDIR/$RULE-$type-${busid}.rules
+    local attr
+
+    echo "# Rules converted from $cfgname" > $file
+    cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $ccwtype"
+EOF
+    for chan in $CCW_CHAN_IDS ; do
+	cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", RUN+="/sbin/modprobe --quiet $MODULE"
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $ccwtype"
+EOF
+    done
+    attr=$(echo $CCW_CHAN_IDS | sed 's/ /,/g')
+    cat >> $file <<EOF
+TEST=="[ccwgroup/$busid]", GOTO="$type-${busid}_end"
+ACTION=="add", SUBSYSTEM=="$bus", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
+EOF
+    if [ "$CCW_CHAN_MODE" ] ; then
+        cat >> $file <<EOF
+# Set the portname
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{portname}="$CCW_CHAN_MODE"
+EOF
+    fi
+    if [ "$QETH_LAYER2_SUPPORT" = "1" ] ; then
+        cat >> $file <<EOF
+# Enable Layer2 Support
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{layer2}="1"
+EOF
+    fi
+    if [ "$QETH_IPA_TAKEOVER" = "1" ]; then
+        cat >> $file <<EOF
+# Enable IPA takeover
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{ipa_takeover/enable}="1"
+EOF
+    fi
+
+    for opt in $QETH_OPTIONS; do
+	saved_IFS="$IFS"
+	IFS='='
+	set -- $opt
+	opt_name=$1
+	opt_val=$2
+	IFS="$saved_IFS"
+	case "$opt_name" in
+	    portname|ipa_takeover|layer2)
+	        # These options are set above
+                : ignore
+		;;
+	    *)
+	        if [ "$opt_name" -a "$opt_val" ]; then
+		    cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{$opt_name}="$opt_val"
+EOF
+		fi
+		;;
+        esac
+    done
+    cat >> $file <<EOF
+LABEL="$type-${busid}_end"
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{online}="1"
+EOF
+}
+
+filename=${1}
+
+if [ ! -f "$filename" ] ; then
+    echo "No hwcfg file given"
+    exit 0
+fi
+
+source $filename
+
+case "$filename" in
+    */hwcfg-*|hwcfg-*)
+	cfgname=${filename##*hwcfg-}
+	;;
+esac
+
+if [ -z "$cfgname" ] ; then
+    echo "Invalid hwcfg filename $filename"
+    exit 0
+fi
+
+OIFS=$IFS
+IFS=-; set -- $cfgname
+IFS=$OIFS
+
+while [ -z "$devtype" ] ; do
+    case "$1" in
+	id|bus|devpath|interface|vpid|type)
+	    devtype=$1
+	    ;;
+	*)
+	    type=$1
+	    ;;
+    esac
+    shift
+done
+
+case "$devtype" in
+    bus)
+	bus=$1
+	busid=$2
+	;;
+    *)
+	echo "Unhandled configuration type \"$devtype\""
+	exit 1
+	;;
+esac
+
+[ "$bus" ] && [ -z "$busid" ] && echo "No bus ID given" && exit 1
+
+if [ "$bus" = "ccw" ] ; then
+    if [ -z "$ccwtype" ] ; then
+	# Get the type from sysfs
+	read cutype < /sys/bus/ccw/devices/$busid/cutype
+	read devtype < /sys/bus/ccw/devices/$busid/devtype
+
+	case "$cutype" in
+	    3088/01)
+                # P/390 network adapter
+		ccwtype="cu3088"
+		subtype="lcs"
+		CCW_CHAN_NUM=2
+		;;
+	    3088/08)
+                # Channel To Channel
+		ccwtype="cu3088"
+		subtype="ctc"
+		CCW_CHAN_NUM=2
+                ;;
+	    3088/1e)
+                # FICON adapter
+		ccwtype="cu3088"
+		subtype="ctc"
+		CCW_CHAN_NUM=2
+                ;;
+	    3088/1f)
+                # ESCON adapter (I.e. hardware CTC device)
+		ccwtype="cu3088"
+		subtype="ctc"
+		CCW_CHAN_NUM=2
+		;;
+	    3088/60)
+                # Lan Control Station
+		ccwtype="cu3088"
+		subtype="lcs"
+		CCW_CHAN_NUM=2
+		;;
+	    1731/01|1731/05|1731/06)
+                # OSA/Express or Guest LAN
+		ccwtype="qeth"
+		CCW_CHAN_NUM=3
+		;;
+	    1731/03)
+                # zFCP adapter
+		if [ "$_dev_type" == "1732/03" -o "$_dev_type" == "1732/04" ]; then
+		    ccwtype="zfcp"
+		fi
+		;;
+	    3480/*|3490/*)
+                # IBM 3480/3490 tape driver
+		if [ "$devtype" == "$cutype" ]; then
+		    ccwtype="tape-34xx"
+		fi
+		;;
+	    3990/*|2105/*|9343/*|2107/*|1750/*)
+                # DASD (ECKD mode)
+		ccwtype="dasd"
+		subtype="eckd"
+		;;
+	    6310/*)
+                # DASD (FBA mode)
+		ccwtype="dasd"
+		subtype="fba"
+		;;
+	    3880/*)
+		case "$devtype" in
+		    3390/*)
+                        # DASD (ECKD mode)
+			ccwtype="dasd"
+			subtype="eckd"
+			;;
+		    3370/*)
+                        # DASD (FBA mode)
+			ccwtype="dasd"
+			subtype="fba"
+		;;
+		esac
+		;;
+	esac
+    fi
+
+    case "$type" in
+	dasd)
+	    write_dasd_rules
+	    ;;
+	ctc|lcs)
+	    write_ctc_rules
+	    ;;
+	qeth|hsi)
+	    write_qeth_rules
+	    ;;
+	*)
+	    echo "Cannot convert $type rules"
+	    ;;
+    esac
+else
+    echo "Unknown bus type $bus"
+fi

@@ -1,0 +1,10 @@
+Makefile.in
+Makefile
+.deps
+.libs
+ifuser
+getcfg
+autoip
+*.lo
+*.la
+*.swp

@@ -1,0 +1,1291 @@
+#!/bin/bash
+#
+# Network interface configuration
+#
+# Copyright (c) 2002-2006 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Michal Svec <msvec@suse.cz>
+#         Christian Zoz <zoz@suse.de>
+#         Mads Martin Joergensen <mmj@suse.de>
+#         Bjoern Jacke
+#         Michal Ludvig <mludvig@suse.cz>
+#
+# $Id$
+#
+
+usage () {
+	echo $@
+	echo "Usage: if{up,down,status} [<config>] <interface> [-o <options>]"
+	echo
+	echo "Options are:"
+	echo "    [on]boot : we are currently booting (or shutting down)"
+	echo "    auto     : alias for boot"
+	echo "    hotplug  : we are handling a hotplug event"
+	echo "    manual   : we do it manually (default, just needed with 'rc'"
+	echo "    rc       : we are called by a rc script (implies auto)"
+	echo "    dhcp     : we are called from dhcp client" 
+	echo "    prov=<n> : use provider <n> (for dial up interface)"
+	echo "    nodeps   : don't shut down interfaces depending on this" 
+	echo "    debug    : be verbose"
+	if [ "$SCRIPTNAME" = "ifstatus" ] ; then
+		echo "    syslog   : write to syslog if USE_SYSLOG=yes"
+		echo -e "    check    : return R_BUSY (=$R_BUSY) if there are" \
+		      "\n               active connections on this interface"
+	else
+		echo "    nosyslog : don't write to syslog even if USE_SYSLOG=yes"
+	fi
+	echo "If options are contradictionary, last option wins. Unknown options"
+	echo "are simply ignored, so be careful."
+	echo
+	exit $R_USAGE
+}
+
+exithook () {
+	RET_VAL=${1:-0}
+	if [ "$LOCK_RET_STATE" != yes ] ; then
+		case $RET_VAL in
+			$R_SUCCESS) RET_STATE=success ;;
+			$R_DHCP_BG) RET_STATE=progress ;;
+		esac
+	fi
+	RET_STATE=${2:-$RET_STATE}
+	exit $RET_VAL
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+# . scripts/extradebug
+
+######################################################################
+# Commandline parsing
+#
+# if{up,down,status} [config] hwdesc [-o options]
+SCRIPTNAME=${0##*/}
+debug $*
+case "$1" in ""|-h|*help*) usage; esac
+INTERFACE=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	CONFIG=$INTERFACE
+	INTERFACE=$1
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS=$@
+MODE=manual
+HOTPLUG=no
+CONTROL_IFPLUGD=yes # Start/Stop ifplugd?
+# Don't log messages from ifstatus in syslog by default (Bug 261350). This
+# overwrites the config variable /etc/sysconfig/network/config:USE_SYSLOG
+export DONT_USE_SYSLOG=no
+test "$SCRIPTNAME" == ifstatus && DONT_USE_SYSLOG=yes
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=auto ;;
+		auto)        MODE=auto ;;
+		hotplug)     MODE=auto
+		             HOTPLUG=yes ;;
+		rc)          RUN_FROM_RC=yes
+		             MODE=auto ;;
+		manual)      MODE=manual ;;
+		ifplugd)     CONTROL_IFPLUGD=no ;; # No, set up iface instead
+		check)       CHECK=yes ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		nosyslog)    DONT_USE_SYSLOG=yes ;;
+		syslog)      DONT_USE_SYSLOG=no ;;
+		prov=*)      PROVIDER=${1##*=} ;;
+		dhcp)        DHCP=yes; CONTROL_IFPLUGD=no ;;
+		nodeps)      NODEPS=yes ;;
+		*)           debug "unknown option $1 ignored" ;;
+	esac
+	shift
+done
+# Source functions.common again, because values of DEBUG and BE_QUIET might
+# have changed. These variable will be evaluated while sourcing the file.
+test -f scripts/functions.common \
+	&& . scripts/functions.common \
+	|| exit $R_INTERNAL
+
+
+######################################################################
+# Get a configuration name
+
+if [ -z "$CONFIG" ] ; then
+	read CONFIG < <(read_cached_config_data config $INTERFACE)
+fi
+if [ -z "$CONFIG" ] ; then
+	CONFIG=$INTERFACE
+fi
+
+case $SCRIPTNAME in
+	ifprobe)
+		IFUPFILE=$RUN_FILES_BASE/ifup-$INTERFACE
+		if [ ! -e "$IFUPFILE" ] ; then
+			IFUPFILE=$RUN_FILES_BASE/if-$INTERFACE
+		fi
+		if [ -e $IFUPFILE ] ; then
+			for FILE in if{cfg,route,services}-$CONFIG \
+			            config dhcp wireless routes; do
+				test -e $FILE || continue
+				test $FILE -nt $IFUPFILE || continue
+				message "`printf "    %-9s changed config file: %s %s" \
+				         $INTERFACE "$FILE" "--> restart interface!"`"
+				exit $R_NOT_UP2DATE
+			done
+		fi
+		exit $R_SUCCESS
+		;;
+esac
+
+
+######################################################################
+# Find out the type of the interface
+# This may be overwritten in the configuration file
+#
+test -z "$INTERFACETYPE" && INTERFACETYPE=`get_iface_type $INTERFACE`
+test -z "$INTERFACETYPE" && INTERFACETYPE=`get_iface_type_from_config $INTERFACE`
+# at least ifup-wireless needs $INTERFACETYPE, so we have to export it
+export INTERFACETYPE
+# Test for wlan helper interfaces and skip these
+if [ "$INTERFACETYPE" == wlan_aux ] ; then
+	message "interface '$INTERFACE' is a wlan helper interface. Exiting.";
+	exit $R_SUCCESS
+fi
+
+
+######################################################################
+# Set renamed flag for this interface
+#
+# This is needed if ifup is called via udev before rcnetwork was started.
+# Without this flag rcnetwork does not know if renaming was completed and
+# will therefore wait unneccessarily. In older releases we did this in
+# rename_netiface, but since rename_netiface is gone we do it here.
+if [ "$SCRIPTNAME" == ifup -a "$HOTPLUG" == yes ] ; then
+	IFINDEX=/sys/$DEVPATH/ifindex
+	if [ -r "$IFINDEX" ] ; then
+		STAMPFILE=$STAMPFILE_STUB`cat $IFINDEX`
+		echo renamed > $STAMPFILE
+	fi
+fi
+
+
+######################################################################
+# Now source the configuration file and check if we have an interface
+#
+if [ -n "$CONFIG" -a -r ifcfg-$CONFIG ] ; then
+	. ifcfg-$CONFIG
+	# Store config name persistently for use in ifplugd-selectif after
+	# interface has gone. Without that info it will not activate
+	# alternative interface in this case. Used in get_ifplugd_priority()
+	echo $CONFIG > $RUN_FILES_BASE/config-$INTERFACE
+fi
+
+if ! is_iface_available $INTERFACE; then
+	if [ "$SCRIPTNAME" != ifdown ] ; then
+		logerror Interface $INTERFACE is not available
+		exit $R_NODEV
+	else
+		if [ "$RUN_FROM_RC" = yes -o "$HOTPLUG" = yes ] ; then
+			: just go on, there are things to clean up even if iface has gone
+		else
+			# message "There is no interface '$INTERFACE'"
+			MESS_NO_IFACE="no such interface"
+		fi
+	fi
+fi
+
+
+######################################################################
+# Check if NetworkManager is running and inform both NM and the user
+# 
+case "$INTERFACETYPE" in
+		wlan|eth|tr) : ;;
+		*) : ${NM_CONTROLLED:=no} ;;
+esac
+if nm_running && [ "$NM_CONTROLLED" != no ] ; then
+	mesg "Network interface is managed from NetworkManager"
+	retcode=$R_SUCCESS
+	case $SCRIPTNAME in
+		ifup)
+			mesg "NetworkManager will be advised to set up $INTERFACE" \
+			     "\nbut it cannot be assured from here."
+			/bin/dbus-send --system --dest='org.freedesktop.NetworkManager' \
+			        '/org/freedesktop/NetworkManager' \
+			        'org.freedesktop.NetworkManager.setActiveDevice' \
+			        objpath:'/org/freedesktop/NetworkManager/Devices/'$INTERFACE
+			;;
+		ifdown)
+			mesg "NetworkManager cannot be advised to take down an interface." \
+			     "\nSet up another interface instead."
+			retcode=$R_NOTIMPL
+			;;
+		ifstatus)
+				if is_iface_up $INTERFACE ; then
+					message_if_not_run_from_rc "$INTERFACE is up"
+					message_if_not_run_from_rc "$(ip addr show $INTERFACE)"
+					while read a b c d e f g h i; do
+						message "`printf "    %-9s IP address: %s" "$i" "$d"`"
+					done < <(ip -o -4 addr show $INTERFACE)
+					message_if_not_run_from_rc "$(ip route show dev $INTERFACE)"
+				else
+					message "`printf "    %-9s is down" $INTERFACE`"
+					retcode=$R_INACTIVE
+				fi
+				E="`iwconfig eth0 2>/dev/null \
+				    | sed -n 's/^.*ESSID:\"\(.*\)\"/\1/p'`"
+				scripts/ifstatus-services "${INTERFACE}${E:+-$E}"
+			;;
+		*)
+			mesg "unknown command"
+			retcode=$R_USAGE
+			;;
+	esac
+	exit $retcode
+fi
+
+
+######################################################################
+# work around bug 85849
+# If interface is not configured for dhcp, but ifup/down -o dhcp was
+# called from dhcpcd, then exit. This case may happen when dhcpcd was
+# called directly.
+case "$BOOTPROTO" in
+	dhcp|DHCP) : ;; # go on
+	*)
+		if [ "$DHCP" = yes ] ; then
+			logerror "Interface $INTERFACE is not configured for dhcp." \
+                  "So don't use '-o dhcp'."
+			exit $R_USAGE
+		fi ;;
+esac
+
+
+######################################################################
+# check if service network was started and skip ifup in auto mode
+#
+if [ "$SCRIPTNAME" = ifup -a "$MODE" = auto ] ; then
+	if [ ! -f "$NETWORK_RUNFILE" ] ; then
+		message "Service network not started and mode 'auto' -> skipping"
+		exit $R_SUCCESS
+	fi
+fi
+
+
+######################################################################
+# If we were called via hotplug or from rc-script then start/stop ifplugd if
+# configured for this interface
+#
+IFPLUGD=/sbin/ifplugd
+#if [ \(    "$HOTPLUG"     = yes    \
+#        -o "$RUN_FROM_RC" = yes \) \
+#     -a -x "$IFPLUGD" ] ; then
+if [ "$CONTROL_IFPLUGD" == yes ] ; then
+	case $SCRIPTNAME in
+		ifup)
+			if [ $((IFPLUGD_PRIORITY)) -gt 0 ] ; then
+				IFPLUGSCRIPT="-r $PWD/scripts/ifplugd-selectif"
+			fi
+			# -a do not set interface UP automatically
+			# -f ignore failure, treated as no link
+			# -F ignore failure, treated as link detected
+			# -I don't terminate when script returns error
+			# -q don't down iface when terminating
+			# -w wait on fork for link status
+			if [ "$STARTMODE" = ifplugd ] ; then
+				if [ ! -x "$IFPLUGD" ] ; then
+					logerror "Package ifplugd not installed: missing $IFPLUGD"
+					exit $R_ERROR
+				fi
+				# ifplugd does get link status properly for wlan interfaces.
+				# Therefore we don't start it for these. If multiple interfaces were
+				# configured with ifplugd, wlan iface will be set up when no iface
+				# with higher priority (== wired iface) has a link.
+				if [ "$INTERFACETYPE" = "wlan" ]; then
+					write_cached_config_data link yes $INTERFACE
+				else
+					$IFPLUGD -i $INTERFACE $IFPLUGSCRIPT \
+						${IFPLUGD_OPTIONS:- -f -I}
+				fi
+			fi
+			# We need this flag later for ifstatus, because we must avoid that
+			# connection state is checked to early
+			( sleep 3; touch $RUN_FILES_BASE/ready-$INTERFACE; ) &
+			;;
+		ifdown)
+			if [ "$INTERFACETYPE" != "wlan" -a -f /var/run/ifplugd.$INTERFACE.pid ]; then
+				$IFPLUGD -i $INTERFACE -k 2>/dev/null
+				# When ifplug terminates it calls the down script which in turn
+				# runs ifdown without '-o hotplug' or '-o rc' and writes status
+				# information. But we must wait and ensure that all this info is
+				# deleted afterwards.
+				# Additionally ifdown must not return before ifplugd has terminated
+				# so that a new ifplugd may be started when calling 'rcnetwork
+				# restart' (See bug 129648).
+				for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+					if [ ! -f /var/run/ifplugd.$INTERFACE.pid ] ; then
+						debug "ifplugd terminated"
+						break
+					fi
+					debug "waiting for ifplugd to terminate ($i)"
+					sleep 1
+				done
+			fi
+			;;
+	esac
+fi
+
+######################################################################
+# Shut down depending interfaces
+#
+# Check if there are interfaces which depend on this interface. If yes these
+# have to be shut down first.
+# For example these might be bonding or vlan interfaces. Note that we don't
+# catch all types of depending interfaces currently. See function
+# 'get_depending_ifaces' in file 'functions' for details.
+#
+test "$SCRIPTNAME" = ifdown && DEP_IFACES=`get_depending_ifaces $INTERFACE`
+if [ "$?" = 0 -a "$NODEPS" != yes ] ; then
+	message "`printf "    %-9s is still used from interfaces %s" \
+	                 $INTERFACE "$DEP_IFACES"`"
+	for DI in $DEP_IFACES; do
+		ifdown $DI -o $OPTIONS	
+	done
+	message "`printf "    %-9s now going down itself" $INTERFACE`"
+fi
+
+######################################################################
+# write status information into the interface data cache
+#
+
+setexitstate () {
+	case $SCRIPTNAME in
+		ifup)
+			case $RET_STATE in
+				removed)
+					delete_from_cached_config_data '*' '' $INTERFACE
+					;;
+				success)
+					write_cached_config_data status connected $INTERFACE
+					write_cached_config_data up yes $INTERFACE PFX=ifup-
+					;;
+				progress)
+					write_cached_config_data status connecting $INTERFACE
+					write_cached_config_data up yes $INTERFACE PFX=ifup-
+					;;
+				failure|ifplugd)
+					write_cached_config_data status disconnected $INTERFACE
+					;;
+				*)
+					write_cached_config_data status "$RET_STATE" $INTERFACE
+					;;
+			esac
+			commit_cached_config_data $INTERFACE
+			commit_cached_config_data $INTERFACE PFX=ifup-
+			;;
+		ifdown)
+			test "$HOTPLUG" = yes && RET_STATE=removed
+			test "$RUN_FROM_RC" = yes && RET_STATE=removed
+			case $RET_STATE in
+				removed)
+					delete_from_cached_config_data '*' '' $INTERFACE
+					;;
+				success)
+					write_cached_config_data status disconnected $INTERFACE
+					;;
+				progress)
+					write_cached_config_data status disconnecting $INTERFACE
+					;;
+				failure)
+					write_cached_config_data status connected $INTERFACE
+					;;
+				*)
+					write_cached_config_data status "$RET_STATE" $INTERFACE
+					;;
+			esac
+			commit_cached_config_data $INTERFACE
+			delete_from_cached_config_data '*' '' $INTERFACE PFX=ifup-
+			commit_cached_config_data $INTERFACE PFX=ifup-
+			;;
+	esac
+}
+
+exittrap () {
+	if [ "$RET_STATE" != keep_state ] ; then
+		setexitstate
+	fi
+}
+
+case $SCRIPTNAME in
+	ifup)
+		write_cached_config_data config "$CONFIG" $INTERFACE
+		write_cached_config_data status connecting $INTERFACE
+		if [ "$RUN_FROM_RC" != yes ] ; then
+			write_cached_config_data provider "$PROVIDER" $INTERFACE
+		fi
+		commit_cached_config_data $INTERFACE
+		RET_STATE=failure
+		trap exittrap EXIT
+		;;
+	ifstatus)
+		:
+		;;
+	ifdown)
+		write_cached_config_data status disconnecting $INTERFACE
+		if [ "$RUN_FROM_RC" != yes ] ; then
+			delete_from_cached_config_data provider "" $INTERFACE
+		fi
+		commit_cached_config_data $INTERFACE
+		RET_STATE=failure
+		trap exittrap EXIT
+		;;
+esac
+
+
+######################################################################
+# Print some info
+#
+
+get_businfo() {
+	cd -P /sys/class/net/$1/device 2>/dev/null || return
+	echo BUSID=${PWD##*/}
+	echo VENDORID=`cat vendor 2>/dev/null`
+	echo PRODUCTID=`cat device 2>/dev/null`
+	cd -P subsystem 2>/dev/null || return
+	echo BUSNAME=${PWD##*/}
+}
+
+eval `get_businfo $INTERFACE`
+DEVNAME=
+if [ -n "$VENDORID$PRODUCTID" -a "$BUSNAME" = pci -a -x /sbin/lspci ] ; then
+	DEVNAME=`lspci -d $VENDORID:$PRODUCTID 2>/dev/null | sed -n 1p`
+	DEVNAME=${DEVNAME#*: }
+fi
+if [ "$BUSNAME" = pcmcia ] ; then
+	DEVNAME=`cat /sys/class/net/$INTERFACE/device/prod_id*`
+fi
+if [ -n "$DEVNAME" ] ; then
+	message "`printf "    %-9s device: %s" $INTERFACE "$DEVNAME"`"
+else
+	message "`printf "    %-9s %s" "$INTERFACE" "$MESS_NO_IFACE"`"
+fi
+
+######################################################################
+# What shell we do if there is no configuration data?
+# - fail
+# - get it automatically
+# - ask the user
+if [    "$SCRIPTNAME" != ifdown  \
+     -a \(      -z "$CONFIG"     \
+           -o ! -r ifcfg-$CONFIG \) ] ; then
+	RET_STATE=removed
+	logerror "              No configuration found for $INTERFACE"
+	exit $R_NOCONFIG
+fi
+if [    "$SCRIPTNAME" = ifdown  \
+     -a \(      -z "$CONFIG"     \
+           -o ! -r ifcfg-$CONFIG \) ] ; then
+	RET_STATE=removed
+	LOCK_RET_STATE=yes
+	if is_iface_available $INTERFACE; then
+		logerror "              No configuration found for $INTERFACE" \
+		         "\n              Nevertheless the interface will be shut down."
+	else
+		logerror "Interface not available and no configuration found."
+		exit $R_NOCONFIG
+	fi
+fi
+
+
+######################################################################
+# read possibly stored provider
+#
+# If we don't know a provider name, let's have a look if a provider was stored
+# in the runtime data cache for this configuration.
+if [ "$SCRIPTNAME" != ifdown -a -z "$PROVIDER" ] ; then
+	PROVIDER=`read_cached_config_data provider $INTERFACE`
+fi
+
+
+######################################################################
+# check startmode (not for ifdown)
+#
+# STARTMODE is from config file; MODE is current mode
+test "$STARTMODE" = "on"      && STARTMODE=auto
+test "$STARTMODE" = "boot"    && STARTMODE=auto
+test "$STARTMODE" = "onboot"  && STARTMODE=auto
+test "$STARTMODE" = "hotplug" && STARTMODE=auto
+if [ "$STARTMODE" = "nfsroot" ] ; then
+	STARTMODE=auto
+	# if this interface serves nfs root, then don't shut it down via rcnetwork
+	if [ "$SCRIPTNAME" = ifdown -a "$RUN_FROM_RC" = yes ] ; then
+		message "`printf "    %-9s serves root filesystem. Leave it up." \
+		                 "$INTERFACE"`"
+		RET_STATE=keep_state
+		exit $R_NOTCONFIGURED
+	fi
+fi
+if [ "$STARTMODE" == ifplugd -a "$CONTROL_IFPLUGD" == yes ] ; then
+	if [ "$SCRIPTNAME" == ifup ] ; then
+		message "`printf "    %-9s is controlled by ifplugd" $INTERFACE`"
+		if [ "$INTERFACETYPE" = "wlan" ]; then
+			# Since exec deletes our traps we have to call
+			# exittrap explicitely to set connection state
+			RET_STATE=ifplugd
+			exittrap
+			exec scripts/ifplugd-selectif $INTERFACE up > /dev/null
+		fi
+		exit $R_DHCP_BG
+	fi
+fi
+test -z "$STARTMODE" && STARTMODE=manual
+if [ "$SCRIPTNAME" = ifup ] ; then
+	case "$MODE:$STARTMODE" in
+		force:*)       : go on ;;
+		manual:manual) : go on ;;
+		manual:auto)   : go on ;;
+		manual:ifplugd): go on ;;
+		auto:auto)     : go on ;;
+		auto:ifplugd)  : go on ;;
+		*:off)         : exit
+			message "`printf "    %-9s Startmode is 'off'" $INTERFACE`"
+			RET_STATE=removed # Don't write status information file in this case
+			exit $R_INACTIVE
+			;;
+		*:*)           : exit
+			message "`printf "    %-9s Startmode is '%s'" $INTERFACE $STARTMODE`"
+			exit $R_NOTCONFIGURED
+			;;
+	esac
+fi
+
+
+######################################################################
+# call optional and individual scripts
+#
+
+# DHCP special:
+#
+# When DHCP is used ifup runs twice. First it triggers the dhcp client. As soon
+# as the client got a valid ip address it calls ifup again with option 'dhcp' to
+# finish individual setup. ifdown is first called from dhcp client with option
+# 'dhcp' and then as usual.
+#
+# When called directly (from rcnetwork or manually, $DHCP!=yes) only PRE_UP
+# (ifup) and POST_DOWN (ifdown) scripts are called. And of course ifup-dhcp is
+# called.
+#
+# When called from dhcp client (with option "dhcp", $DHCP=yes) then POST_UP
+# (ifup) and PRE_DOWN (ifdown) are called. Additionally if{up,down}-route is
+# called to make it possible to set individual routes _after_ dhcp client
+# brought up the interface.
+#
+# PRE_DOWN is now called directly, because dhcpcd calls it hook script always
+# after removing the ip address (i.e. POST) (Bug 61842)
+
+if [ "$SCRIPTNAME" = ifdown ] ; then
+
+	# execute global down/stop scripts
+	if [ "$GLOBAL_PRE_DOWN_EXEC" = "yes" ]; then
+		for SCRIPT in if-down.d/*; do
+			[ -d $SCRIPT -o ! -x $SCRIPT ] && continue;
+			# ignore backup files and leftovers from rpm
+			echo $SCRIPT | grep -q '\(\.rpm\(save\|new\)$\)\|\(.~$\)' && continue;
+			debug "executing additional global stop script $SCRIPT"
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		done
+	fi
+
+	# execute an individual prestop script if available
+	# NOTE: 'eval echo' in the next line is necessary to expand settings
+	# like PRE_DOWN_SCRIPT="~root/bin/foo"
+	for SCRIPT in `eval echo $PRE_DOWN_SCRIPT scripts/$PRE_DOWN_SCRIPT`; do
+		if [ -x "$SCRIPT" -a ! -d "$SCRIPT" ] ; then
+			debug "executing additional stop script $SCRIPT"
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		fi
+	done
+
+	# shut down depending services first
+	scripts/${SCRIPTNAME}-services $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+
+fi
+
+# execute an individual prestart script if available
+if [ "$SCRIPTNAME" = ifup \
+     -a \( "$BOOTPROTO" != dhcp -o "$DHCP" != yes \) ] ; then
+	# NOTE: 'eval echo' in the next line is necessary to expand settings
+	# like PRE_UP_SCRIPT="~root/bin/foo"
+	for SCRIPT in `eval echo $PRE_UP_SCRIPT scripts/$PRE_UP_SCRIPT`; do
+		if [ -x "$SCRIPT" -a ! -d "$SCRIPT" ] ; then
+			debug "executing additional start script $SCRIPT"
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		fi
+	done
+fi
+
+
+######################################################################
+# call some default helper scripts
+#
+
+# call them only if we are not in the second run for dhcp
+if [ "$DHCP" != yes ] ; then
+
+	# perhaps we have to close some connections first when ifdown
+	if [ "$SCRIPTNAME" = ifdown ] ; then
+		scripts/${SCRIPTNAME}-connection $CONFIG $INTERFACE \
+		                                 ${OPTIONS:+-o $OPTIONS}
+	fi
+	
+	# before setting up interfaces we have to configure wireless NICs
+	if [ "$SCRIPTNAME" = ifup ] ; then
+		scripts/${SCRIPTNAME}-wireless $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		test "$?" -ne 0 && exit
+	fi
+	
+	# Frob vlan interface
+	if [ "$SCRIPTNAME" = ifup -a "$INTERFACETYPE" = vlan ]; then
+		scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+	fi
+
+	# Frob bridge interface
+	if [ "$INTERFACETYPE" == bridge -a "$SCRIPTNAME" = ifup ]; then
+		scripts/${SCRIPTNAME}-bridge $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		test "$?" -ne 0 && exit
+	fi
+	
+	# exec if*-ppp for modem and dsl
+	case $INTERFACETYPE in
+		modem|dsl|ppp)
+			scripts/${SCRIPTNAME}-ppp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			retcode=$?
+			# If ifup, an exit value of 0 does just mean that smpppd will go to
+			# establish the connection, but it's still not connected.
+			if [ \( "$retcode" = "$R_SUCCESS" -a "$SCRIPTNAME" = ifup \) \
+			     -o "$retcode" = "$R_DHCP_BG" ] ; then
+				RET_STATE=progress
+			else
+				RET_STATE=success
+			fi
+			# We write the exit status immediately and leave it alone when we
+			# are finished, because smpppd may already change it while we are
+			# still running some POST_* scripts.
+			setexitstate
+			RET_STATE=keep_state
+			LOCK_RET_STATE=yes
+			# Don't execute maim part of ifup, but all helper scripts and hooks
+			SKIP_MAIN_PART=skip
+			;;
+	esac
+
+	# exec interface-type ifup if present
+	# If someone names an interface 'wireless', ifup-wirelss might be called
+	# here. To avoid this we check if INTERFACETYPE != wireless. ifup-wireless
+	# will be called later anyway. (bug 83786)
+	INTERFACESCRIPT="scripts/${SCRIPTNAME}-${INTERFACETYPE}"
+	# Some scripts will be called anyway. So we must avoid that they will be
+	# called a second time here.
+	case "$INTERFACETYPE" in
+		802.1q)        : ;;
+		autoip)        : ;;
+		bridge)        : ;;
+		dhcp)          : ;;
+		ppp)           : ;;
+		route)         : ;;
+		services)      : ;;
+		skel)          : ;;
+		wireless)      : ;;
+		*)
+			if [ -x "$INTERFACESCRIPT" ] ; then
+				$INTERFACESCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				retcode=$?
+				SKIP_MAIN_PART=skip
+			fi
+			;;
+	esac
+fi
+
+
+######################################################################
+# Change device settings via ethtool.
+#
+if [ "$SCRIPTNAME" = ifup -a -n "$ETHTOOL_OPTIONS" ]; then
+	# There were cases where interfaces were not ready for ethtool
+	# immediately after registration. 
+	test -n "$ETHTOOL_WAIT" && sleep $ETHTOOL_WAIT 2>/dev/null
+	case $ETHTOOL_OPTIONS in
+		-*) # got an option, replace second word with current interface name
+			read ETHTOOL_SWITCH xifacex ETHTOOL_SETTINGS < <(echo $ETHTOOL_OPTIONS)
+			ETHTOOL_OPTIONS="$ETHTOOL_SWITCH $INTERFACE $ETHTOOL_SETTINGS"
+			;;
+		*)  # old style, setting a parameter...
+			ETHTOOL_OPTIONS="-s $INTERFACE $ETHTOOL_OPTIONS"
+			;;
+	esac
+	MESSAGE="`/usr/sbin/ethtool $ETHTOOL_OPTIONS 2>&1`"
+	test $? != 0 \
+		&& err_mesg "Error while executing: /usr/sbin/ethtool $ETHTOOL_OPTIONS" \
+		|| info_mesg "/usr/sbin/ethtool $ETHTOOL_OPTIONS"
+	test -n "$MESSAGE" && err_mesg "$MESSAGE"
+fi
+
+
+######################################################################
+# Tunnel setup
+#
+if [    "$INTERFACETYPE" = "sit" \
+     -o "$INTERFACETYPE" = "gre" \
+     -o "$INTERFACETYPE" = "ipip" ]; then
+
+	# Backwards compliance hack:
+	# TUNNEL_DEVICE is new since SL9.1/SLES9. Up to then TUNNEL_LOCAL_INTERFACE
+	# was used in configuration files
+	if [ -z "$TUNNEL_DEVICE" ] ; then
+		TUNNEL_DEVICE=$TUNNEL_LOCAL_INTERFACE
+	fi
+	# Get current interface name of tunnel device	
+	TUNNEL_LOCAL_INTERFACE=$TUNNEL_DEVICE
+
+	# Get IPv4 address of local tunnel endpoint 
+	# in the case it wasn't set in the config file.
+	if [ -z "$TUNNEL_LOCAL_IPADDR" -a -n "$TUNNEL_LOCAL_INTERFACE" ]; then
+		TUNNEL_LOCAL_IPADDR=`is_iface_up $TUNNEL_LOCAL_INTERFACE && \
+		                     get_ipv4address $TUNNEL_LOCAL_INTERFACE`
+		if [ "$?" != 0 ] ; then
+			logerror "failed to get IPv4 address of $TUNNEL_LOCAL_INTERFACE" \
+			         "($TUNNEL_DEVICE)"
+			exit $R_ERROR
+		fi
+	fi
+
+	TUNNEL_LOCAL_IPADDR_V6=`printf "%s/16" $(convert_ipv4address_to_6to4 $TUNNEL_LOCAL_IPADDR)`
+
+	case "$SCRIPTNAME" in
+		ifup)
+			# Create a new tunnel
+			MESSAGE=`ip tunnel add $INTERFACE mode "$TUNNEL" \
+				${TUNNEL_LOCAL_IPADDR:+local "$TUNNEL_LOCAL_IPADDR"} \
+				${TUNNEL_REMOTE_IPADDR:+remote "$TUNNEL_REMOTE_IPADDR"} \
+				${TUNNEL_TTL:+ttl "$TUNNEL_TTL"} $TUNNEL_OPTIONS 2>&1`
+			if [ $? = 0 ] ; then
+				:
+			else
+				logerror "failed to add tunnel $INTERFACE"
+				logerror "$MESSAGE"
+				exit $R_ERROR
+			fi
+	
+			MESSAGE=`ip link show $INTERFACE 2>&1`
+			if [ $? = 0 ] ; then
+				# This message shuold be printed at the very end
+				message_if_not_run_from_rc "tunnel $INTERFACE is configured"
+			else
+				logerror "failed to add tunnel $INTERFACE"
+				logerror "$MESSAGE"
+				logerror "(does it already exist with a different name?)"
+				exit $R_ERROR
+			fi
+			;;
+		ifdown)
+			MESSAGE=`ip tunnel del $INTERFACE 2>&1`
+			if [ $? = 0 ] ; then
+				message_if_not_run_from_rc "tunnel $INTERFACE is removed"
+			else
+				logerror "failed to delete tunnel $INTERFACE"
+				logerror "$MESSAGE"
+				exit $R_ERROR
+			fi
+			;;
+	esac
+
+	# We only handle bringing up the 6to4 tunnel in a special way.
+	# Shutting down and querying for it's status is the same
+	# as for 'static' tunnels.
+	if [ "$BOOTPROTO" = "6to4" -a "$SCRIPTNAME" != "ifup" ]; then
+		BOOTPROTO="static"
+	fi
+fi
+
+
+######################################################################
+# Prepare Bonding
+#
+if [ "$INTERFACETYPE" = bond ] ; then
+	if [ "$SCRIPTNAME" = ifup -a ! "$DHCP" = yes ] ; then
+		if ! load_bond $INTERFACE $BONDING_MODULE_OPTS ; then
+			logerror "Bonding: could not get interface $INTERFACE"
+			exit $R_NODEV
+		fi
+
+		# get up the bonding device before enslaving
+		ip link set $INTERFACE up 2>&1
+		# enslave all BONDING_SLAVE* from configuration file
+		for BSVAR in ${!BONDING_SLAVE*} ; do
+			INDEX=${BSVAR#BONDING_SLAVE}
+			BONDING_SLAVE=${!BSVAR}
+			echo +$BONDING_SLAVE > /sys/class/net/$INTERFACE/bonding/slaves
+			if [ "$?" -gt 0 ]; then
+				logerror "Could not enslave interface '$BONDING_SLAVE'"
+				if ! is_iface_available $BONDING_SLAVE ; then
+					logerror "Slave interface '$BONDING_SLAVE' is not available. Skipped."
+				else
+					logerror "Removing bonding interface '$INTERFACE'"
+					ifdown $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+					exit $R_ERROR
+				fi
+			fi
+			message "`printf "    %-9s enslaved interface: %s" \
+			                 "$INTERFACE" "$BONDING_SLAVE"`"
+		done
+		# Some option have to be changed after enslaving (e.g. primary)
+		# Therefore we call load_bond() a second time
+		load_bond $INTERFACE $BONDING_MODULE_OPTS
+	fi
+	if [ "$SCRIPTNAME" = ifdown -a ! "$DHCP" = yes ] ; then
+		# bonding interface must be up for removing slaves
+		test "`cat /sys/class/net/$INTERFACE/operstate`" != up \
+			&& ip link set up dev $INTERFACE
+		for BONDING_SLAVE in `cat /sys/class/net/$INTERFACE/bonding/slaves` ; do
+			echo -$BONDING_SLAVE > /sys/class/net/$INTERFACE/bonding/slaves
+			if [ "$?" -gt 0 ]; then
+				logerror "Could not remove slave interface '$BONDING_SLAVE'"
+			else
+				message "`printf "    %-9s removed slave : %s" \
+				                 "$INTERFACE" "$BONDING_SLAVE"`"
+			fi
+		done
+	fi
+fi
+
+######################################################################
+# bringing up/down or checking the interface (main part)
+#
+
+# Check status of ifplugd first. If ifplugd is running the interface
+# need not to be up always.
+if [ "$SCRIPTNAME" == ifstatus -a "$STARTMODE" == ifplugd ] ; then
+	if [ ! -x "$IFPLUGD" ] ; then
+		logerror "Package ifplugd not installed: missing $IFPLUGD"
+		exit $R_ERROR
+	fi
+	debug "Checking ifplugd status"
+	ifplugd_retcode=$R_SUCCESS
+	NOT=""
+	if [ "$INTERFACETYPE" == "wlan" ]; then
+		# We don't run ifplugd on wlan interfaces, because link detection
+		# is not reliable there. Therefore we assume that there is always
+		# a link and take it up if all major interfaces are not linked.
+		# Nevertheless ifup need to be called initially on wlan interfaces.
+		# We check this by looking for the link flag in its status file.
+		if ! has_link $INTERFACE; then
+			ifplugd_retcode=$R_NO_IFPLUGD
+			NOT="not "
+		fi
+		message "`printf "    %-9s is ${NOT}prepared for use with ifplugd" \
+		                 "$INTERFACE"`"
+	else
+		MESSAGE="`$IFPLUGD -c -i $INTERFACE 2>&1`"
+		if [ "$?" -ne 0 ] ; then
+			ifplugd_retcode=$R_NO_IFPLUGD
+			NOT="not "
+		fi
+		debug "$MESSAGE"
+		message "`printf "    %-9s ifplugd is ${NOT}running" "$INTERFACE"`"
+	fi
+	if [ "$ifplugd_retcode" == "$R_SUCCESS" ] &&
+	   ifplugd-selectif $INTERFACE should_be_up $INTERFACETYPE; then
+		# if interface should be up and running then we unset ifplugd_retcode.
+		# Then the normal status section will decide if the interface is set up
+		# correctly.
+		if [ $ifplugd_retcode -eq 0 ] ; then
+			unset ifplugd_retcode
+			# If we check an interface to early after registration we might get
+			# wrong connection state. Therefore we will write check if flag 'ready'
+			# is already set. This flag was set in initial call of ifup (called
+			# from udev right after initialisation). 
+			if [ ! -f $RUN_FILES_BASE/ready-$INTERFACE ] ; then
+				ifplugd_retcode=99
+			fi
+		fi
+	fi
+fi
+
+dhcpretcode=$R_SUCCESS
+# switch type. If SKIP_MAIN_PART == skip, don't execute any section
+case "$BOOTPROTO$SKIP_MAIN_PART" in
+	dhcp+autoip|DHCP+AUTOIP)
+		if [ "$DHCP" = yes ] ; then      # called from dhcp client
+			${SCRIPTNAME}-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			retcode=$?
+		else                             # called from rcnetwork or manually
+			${SCRIPTNAME}-autoip $CONFIG $INTERFACE -o prepare $OPTIONS
+			${SCRIPTNAME}-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			dhcpretcode=$?
+			${SCRIPTNAME}-autoip $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			retcode=$?
+		fi
+	;;
+	autoip|AUTOIP)
+		${SCRIPTNAME}-autoip $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		retcode=$?
+	;;
+	dhcp|DHCP)
+		# With dhcp if{up,down} is called twice. See comment "DHCP special" above
+		if [ "$DHCP" = yes ] ; then      # called from dhcp client
+			SKIP_MAIN_PART=skip
+			${SCRIPTNAME}-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			retcode=$?
+		else                             # called from rcnetwork or manually
+			${SCRIPTNAME}-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			dhcpretcode=$?
+		fi
+	;;
+esac
+case "$BOOTPROTO$SKIP_MAIN_PART" in
+	# Skip it
+	*skip)
+		:
+		;;
+	# Configure IPv6 6to4 tunnels.
+	6to4)
+
+		MESSAGE=`ip link set up dev $INTERFACE $LINK_OPTIONS 2>&1`
+		if [ $? != 0 ] ; then
+			logerror "failed to set up interface $INTERFACE"
+			logerror "$MESSAGE"
+			exit $R_ERROR
+		fi
+
+		if [ -n "$MTU" ] ; then
+			MESSAGE=`ip link set $INTERFACE mtu $MTU 2>&1`
+			if [ $? !=0 ] ; then
+				logerror "failed to set MTU for interface $INTERFACE"
+				logerror "$MESSAGE"
+				exit $R_ERROR
+			fi
+		fi
+
+		MESSAGE=`ip -6 addr add $TUNNEL_LOCAL_IPADDR_V6 dev $INTERFACE 2>&1`
+		if [ $? != 0 ] ; then
+			logerror "failed to add address $TUNNEL_LOCAL_IPADDR_V6 to" \
+			         "interface $INTERFACE"
+			logerror "$MESSAGE"
+			exit $R_ERROR
+		fi
+
+		ifup-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		retcode=$?
+	;;
+	*)
+		case $SCRIPTNAME in
+			ifup)
+				retcode=$R_SUCCESS
+				if [ -n "$MTU" ] ; then
+					ip link set $INTERFACE mtu $MTU
+					retcode_mtu=$?
+				fi
+				if ! ip link set up dev $INTERFACE \
+				        ${LLADDR:+address $LLADDR} $LINK_OPTIONS; then
+					logerror "Cannot enable interface $INTERFACE."
+					retcode=$R_NOTRUNNING
+				else
+					if [ -n "$MTU" ] ; then
+						ip link set $INTERFACE mtu $MTU || retcode_mtu=$?
+						if [ $retcode_mtu != 0 ] ; then
+							logerror "Cannot set mtu of $MTU to interface $INTERFACE."
+						fi
+					fi
+					ADDRCOUNT=0
+					for IPVAR in ${!IPADDR*}; do
+						INDEX=${IPVAR#IPADDR}
+						if [ -n "$INDEX" ] ; then
+							eval REMOTE_IPADDR=\$REMOTE_IPADDR$INDEX
+							eval BROADCAST=\$BROADCAST$INDEX
+							eval LABEL=\$LABEL$INDEX
+							eval SCOPE=\$SCOPE$INDEX
+							eval NETMASK=\$NETMASK$INDEX
+							eval PREFIXLEN=\$PREFIXLEN$INDEX
+							eval IP_OPTIONS=\$IP_OPTIONS$INDEX
+						fi
+						IPADDR=${!IPVAR}
+						test -z "$IPADDR" && continue
+						if [ -z "$PREFIXLEN" ] ; then
+							PREFIXLEN=`mask2pfxlen $NETMASK`
+						fi
+						case $IPADDR in
+							*/*)
+								PREFIXLEN=${IPADDR#*/}
+								IPADDR=${IPADDR%/*}
+								;;
+							*) ;;         # IP=$IP${PREFIXLEN:+/$PREFIXLEN} ;;
+						esac
+						if [ -z "$NETMASK" ] ; then
+							NETMASK=`pfxlen2mask $PREFIXLEN`
+						fi
+						if [ -z "$BROADCAST" ]; then
+							BROADCAST=$DEFAULT_BROADCAST
+						fi
+						# Don't set broadcast for IPv6
+						case $IPADDR in
+							*:*)
+								ISv6=yes
+								BROADCAST='';;
+							*)
+								ISv6=no;;
+						esac
+
+						# Make sure we have ipv6 support or skip this address
+						if [ "$ISv6" = "yes" ]; then
+							if ! sysctl net.ipv6 &>/dev/null; then
+								if ! modprobe net-pf-10 2>/dev/null; then
+									logerror "Missing IPv6 support." \
+									         "Ommitting address $IPADDR."
+									continue
+								fi
+							fi
+						fi
+
+						if [ "$RUN_FROM_RC" = yes ]; then
+							# show IP address etc.
+							case $INTERFACE in
+							# lo)	;;
+							*)
+								# if multiple addresses show one per line
+								if [ "$ADDRCOUNT" -gt 0 -a -z "$LABEL" ]; then 
+									message_n "              "  # 14 blanks
+								else
+									message_n "`printf "    %-9s " $INTERFACE${LABEL:+:$LABEL}`"
+								fi
+								if [ "$REMOTE_IPADDR" ]; then
+									message_n "`printf "IP/Peer:    %s / %s  " $IPADDR $REMOTE_IPADDR`"
+								# elif [ "$ISv6" = "yes" ]; then
+								else
+									message_n "`printf "IP address: %s/%s  " $IPADDR $PREFIXLEN`"
+								# else
+								#	message_n "`printf "IP/Netmask: %s / %s  " $IPADDR $NETMASK`"
+								fi
+								if [ "$INTERFACETYPE" == bond ] ; then
+									message_n " as bonding master"
+								fi
+								message " "
+								;;
+							esac
+						fi
+
+						debug "Handling Index <$INDEX>:\n" \
+						      "    IPADDR             = $IPADDR\n" \
+						      "    PREFIXLEN          = $PREFIXLEN\n" \
+						      "    CHECK_DUPLICATE_IP = $CHECK_DUPLICATE_IP"
+						if [ "$CHECK_DUPLICATE_IP"  = "yes" ] ; then
+							arping -q -c 2 -w 3 -D -I $INTERFACE $IPADDR \
+							    && CHECK_DUPLICATE_IP=no
+						fi
+						if [ "$CHECK_DUPLICATE_IP" = "yes" ] ; then
+							logerror "Error on setting up interface" \
+							         "$INTERFACE:$LABEL:\n" \
+							         "  address $IPADDR already in use.\n  Probably" \
+							         "there is another computer using that address."
+							retcode=$R_NOTRUNNING
+						else
+							MESSAGE=`\
+								ip addr add dev $INTERFACE \
+									"local" $IPADDR${PREFIXLEN:+/$PREFIXLEN} \
+									${REMOTE_IPADDR:+peer $REMOTE_IPADDR} \
+									${BROADCAST:+broadcast "$BROADCAST"} \
+									${LABEL:+label $INTERFACE:$LABEL} \
+									${SCOPE:+scope $SCOPE} \
+									$IP_OPTIONS \
+									2>&1 `
+							case $? in
+								0) retcode=$R_SUCCESS ;;
+								2)
+									case "$MESSAGE" in
+										# Address is already set.
+										RTNET*File*exists*| \
+										RTNET*No*buffer*space*available*)
+											retcode=$R_SUCCESS ;;
+										*) retcode=$R_NOTRUNNING ;;
+									esac ;;
+								*) retcode=$R_NOTRUNNING ;;
+							esac
+						fi
+						ADDRCOUNT=$(($ADDRCOUNT + 1))
+					done
+				fi
+				ifup-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				;;
+			ifdown)
+				ifdown-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				ifdown-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				# Calling 'ip' if there is no interface (ifdown called from udev for
+				# remove event) would trigger automatic module loading (Bug 199456)
+				if [ -d /sys/class/net/$INTERFACE ] ; then
+					ip addr flush dev $INTERFACE &>/dev/null
+					ip link set dev $INTERFACE down &>/dev/null
+				fi
+				# If this is an bonding master, remove it
+				if [ "$INTERFACETYPE" == bond ] ; then
+					remove_bond $INTERFACE
+				fi
+				retcode=0 # $?
+				;;
+			ifstatus)
+				if is_iface_up $INTERFACE ; then
+					message_if_not_run_from_rc "$INTERFACE is up"
+					message_if_not_run_from_rc "$(ip addr show $INTERFACE)"
+					while read a b c d e f g h i; do
+						message "`printf "    %-9s IP address: %s" "$i" "$d"`"
+					done < <(ip -o -4 addr show $INTERFACE)
+					ifstatus-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+					retcode=$R_SUCCESS
+					if [ "$INTERFACETYPE" == bond ] ; then
+						message_if_not_run_from_rc \
+							"`cat /proc/net/bonding/$INTERFACE`"
+					fi
+				else
+					# message_if_not_run_from_rc "$INTERFACE is down"
+					message "`printf "    %-9s is down" $INTERFACE`"
+					retcode=$R_NOTRUNNING
+					test "$STARTMODE" = "manual" && retcode=$R_INACTIVE
+				fi
+				;;
+		esac
+		;;
+esac
+
+
+######################################################################
+# call some default helper scripts
+#
+
+# call them only if we are not in the second run for dhcp
+if [ "$DHCP" != yes ] ; then
+
+	# we check connections and settings for wireless NICs when ifstatus
+	if [ "$SCRIPTNAME" = ifstatus ] ; then
+		scripts/${SCRIPTNAME}-wireless    $CONFIG $INTERFACE \
+		                                  ${OPTIONS:+-o $OPTIONS}
+		scripts/${SCRIPTNAME}-connection  $CONFIG $INTERFACE \
+		                                  ${OPTIONS:+-o $OPTIONS}
+		ret=$?
+		test "$CHECK" = yes -a $ret != 0 && retcode=$ret
+		DEP_IFACES=`get_depending_ifaces $INTERFACE`
+		if [ "$?" = 0 -a "$NODEPS" != yes ] ; then
+			message "`printf "    %-9s is still used from interfaces %s" \
+			                 $INTERFACE "$DEP_IFACES"`"
+			#for DI in $DEP_IFACES; do
+			#  ifstatus $DI -o $OPTIONS
+			#done
+		fi
+		# check if setting up firewall is in progress
+		if [ -f /var/lock/SuSEfirewall2.pid ] ; then
+			message "Setting up firewall still in progress"
+			retcode=$R_DHCP_BG
+		fi
+	fi
+	
+	# after shutting down interfaces ifup-wireless has to kill the wpa daemon
+	if [ "$SCRIPTNAME" = ifdown ] ; then
+		scripts/${SCRIPTNAME}-wireless $CONFIG $INTERFACE \
+		${OPTIONS:+-o $OPTIONS}
+	fi
+
+	# Frob vlan interface, part II
+	if [ "$SCRIPTNAME" = ifdown -a "$INTERFACETYPE" = vlan ]; then
+		scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+	fi
+
+	# Frob bridge interface, part II
+	if [ "$INTERFACETYPE" == bridge -a "$SCRIPTNAME" != ifup ]; then
+		scripts/${SCRIPTNAME}-bridge $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+	fi
+
+fi
+	
+######################################################################
+# call optional and individual scripts
+#
+
+if [ "$SCRIPTNAME" = ifup \
+     -a \( "$BOOTPROTO" != dhcp -o "$DHCP" = yes \) ] ; then
+
+	# start depending services
+	scripts/${SCRIPTNAME}-services $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+
+	# execute global start scripts
+	if [ "$GLOBAL_POST_UP_EXEC" = "yes" ]; then
+		for SCRIPT in if-up.d/*; do
+			[ -d $SCRIPT -o ! -x $SCRIPT ] && continue;
+			# ignore backup files and leftovers from rpm
+			echo $SCRIPT | grep -q '\(\.rpm\(save\|new\)$\)\|\(.~$\)' && continue;
+			debug "executing additional global start script $SCRIPT"
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		done
+	fi
+
+	# execute an individual poststart script if available
+	# NOTE: 'eval echo' in the next line is necessary to expand settings
+	# like POST_UP_SCRIPT="~root/bin/foo"
+	for SCRIPT in `eval echo $POST_UP_SCRIPT scripts/$POST_UP_SCRIPT`; do
+		if [ -x "$SCRIPT" -a ! -d "$SCRIPT" ] ; then
+			debug "executing additional start script $SCRIPT"
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		fi
+	done
+
+fi
+
+# execute an individual poststop script if available
+if [ "$SCRIPTNAME" = ifdown \
+     -a \( "$BOOTPROTO" != dhcp -o "$DHCP" != yes \) ] ; then
+	# NOTE: 'eval echo' in the next line is necessary to expand settings
+	# like POST_DOWN_SCRIPT="~root/bin/foo"
+	for SCRIPT in `eval echo $POST_DOWN_SCRIPT scripts/$POST_DOWN_SCRIPT`; do
+		if [ -x "$SCRIPT" -a ! -d "$SCRIPT" ] ; then
+			debug "executing additional stop script $SCRIPT"
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		fi
+	done
+fi
+
+# We have to respect the status of ifplugd for interfaces with
+# STARTMODE=ifplugd. If ifplugd_retcode is set, then this value takes 
+# priority over other reurn codes.
+if [ -n "$ifplugd_retcode" -a "$ifplugd_retcode" != 99 ] ; then
+	exithook $ifplugd_retcode
+elif [ "$ifplugd_retcode" == 99 -a "$dhcpretcode" == $R_NOTRUNNING ] ; then
+	message "`printf "    %-9s is probably not initialized completely" \
+	                 "$INTERFACE"`"
+	exithook $R_DHCP_BG
+elif [ "$dhcpretcode" != $R_SUCCESS ] ; then
+	exithook $dhcpretcode
+else
+	if [ "$retcode" = 0 -a -n "$retcode_mtu" -a "$retcode_mtu" != 0 ] ; then
+		exithook $R_PROPERTY_NOT_SET
+	else
+		exithook $retcode
+	fi
+fi
+

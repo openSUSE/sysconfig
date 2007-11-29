@@ -1,0 +1,207 @@
+#!/bin/bash
+#
+# Copyright (c) 2005 SUSE Linux Products GmbH Nuernberg, Germany.
+# All rights reserved.
+#
+# Author: 
+#    Stefan Scheler <sscheler@suse.de> 
+#
+# Based on a patch by:
+#    Jan Engelhardt <jengelh@linux01.gwdg.de>
+#
+
+usage () {
+	echo $@
+	echo "usage: if{up,down,status}-bridge [<config>] <hwdesc> [-o <options>]"
+	echo "  hwdesc may be the interface name or any valid description"
+	echo "  of the corresponding device, for details see ifup(8)."
+	echo
+	echo "Options are:"
+	echo "    [on]boot : we are currently booting (or shutting down)"
+	echo "    auto     : alias for boot"
+	echo "    hotplug  : we are handling a hotplug event"
+	echo "    debug    : be verbose"
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+ACTION=${SCRIPTNAME#if}
+ACTION=${ACTION%%-bridge}
+case "${ACTION}" in
+	up|status|down) ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=auto ;;
+		hotplug)     MODE=auto ;;
+		auto)        MODE=auto ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		*)           debug unknown option $1 ;;
+	esac
+	shift
+done
+
+######################################################################
+# Check needed tools
+#
+if ! [ -x /sbin/brctl ]; then
+	logerror "bridge-utils not installed"
+	exit $R_INTERNAL
+fi
+
+######################################################################
+# check presence of configuration file and source it
+#
+test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+
+######################################################################
+case $ACTION in
+up)
+
+	######################################################################
+	# Bridge setup
+	#
+	printf "    %-9s " "$INTERFACE"
+
+	# Add bridge
+	brctl show | grep -v "bridge id" | grep "^$INTERFACE" &>/dev/null
+	case "$?" in
+	0)
+		logerror "Warning: Bridge $INTERFACE already up!"
+		exit $R_ERROR
+		;;
+	*)
+		MESSAGE=`brctl addbr "$INTERFACE"`
+		if [ $? -ne 0 ]; then
+			logerror "Error: failed to add bridge $INTERFACE: $MESSAGE"
+			exit $R_ERROR
+		fi
+		;;
+	esac
+
+	# Add ports
+	echo -en "Ports:"
+	COUNTER=1
+	for PORT_INTERFACE in $BRIDGE_PORTS; do
+		MESSAGE=`ip link set dev "$PORT_INTERFACE" up && brctl addif "$INTERFACE" "$PORT_INTERFACE"`
+		if [ $? -ne 0 ]; then
+			logerror " Warning: failed to bring $PORT_INTERFACE up: $MESSAGE"
+		else
+			# set path costs
+			if [ -n "$BRIDGE_PATHCOSTS" ]; then
+				COSTS=`echo $BRIDGE_PATHCOSTS | cut -d\  -f $COUNTER`
+				brctl setpathcost $INTERFACE $PORT_INTERFACE $COSTS
+			fi
+			# set port prio
+			if [ -n "$BRIDGE_PORTPRIORITIES" ]; then
+				PRIO=`echo $BRIDGE_PORTPRIORITIES | cut -d\  -f $COUNTER`
+				brctl setportprio $INTERFACE $PORT_INTERFACE $PRIO
+			fi
+			echo -en " [$PORT_INTERFACE]"
+		fi
+		COUNTER=$[$COUNTER+1]
+	done
+	echo -en "\n";
+
+	# Set flags
+	[ -n "$BRIDGE_AGEINGTIME" ] && brctl setageing     "$INTERFACE" "$BRIDGE_AGEINGTIME"
+	[ -n "$BRIDGE_STP"        ] && brctl stp           "$INTERFACE" "$BRIDGE_STP"
+	[ -n "$BRIDGE_PRIORITY"   ] && brctl setbridgeprio "$INTERFACE" "$BRIDGE_PRIORITY"
+	[ -n "$BRIDGE_FORWARDDELAY" ] && brctl setfd       "$INTERFACE" "$BRIDGE_FORWARDDELAY"
+	[ -n "$BRIDGE_HELLOTIME"  ] && brctl sethello      "$INTERFACE" "$BRIDGE_HELLOTIME"
+	[ -n "$BRIDGE_MAXAGE"     ] && brctl setmaxage     "$INTERFACE" "$BRIDGE_MAXAGE"
+
+	ip link set up dev $INTERFACE
+	N=-300
+	NMAX=`cat /sys/class/net/$INTERFACE/bridge/forward_delay`
+	# mesg_n "`printf "    %-9s bridge still in learning state " "$INTERFACE"`"
+	mesg_n "`printf "    %-9s forwarddelay (see man ifcfg-bridge) " $INTERFACE`"
+	while test "$((N+=100))" -lt "$NMAX" ; do
+		STATE=0
+		for sf in /sys/class/net/$INTERFACE/brif/*/state; do
+			S=`cat $sf`
+			# echo "${s##*brif/}: $S"
+			if [ "$S" == 2 ] ; then
+				STATE=-1
+				break
+			fi
+			: $((STATE+=S))
+		done
+		# echo br waiting $a ___ $STATE
+		mesg_n "."
+		test "$STATE" -gt 0 && break
+		sleep 1
+	done
+	test "$STATE" -gt 0    \
+		&& mesg "... ready" \
+		|| mesg " not ready. Proceeding in background."
+
+	RETVAL=$R_SUCCESS
+	;;
+down)
+
+	######################################################################
+	# Bridge shutdown
+	#
+	brctl show | grep -v "bridge id" | grep "^$INTERFACE" &>/dev/null
+	if [ $? -eq 0 ]; then
+		MESSAGE=`brctl delbr "$INTERFACE"`
+		if [ $? -ne 0 ]; then
+			err_mesg "Error: failed to delete bridge $INTERFACE: $MESSAGE"
+			exit $R_STATUS
+		fi
+		for PORT_INTERFACE in $BRIDGE_PORTS; do
+			MESSAGE=`ip link set dev "$PORT_INTERFACE" down`
+			if [ $? -ne 0 ]; then
+				err_mesg "Warning: failed to bring $PORT_INTERFACE down: $MESSAGE"
+			fi
+		done
+	fi
+	RETVAL=$R_SUCCESS
+	;;
+status)
+
+	######################################################################
+	# Bridge status
+	#
+	if is_iface_up $INTERFACE ; then
+	    # do not show status output on boot, this may log
+	    # the WEP key in the boot log
+	    if [ "$MODE" != onboot ]; then
+			brctl show $INTERFACE
+			brctl showstp $INTERFACE
+		fi
+	    RETVAL=$R_SUCCESS
+	else
+	    RETVAL=$R_NOTRUNNING
+	fi
+	;;
+esac
+
+exit $RETVAL

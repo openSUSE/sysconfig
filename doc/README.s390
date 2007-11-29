@@ -1,0 +1,254 @@
+ Configuration notes for hwcfg-files on S/390:
+===============================================
+
+The directory /etc/sysconfig/hardware contains configuration files for
+all configured devices. These configuration files contain variables
+which control the loading of the required modules for this device as
+well as the parameter necessary for configuration.
+
+
+ Configuration names
+---------------------
+
+The file name of the hwcfg-* files determines the type and the
+location/bus-id of the device uniquely. Only those devices for which a
+matching hwcfg-* file is found will be configured.
+The naming is as following:
+
+       <config file>:=hwcfg-<config name>
+       <config name>:=<device type>-<device description>
+<device description>:={id-<identifier>|bus-<bus location>|event-<event type>}
+      <bus location>:=<bus name>[-<bus id>]
+            <bus id>:={<bus number>[.<bus id>]|<device id>[:<lun>]}
+        <event type>:= Any valid string except "id", "bus" and "type"
+        <identifier>:= Any string valid as a filename
+          <bus name>:= Any valid string
+        <bus number>:= Any valid string
+         <device id>:= Any valid string
+               <lun>:= Any valid string
+
+Currently supported on S/390:
+
+- <device description>:={bus-<bus location>|id-<identifier>}
+- <bus name>:=ccw
+- <device type>:={ctc|lcs|qeth|zfcp|dasd}
+- <bus id>:=%1x.%1x.%04x
+
+As an example a CTC device with Channel-IDs 0x0600 and 0x0601 would be
+configured by a matching configuration file
+
+hwcfg-ctc-bus-ccw-0.0.0600
+
+Please note that the bus location _must_ be a four-characters
+hexadecimal number.
+
+ Configuration variables
+-------------------------
+
+The configuration information for a device is stored in variables. The
+variables and their meaning depend on the architecture.
+
+Common variables are:
+
+STARTMODE	 'auto' or 'manual'
+		 Selects whether this device should be configured
+		 automatically or manually
+MODULE		 The name of the module to be loaded
+MODULE_OPTIONS	 Options to be passed to the module, if any
+MODULE_UNLOAD	 'yes' or 'no'
+		 Set to yes if this module can be unloaded
+
+Configuration script selection:
+SCRIPTUP	 Script to be called if hwup was invoked manually
+		 (or with events which have no event specific script)
+SCRIPTUP_<event> Script to be called if hwup has been invoked
+		 from hotplug event handler for event <event>
+SCRIPTDOWN	 Script to be called if hwdown was invoked manually
+		 (or with events which have no event specific script)
+SCRIPTDOWN_<event> Script to be called if hwdown has been invoked
+		  from hotplug event handler for event <event>
+
+S390-specific variables are:
+CCW_CHAN_NUM	number of channels for this device
+CCW_CHAN_IDS    Channels to use for this device, separated by spaces.
+		Total number of channels must match CCW_CHAN_NUM.
+CCW_CHAN_MODE	Mode for this device;
+		- protocol for CTC/ESCON
+		- port for LCS
+		- portname for OSA/Express
+DASD_USE_DIAG	Enable DIAG access for this device (if available)
+ZFCP_LUNS	Configured zfcp devices, specified as <wwpn>:<lun>
+QETH_OPTIONS	Additional options for OSA/Express or HiperSockets
+QETH_IPA_TAKEOVER Enable IP address takeover for OSA/Express or HiperSockets
+
+ Interface to hotplug events
+-----------------------------
+
+The device configuration may react on hotplug events. Each hotplug
+event upon which the configuration should be invoked is select by a
+variable SCRIPT{UP|DOWN}_<event>, which contains the script to be called for
+this event.
+
+On S/390, the following events are handled:
+
+ccw:	   Send upon detecting a new CCW device.
+	   Should be set to
+	   SCRIPTUP_ccw="hwup-ccw"
+
+ccwgroup:  Send after a device has been grouped (CTC, QETH).
+	   Setting depends on the device:
+	   for CTC:
+	       SCRIPTUP_ccwgroup="hwup-ctc"
+	   for QETH:
+	       SCRIPTUP_ccwgroup="hwup-qeth"
+
+scsi_host: Send after a zfcp device has been activated.
+	   Setting for the zfcp device:
+	       SCRIPT_scsi_host="hwup-zfcp"
+
+
+ Helper scripts
+----------------
+The scripts call via SCRIPT{UP|DOWN}_<event> are located in
+
+/etc/sysconfig/hardware/scripts
+
+They will be called /sbin/hw{up|down}.
+
+The calling sequence for hwup is:
+- Read configuration file
+- Load any specified module
+- Call any event specific script
+- Call the generic script if no event specific script was specified.
+
+The calling sequence for hwdown is:
+- Read configuration file
+- Call any event specific script
+- Call any generic script if no event specific script was specified.
+- Unload the specified module if MODULE_UNLOAD="yes"
+
+ Example configuration files
+-------------------------------
+
+Example configuration files for the currently recognized
+devices can be found in
+
+/etc/sysconfig/hardware/skel
+
+They are meant to be used as templates for the local configuration.
+
+Device-specific configuration files:
+-LCS devices:
+    The default configuration file is in
+    /etc/sysconfig/hardware/skel/hwcfg-lcs; 
+    the name of the configuration file should be
+    hwcfg-lcs-bus-ccw-0.0.<devid>
+    where <devid> is the start id for the device 
+    (read channel). The write channel should be 
+    <devid + 1>; other configurations are not supported.
+
+    The channels for this device should be stored in
+    CCW_CHAN_IDS="<devid> <devid + 1>"
+
+    The port number for LCS can be set with
+    CCW_CHAN_MODE=<port>
+
+-CTC devices:
+    The default configuration file is in
+    /etc/sysconfig/hardware/skel/hwcfg-ctc; 
+    the name of the configuration file should be
+    hwcfg-ctc-bus-ccw-0.0.<devid>
+    where <devid> is the start id for the device 
+    (read channel). The write channel should be 
+    <devid + 1>; other configurations are not supported.
+
+    The channels for this device should be stored in
+    CCW_CHAN_IDS="<devid> <devid + 1>"
+
+    The protocol mode for CTC can be set with
+    CCW_CHAN_MODE=<protocol>
+
+-QETH devices:
+    The default configuration file is in
+    /etc/sysconfig/hardware/skel/hwcfg-qeth;
+    the name of the configuration file should be
+    hwcfg-qeth-bus-ccw-0.0.<devid>
+    where <devid> is the channel id of the first (read) channel.
+    The other channels (write and data) are assumed at channel ids
+    <devid + 1> and <devid + 2>. Other configurations are not
+    supported.
+
+    The channels for this device should be stored in
+    CCW_CHAN_IDS="<devid> <devid + 1> <devid + 2>"
+
+    For OSA-Express devices the port name should be added
+    to the configuration file with the line
+    CCW_CHAN_MODE=<port name>
+
+    Additional options can be set with the QETH_OPTIONS variable,
+    the format is QETH_OPTIONS="opt1=val1 opt2=val2". Valid options
+    are
+    - add_hhlen
+    - broadcast_mode
+    - buffer_count
+    - canonical_macaddr
+    - checksumming
+    - fake_broadcast
+    - fake_ll
+    - priority_queueing
+    - route4
+    - route6
+    The value always has be set, so to enable fake_ll and hardware
+    checksumming the corresponding QETH_OPTIONS line would be
+    QETH_OPTIONS="fake_ll=1 checksumming=hw_checksumming"
+
+    IP address takeover can be enabled with the line
+    QETH_IPA_TAKEOVER=1
+
+    Further configuration of the qeth adapter should be done with
+    qethconf(8).
+
+-IUCV devices:
+    The default configuration file is in 
+    /etc/sysconfig/hardware/skel/hwcfg-iucv;
+    the name of the configuration file should be
+    hwcfg-iucv-id-<Link name>
+    No further configuration is needed.
+
+- DASD devices:
+    The default configuration file is in
+    /etc/sysconfig/hardware/skel/hwcfg-dasd-eckd;
+    the name of the configuration file should be
+    hwcfg-dasd-bus-ccw-0.0.<devid>
+    For DIAG access set the parameter
+    DASD_USE_DIAG=1
+
+- zfcp devices:
+    The default configuration file is in
+    /etc/sysconfig/hardware/skel/hwcfg-zfcp;
+    the name of the configuration file should be
+    hwcfg-zfcp-bus-ccw-0.0.<devid>
+    The zfcp WWPNs and LUNs for this device are
+    set with the ZFCP_LUNS parameter. It has the syntax
+    ZFCP_LUNS="0x<wwpn1>:0x<lun1>
+    0x<wwpn2>:0x<lun2>
+    ...
+    0x<wwpnN>:0x<lunN>"
+    where <wwpnX> and <lunX> is a 64-bit hexadecimal number.
+
+Please note:
+On creating your own configuration files it is imperative that the
+configuration scripts specified are identical to those in the default
+configuration. As the device configuration on S/390 is done
+exclusively via those configuration scripts, omitting or
+changing the configuration scripts might result in an unbootable
+system.
+Before changing or adapting any of those scripts, be sure to be
+familiar with the manual configuration of those devices.
+Also it is adviseable to test the configuration with running
+hwup/hwdown manually before rebooting the system.
+If any disk devices have been configured which should be available at
+boot-time, be sure to run 'mkinitrd' and 'zipl' prior to
+reboot. Otherwise those disks will only be available after the start
+of the hotplug subsystem, not at boot-time.
+

@@ -1,0 +1,285 @@
+Network configuration
+=====================
+Michal Svec <msvec@suse.cz>
+
+This document describes the new concept of the network configuration
+in sysconfig. It contains description of directory structure, used
+utilities, configuration files format and particular variables.
+
+Directory structure
+-------------------
+
+/etc/sysconfig/				main config dir
+
+/etc/sysconfig/network/			main network config dir
+/etc/sysconfig/network/scripts/		network config scripts
+/etc/sysconfig/network/providers/	providers definitions
+
+Scripts
+-------
+/etc/init.d/network			overall network manipulation
+/sbin/rcnetwork				symlink -> /etc/init.d/network
+
+/sbin/ifup				set up the interface
+/sbin/ifdown				shut down the interface
+/sbin/ifstatus				show the interface status
+
+ifup-ppp				set up ppp (modem) interface
+ifup-isdn				set up isdn (or ippp) interface
+
+ifup-dhcp				set up interface via dhcp
+
+ifup-routes				set up (interface) routes
+
+Script details and syntax
+-------------------------
+By default, all "rcnetwork start" scripts work only
+with configured interfaces ("configured" means no STARTMODE=onboot). If one
+needs to setup particular interface, he should do it explicitely.
+
+rcnetwork {start|stop|restart|reload|status}
+- start:	set up all configured devices
+- stop:		shut down all active devices
+- restart:	stop and start
+- reload:	stop and start for all interfaces that changed
+- status:	show current network devices status
+
+ifup config [interface] [-o options]
+- set up given interface
+- if config file doesn't contain interface its required as an argument
+- option 'onboot' -> activate during boot
+- option 'hotplug' -> activated by hotplug
+
+ifdown config [interface]
+- shut down the given interface
+
+ifstatus config [interface]
+- show given interface status
+
+ifup-ppp
+ifup-isdn
+ifup-dhcp
+ifup-routes
+
+Config files
+------------
+
+/etc/sysconfig/network/config		main network configuration
+/etc/sysconfig/network/dhcp		dhcp client settings
+/etc/sysconfig/isdn			isdn configuration
+/etc/sysconfig/proxy			proxy configuration
+
+/etc/sysconfig/network/ifcfg-eth0	1st ethernet configuration
+/etc/sysconfig/network/ifcfg-tr0	1st token-ring configuration
+/etc/sysconfig/network/ifcfg-plip0	1st parallel line configuration
+
+Common variables
+----------------
+
+NAME		"Internal network"
+- interface name, useless so far ;-)
+
+BOOTPROTO	"static"|"dhcp"
+- setup protocol, if missing or "static", fixed address is used
+
+STARTMODE	"onboot"|"hotplug"|"manual"|"off"
+- mode of the device setup, missing means "onboot"
+
+IPADDR		"10.20.1.29" or
+IPADDR		"fec0:1:2:0:200:1cff:feb5:a7ea/64"
+- The IPv4 or IPv6 address
+
+NETMASK		"255.255.240.0"
+- network mask
+
+NETWORK		"10.20.0.0"
+- network address
+
+BROADCAST	"10.20.15.255"
+- broadcast address
+
+GATEWAY		"10.20.0.1"
+- default gateway IP address
+
+REMOTE_IPADDR	"1.2.3.9"
+- the other end of the PPP connection
+
+IP_OPTIONS	""
+- additional ip options
+
+DHCLIENT_OPTIONS
+- additional dhcpcd(8) or dhclient(8) options
+
+MTU		""
+- set the maximum transfer unit (MTU)
+
+MRU		""
+MSS		""
+
+Additional modem configuration variables
+----------------------------------------
+
+MODEM_DEVICE	"/dev/ttyS0"
+- modem device
+
+SPEED		"115200"
+- modem speed in bauds
+
+DIALCOMMAND	"ATDP"
+- dialing command (ATDT|ATDP)
+
+INIT1		"AT&F"
+INIT2		"AT\N10%P1"
+INIT3		""
+- modem init strings
+
+INIT8		"ATM0"
+- detect carrier
+
+INIT9		"ATX3"
+- speaker on
+
+DIALPREFIX	"0"
+- optional dialing prefix
+
+PPPD_OPTIONS	""
+- additional pppd(8) options
+
+PROVIDER	"provider0"
+- default provider file name without path
+
+Additional isdn configuration variables
+---------------------------------------
+
+MULTILINK	"no"
+CHARGEHUP	"no"
+MSN		"21"
+SLAVES		""
+
+LAYER2		"hdlc"
+LAYER3		"trans"
+ENCAP		"syncppp"
+IP_RESEND	"no"
+IP_RESEND_OPTIONS
+COMPRESSION	""
+
+IPPPD_OPTIONS	""
+- additional ipppd(8) options
+
+Additional dsl configuration variables
+--------------------------------------
+
+DEVICE		"eth0"
+- ethernet device for pppoe
+
+VPIVCI		""
+- VPI/VCI number for pppoatm
+
+Provider configuration
+----------------------
+
+PROVIDER	"Arcor"
+- provider name
+
+PRODUCT		"Internet-by-Call"
+- product name
+
+HOMEPAGE	"http://www.arcor.de"
+- provider home page
+
+PHONE		"010700192070"
+- phone number
+
+USERNAME	"arcor"
+- user name
+
+PASSWORD	"internet"
+- password
+
+IDLETIME	"300"
+- time before the connection is automatically disconnected (0 is off)
+
+DEMAND		"no"
+- dial on demand
+
+MODIFYDNS	"no"
+- modify DNS after connect
+
+MODIFYIP	"no"
+- modify IP addresses after connect
+
+ASKPASSWORD	"no"
+- always ask for password before connect
+
+DNS1		"145.253.2.11"
+- first name server
+
+DNS2		"145.253.2.75"
+- second name server
+
+STUPIDMODE	"yes"
+- look for user/pass strings, see wvdial(1)
+
+COMPUSERVE	"no"
+- special wvdial(1) compuserve mode
+
+DEFAULTROUTE	"yes"
+- set default route after dial
+
+PPPMODE		"ppp"|"ippp"|"pppoe"|"pppoatm"|...
+- PPP connection type
+
+PRIORITY	"0"
+- provider priority
+
+MODEMSUPPORTED	"yes"
+- provider supports modem dialup
+
+ISDNSUPPORTED	"yes"
+- provider supports ISDN dialup
+
+DSLSUPPORTED	"yes"
+- provider supports DSL dialup
+
+COUNTRY		"Germany"
+- provider country
+
+Example of a little bit complex configuration
+---------------------------------------------
+
+ifcfg-eth0
+IPADDRESS="1.2.3.4"
+NETMASK="255.255.255.0"
+BROADCAST="1.2.3.255"
+STARTMODE="onboot"
+
+ifcfg-eth0:0
+IPADDRESS="4.3.2.1"
+NETMASK="255.255.255.0"
+BROADCAST="4.3.2.255"
+STARTMODE="off"
+
+ifcfg-eth0:1
+IPADDRESS="4.3.2.1"
+NETMASK="255.255.255.0"
+BROADCAST="4.3.2.255"
+STARTMODE="onboot"
+
+ifcfg-eth1
+IPADDRESS="4.3.2.1"
+NETMASK="255.255.255.0"
+BROADCAST="4.3.2.255"
+STARTMODE="off"
+
+ifcfg-eth1:2
+IPADDRESS="4.3.2.1"
+NETMASK="255.255.255.0"
+BROADCAST="4.3.2.255"
+STARTMODE="onboot"
+
+bash# rcnetwork start	-> set up eth0 eth0:1
+bash# ifdown eth0:1	-> shut down eth0:1
+bash# ifup eth0:0	-> set up eth0:0
+bash# rcnetwork stop	-> shut down eth0 eth0:0
+
+EOF

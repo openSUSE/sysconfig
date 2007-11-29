@@ -1,0 +1,255 @@
+.\"
+.\" SuSE man page route.conf
+.\" Copyright (c) 2002 SuSE Linux AG, Nuernberg, Germany.
+.\" please send bugfixes or comments to <http://www.suse.de/feedback>.
+.\"
+.\" Author: Mads Martin Joergensen <mmj@suse.de>
+.\"
+.\"
+.TH ROUTES 5 "January 2003" "sysconfig" "Network configuration"
+.\"
+.SH NAME
+.\"
+routes \- configure the routing table
+.SH SYNOPSIS
+.B /etc/sysconfig/network/routes
+.br
+.BI /etc/sysconfig/network/ifroute-*
+.\"
+.SH DESCRIPTION
+The files
+.B /etc/sysconfig/network/routes
+and
+.BI /etc/sysconfig/network/ifroute- config
+are parsed by the script
+.B /etc/sysconfig/network/scripts/ifup-route
+which sets up routing for an interface/configuration.
+.B ifup-route
+is used by
+.B /sbin/ifup, 
+which is the command line user interface for setting up network interfaces.
+.PP
+.B /etc/sysconfig/network/routes 
+is used for every interface while
+.BI /etc/sysconfig/network/ifroute- config
+is used only for the network interface configuration stored in 
+.BI /etc/sysconfig/network/ifcfg- config , 
+that means only for a certain interface. (See a discussion of the notions
+.IR configuration ,
+.I interface
+and
+.I device in
+.BR ifup (8).)
+.PP
+At boot time
+.B /etc/init.d/network 
+calls
+.B ifup
+for every existing configuration and uses
+.B ifup-route
+directly to set
+up special routes which do not belong to a certain interface.
+
+The current routes can be seen by issuing:
+.PP
+.RS
+.B /sbin/ip\ route\ list
+.RE
+.PP
+which will give the current routing table.
+.\"
+.SH Syntax
+The files
+.B /etc/sysconfig/network/routes
+and
+.BI /etc/sysconfig/network/ifroute- config
+use the same syntax. The only difference is the interpretation of an empty
+interface field. See 4th column below.
+
+Lines beginning with
+.B #
+and 
+.B blank lines 
+are ignored. There are 5 columns with special meaning.
+Write a dash "-" if you want to omit an entry for a field. If all following
+fields in the line are empty too, you can even omit the dash.
+
+The
+.B first column 
+gives the destination, written as the IP-address of
+a host or a network. The heading
+.B default
+indicates that the route is the default gateway. Do
+.BR not\  use\  0.0.0.0
+for this purpose. A prefixlen can be used; e.g.,
+.B 10.10.0.0/16
+is valid.
+
+The
+.B second column 
+contains the gateway. Write here the regular IP-address of a
+host which routes the packages to a remote host or remote network. You can omit
+this information for rejecting routes.
+
+The 
+.B third column 
+gives the netmask for a remote
+host or remote network behind a gateway.
+For the default route or if you were using
+a prefixlen in the first column, you can omit it.
+
+The 
+.B fourth column 
+gives the name of the interface
+of the local networks (lo, eth0, eth0:1, eth1, isdn0, ppp0, dummy0, ...).
+
+If you leave this field empty the result depends on the file you are using. In
+.B /etc/sysconfig/network/routes
+the field is interpreted as no interface information available. That is
+sufficient for the most routes you may set up, but if you have multiple
+interfaces this route is set up
+with every single interface you activate. This may lead to error messages in the
+syslog. If you see such an error message which tells you "... this needs NOT to
+be AN ERROR" then check if you wrote the wrong ip
+addresses or if it occurs because it's being set up with the wrong interface.
+
+In the latter case you may want to use
+.BI /etc/sysconfig/network/ifroute- config
+instead. Here an empty interface field is always replaced with the interface
+name that is currently being activated. This makes sense because this file is
+only used for one configuration (for one interface). This is even necessary if
+you use several hotpluggable devices, because you cannot know the name of the
+interface that is used with a configuration for a certain device before.
+
+
+The
+.B fifth column 
+can be used to specify the type of a route:
+.TP
+.B
+unicast
+The route entry describes real paths to the destinations covered by the route
+prefix.
+.TP
+.B
+local
+The destinations are assigned to this host. The packets are looped back and
+delivered locally.
+.TP
+.B
+broadcast
+The destinations are broadcast addresses. The packets are sent as link
+broadcasts.
+.TP
+.B
+multicast
+A special type used for multicast routing. It is not present in normal routing
+tables.
+.TP
+.B
+throw
+A special control route used together with policy rules. If such a route is
+selected, lookup in this table is terminated pretending that no route was
+found. Without policy routing it is equivalent to the absence of the route in
+the routing table. The packets are dropped and the ICMP message
+.I
+net unreachable
+is generated. The local senders get an ENETUNREACH error.
+.TP
+.B
+unreachable
+These destinations are unreachable. Packets are discarded silently. The local
+senders get an EINVAL error.
+.TP
+.B
+prohibit
+These destinations are unreachable. Packets are discarded and the ICMP message
+.I
+communication administratively prohibited
+is generated. The local senders get an EACCES error.
+.TP
+.B
+blackhole
+These destinations are unreachable. Packets are discarded silently. The local
+senders get an EINVAL error.
+.TP
+.B
+nat
+A special NAT route. Destinations covered by the prefix are considered to be
+dummy (or external) addresses which require translation to real (or internal)
+ones before forwarding. The addresses to translate to are selected with
+attribute 'via'.
+.PP
+Any remaining columns, if given, are appended to the route command.  This
+makes it possible to pass special options for this route. Columns
+which are not needed should contain a minus sign (
+.B -
+) to ensure that the parser correctly interprets the command.
+.\"
+.SH EXAMPLES
+.PP
+An example with common network interfaces and some static routes:
+.sp
+.nf
+.ne 7
+# Destination     Dummy/Gateway     Netmask            Device
+#
+127.0.0.0         0.0.0.0           255.255.255.0      lo
+204.127.235.0     0.0.0.0           255.255.255.0      eth0
+default           204.127.235.41    0.0.0.0            eth0
+207.68.156.51     207.68.145.45     255.255.255.255    eth1
+192.168.0.0       207.68.156.51     255.255.0.0        eth1
+
+.fi
+.PP
+An example for routing entries for synchronous ppp over a
+.B ISDN
+connection.
+.sp
+.nf
+.ne 5
+# Destination     Dummy/Gateway     Netmask            Device
+#
+127.0.0.0         0.0.0.0           255.255.255.0      lo
+193.102.150.13    0.0.0.0           255.255.255.255    ippp0
+default           193.102.150.13    0.0.0.0            ippp0
+
+.fi
+.PP
+.\"
+.SH NOTES
+SuSE Linux >= 8.0 uses the
+.B ip
+command from the
+.B iproute2
+package to setup the network and routes.  Please see the documentation 
+distributed with this package for more information.
+.SH FILES
+.B /etc/sysconfig/network/routes
+.br
+.BI /etc/sysconfig/network/ifroute- config
+.\"
+.SH AUTHOR
+.nf
+Michal Svec <msvec@suse.cz>
+Christian Zoz <zoz@suse.de>
+Mads Martin Joergensen <mmj@suse.de>
+.fi
+.br
+
+Thanks to Werner Fink <werner@suse.de> for the old route.conf(5).
+.BR
+Parts of the
+.B
+ip
+reference by Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> were also used.
+.SH SEE ALSO
+.BR init.d (7),
+.BR init (8),
+.BR inittab (5),
+the\ documentation\ for\ the\ 
+.B iproute2
+package and the
+.I SuSE Linux
+handbook, chapter
+.IR The\ SuSE\ boot\ concept .

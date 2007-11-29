@@ -1,0 +1,82 @@
+Handling Of Storage Devices Since 10.0
+======================================
+
+Storage Device Types
+^^^^^^^^^^^^^^^^^^^^
+We distinguish between three different types of storage devices:
+- static system devices
+  This are all built in devices which will never be removed or disconnected
+  (disconnected != unmounted; unmounted device may still be connected)
+- dynamic system devices
+  This are removable or disconnectable devices which serve the whole system and
+  not only one single user. For example this may be special data disks or backup
+  systems.
+- dynamic user devices
+  This are removable device which belong to a certain user. For example a
+  private usb stick or camera. Or mostly CD and DVD devices.
+
+
+Static System Devices
+^^^^^^^^^^^^^^^^^^^^^
+These are configured in /etc/fstab as usual. If kernel modules need to be loaded
+to access one of these devices, these should be listed in
+    /etc/sysconfig/kernel:INITRD_MODULES
+since we do not mount them via hotplug events. Alternatively you can treat it
+like a dynamic system device despite it is not really removable.
+
+
+Dynamic System Devices
+^^^^^^^^^^^^^^^^^^^^^^
+These can be configured as well in /etc/fstab, but you have to add the new mount
+option 'hotplug'. If devices with this mount option are not available at boot
+time, then this is not an error.
+Since hotplugged devices rarely have a persistent device node, you should prefer
+the persistent links to them. You get a list of all available links to a storage
+device node with the command 'udevinfo -q symlink -n <device node>'.
+Example: 
+oran:~ # udevinfo -q symlink -n /dev/sda1 
+disk/by-id/usb-USB_Flash_Disk_32311AE03FB82538-part1
+disk/by-path/usb-32311AE03FB82538:0:0:0-part1 
+disk/by-uuid/41AB-430C 
+oran:~ # cat /etc/fstab
+...
+/dev/disk/by-uuid/41AB-430C /music ext3 hotplug,ro,user 0 2
+...
+
+When this device is plugged the filesystem will be checked and if no error
+occurs then mounted. If an error occurs you wont get a message in normal
+operation mode. Only if /etc/udev/udev.conf:udev_log=info is set, udev will pass
+error messages to syslog.
+Further you should not use the mount option 'noauto', because all storage
+devices which are not already mounted via udev will be considered as dynamic
+user device from hal/subfs.
+
+
+Dynamic User Devices
+^^^^^^^^^^^^^^^^^^^^
+All storage devices which are not already mounted via udev will be considered as
+dynamic user device from hal/subfs. This means they will be handled via subfs.
+To change the behavior of hal/subfs you have to modify/create fdi files in
+/usr/share/hal/fdi. See documentation of hal and subfs for details.
+
+
+Configuration means
+^^^^^^^^^^^^^^^^^^^
+Currently there are two variables in /etc/sysconfig/storage, but these will be
+very probably removed in further releases:
+HOTPLUG_MOUNT_FSTAB=yes/no indicates if storage devices should be mounted via
+hotplug events at all. But you can also just add/remove fstab lines instead.
+HOTPLUG_CHECK_FILESYSTEMS=yes/no is a gobal switch if filesystems on dynamic
+system devices should be checked. Also this may be configured in /etc/fstab.
+
+
+Outlook
+^^^^^^^
+In next release we will mount all storage devices except boot device via hotplug
+events. The boot script that did this job up to now will then just monitor this
+and check if all mandatory devices are there at a given time. Nevertheless the
+configuration in fstab will stay the same. All devices without 'hotplug' will be
+mandatory.
+Hopefully we can teach hal/subfs to leave devices alone which are listed in
+fstab with mount option 'noauto'.
+

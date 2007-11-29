@@ -1,0 +1,140 @@
+#!/bin/bash
+#
+# Copyright (c) 2002 SuSE Linux AG Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Authors: Arvin Schnell <arvin@suse.de>, 2002
+#          Christian Zoz <zoz@suse.de>, 2002
+#
+# $Id$
+#
+
+function usage()
+{
+	echo $@
+	echo "Usage: if{up,down,status}-ppp [<config>] <hwdesc> [-o <options>]"
+	echo "  hwdesc may be the interface name or any valid description"
+	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Options are: prov=name : specify provider (only for ifup)"
+	echo "             debug     : be verbose"
+	echo "             rc        : indicates that we are called from rcnetwork"
+	echo "All other or wrong options are silently ignored."
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+case "${SCRIPTNAME}" in
+	ifup-*) ACTION=up ;;
+	ifdown-*) ACTION=down ;;
+	ifstatus-*) ACTION=status ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ] ; do
+	case $1 in
+		boot|onboot) MODE=onboot ;;
+		hotplug)     MODE=hotplug ;;
+		rc)          RUN_FROM_RC=yes
+		             SMPPPD_OPTIONS="--rc" ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		prov=*)      PROVIDER=${1##*=} ;;
+		*)           debug "unknown option $1 ignored" ;;
+	esac
+	shift
+done
+
+SMPPPD_OPTIONS="$SMPPPD_OPTIONS -i ifcfg-$CONFIG"
+
+case "$ACTION" in
+
+	up)
+
+		if [ -n "$PROVIDER" ] ; then
+			SMPPPD_OPTIONS="$SMPPPD_OPTIONS -p $PROVIDER"
+		fi
+
+		if [ "$DEBUG" == "yes" ] ; then
+			SMPPPD_OPTIONS="$SMPPPD_OPTIONS -d"
+		fi
+
+		if /usr/sbin/smpppd-ifcfg --up $SMPPPD_OPTIONS ; then
+			message_if_not_run_from_rc "interface $INTERFACE is up"
+			exit $R_SUCCESS
+		fi
+
+		logerror "failed to bring interface $INTERFACE up"
+		exit $R_ERROR
+
+		;;
+
+	down)
+
+		if /usr/sbin/smpppd-ifcfg --down $SMPPPD_OPTIONS ; then
+			message_if_not_run_from_rc "interface $INTERFACE is down"
+			exit $R_SUCCESS
+		fi
+
+		logerror "failed to bring interface $INTERFACE down"
+		exit $R_ERROR
+
+		;;
+
+	status)
+
+		if /usr/sbin/smpppd-ifcfg --status $SMPPPD_OPTIONS ; then
+			message_if_not_run_from_rc "interface $INTERFACE is up"
+			INFOFILE="/var/lib/smpppd/ifcfg-$CONFIG.info"
+			( while read a b ; do
+				case $a in
+					status:|provider-file:|demand:)
+						message_if_not_run_from_rc $a $b
+						;;
+				esac
+			done < $INFOFILE ) 2> /dev/null
+			exit $R_SUCCESS
+		fi
+
+		message_if_not_run_from_rc "interface $INTERFACE is down"
+		exit $R_INACTIVE
+
+		;;
+
+esac

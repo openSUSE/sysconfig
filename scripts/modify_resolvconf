@@ -1,0 +1,816 @@
+#!/bin/bash
+#
+# Copyright (c) 2001-2005 SuSE Linux Products GmbH, Nuernberg, Germany.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Christian Zoz <zoz@suse.de>
+#
+# $Id$
+#
+
+if ! touch /tmp &>/dev/null; then
+  echo "Filesystem read only: Cannot modify anything" >&2
+  exit 1
+fi
+
+RESOLVCONF=/etc/resolv.conf
+NAMEDCONF=/etc/named.d/forwarders.conf
+PROGNAME=${0##*/}
+RETVAL=0
+if [ -x /usr/bin/fmt ] ; then
+  FMT="/usr/bin/fmt -u -w 64"
+else
+  FMT="cat"
+fi
+
+usage () {
+  cat << EOT >&2
+  usage:   $PROGNAME <action> <options>
+  action:  modify, restore, cleanup or check
+  options:                               mandatory for:
+    -s|--service <service>               modify, restore
+    -e|--extension <string>
+    -p|--process <process>               modify
+    -i|--pid <pid>
+    -f|--script <pathname of script>     modify
+    -t|--text <text>                     modify
+    -l|--searchlist <list of domains>
+    -d|--domain <domain>
+    -n|--nameservers <addresses>
+    -o|--save_now <pathname of file>
+    -a|--save_later <pathname of file>
+    -k|--keep
+       --resolv
+       --named
+       --no_restart
+    -q|--quiet
+    -v|--verbose
+    -h|--help                            (does not need an action)
+  cleanup and check ignore all options except -q and -v
+EOT
+  if [ -n "$1" ] ; then
+     echo >&2
+     ERROR="  ERROR:   "
+     echo -e "$*\n" | while read line; do
+       echo "${ERROR}${line}" >&2
+       ERROR="           "
+     done
+  fi
+  exit 1
+}
+
+debug () {
+  test "$VERBOSE" = "yes" || return
+  echo -e "debug: $*" >&2
+}
+
+warn () {
+  test "$QUIET" = "yes" && return
+  echo -e "$*" >&2
+}
+
+log () {
+  logger -t "$PROGNAME" "$*"
+  debug "$*"
+  if [ "$ACTION" = "cleanup" -a "$QUIET" != "yes" ] ; then
+    echo -e "$*" >&2
+  fi
+}
+
+write_meta () {
+  # At first we prepend a default text to TEXT
+  TEXT="This is a temporary ${FILENAME##*/} created by service $SERVICE.\
+        The previous file has been saved and will be restored later.\n\n\
+        If you don't like your ${FILENAME##*/} to be changed, you\
+        can set MODIFY_{RESOLV,NAMED}_CONF_DYNAMICALLY=no. This variables\
+        are placed in /etc/sysconfig/network/config.\n\n\
+        You can also configure service $SERVICE not to modify it.\n\n\
+        $TEXT"
+  cat << EOT > $FILENAME
+### BEGIN INFO
+#
+# Modified_by:  $SERVICE
+# Backup:       $BACKUP
+# Process:      $PROC
+# Process_id:   $PID
+# Script:       $SCRIPT
+# Saveto:       $SAVELATER
+EOT
+infoline="# Info:         "
+echo -e "$TEXT" |
+  $FMT |
+  while read line ; do
+    echo "$infoline$line";
+    infoline="#               "
+  done >> $FILENAME
+  cat << EOT >> $FILENAME
+#
+### END INFO
+EOT
+}
+
+read_resolvconf () {
+  OLDDNS="`sed -n '/^[[:space:]]*nameserver[[:space:]]*/s///p' $TMP_DATA`"
+}
+
+write_resolvconf () {
+  # Only one of $DOMAIN and $SEARCH does contain something
+  if [ -n "$DOMAIN" ] ; then
+    mv $TMP_DATA $TMP_FILE
+    sed -e "/^[[:space:]]*\(domain\|search\)[[:space:]]/d" \
+      $TMP_FILE > $TMP_DATA
+    echo "domain $DOMAIN" >> $TMP_DATA
+  fi
+  if [ -n "$SEARCH" ] ; then
+    mv $TMP_DATA $TMP_FILE
+    sed -e "/^[[:space:]]*\(domain\|search\)[[:space:]]/d" \
+      $TMP_FILE > $TMP_DATA
+    echo "search $SEARCH" >> $TMP_DATA
+  fi
+  if [ -n "$DNS" ] ; then
+    mv $TMP_DATA $TMP_FILE
+    sed "/^[[:space:]]*nameserver[[:space:]]/d" $TMP_FILE > $TMP_DATA
+    for a in $MODIFY_RESOLV_CONF_STATIC_DNS $DNS; do
+      echo "nameserver $a" >> $TMP_DATA
+    done
+  fi
+}
+
+read_namedconf () {
+  # At first normalize the forwarders entry, i.e. remove all comments and
+  # linebreaks from it.
+  mv $TMP_DATA $TMP_FILE
+  sed -e '/^[[:space:]]*forwarders/{
+      h
+      :a
+      s-/\*.*\*/--g
+      s-#.*$--
+      s-//.*$--
+      s-[[:space:]\n]\+- -g
+      /} *; *$/bb
+      N
+      ba
+      :b
+      x
+      s-for.*$--
+      G
+      s-\n --
+      s- ;-;-g
+    } ' $TMP_FILE > $TMP_DATA
+  # Then get the old Nameservers
+  OLDDNS=`sed -n -e '/^[[:space:]]*forwarders/{
+      s-[^0-9. ]*--g
+      p
+    } ' $TMP_DATA | tr -d '\n'`
+}
+
+write_namedconf () {
+  # Put together a list of nameservers from the new servers and then the
+  # old one, but stop after the third
+  FORWDS=""
+  declare -i n=0
+  local a i
+  for a in $DNS; do # $OLDDNS
+    # named will fail if there are duplicate forwarders (bug 28459)
+    for i in $FORWDS ; do
+      if [ "$a;" == "$i" ] ; then
+        continue 2
+      fi 
+    done
+    FORWDS="$FORWDS $a;"
+    n=$((n+1))
+    test $n = 3 && break
+  done
+  # replace the nameservers in the normalized file
+  mv $TMP_DATA $TMP_FILE
+
+  # Check whether there is an active "forwarders" directive
+  grep "^[[:space:]]*forwarders" $TMP_FILE >/dev/null
+  if [ $? == 0 ] ; then
+    # Yes, replace that directive's argument
+    sed -e "/^[[:space:]]*forwarders/{
+        s-\(^.*forwarders\).*\$-\1 {$FORWDS };-
+      } " $TMP_FILE > $TMP_DATA
+  else
+    # Check whether the default comment for the "forwarders" directive is present
+    grep "^[[:space:]]*# your provider's name server." $TMP_FILE >/dev/null
+    if [ $? == 0 ] ; then
+      # Yes, put the comment right after that comment
+      sed -e "/^[[:space:]]*# your provider's name server./a\        forwarders {$FORWDS };" $TMP_FILE > $TMP_DATA
+    else
+      # No, so just put the option right after the "options {" block opening
+      sed -e "/^options {/a\        forwarders {$FORWDS };" $TMP_FILE > $TMP_DATA
+    fi
+  fi
+}
+
+write_file () {
+  read_file
+  write_meta
+  case "$FILENAME" in
+    *resolv*) write_resolvconf; ;;
+    *named*)  write_namedconf; ;;
+  esac
+  cat $TMP_DATA >> $FILENAME
+  chmod 644 $FILENAME
+}
+
+read_file () {
+  sed "/### BEGIN INFO/,/### END INFO/d" $FILENAME > $TMP_DATA
+  echo "" >> $TMP_DATA
+  case "$FILENAME" in
+    *resolv*) read_resolvconf; ;;
+    *named*)  read_namedconf; ;;
+  esac
+}
+
+notify_services () {
+  test "$NO_RESTART" = "yes" && return
+  case "$FILENAME" in
+    *resolv*)
+      if [ -d /var/spool/postfix/etc/ ] ; then
+        cp $RESOLVCONF /var/spool/postfix/etc/
+      fi
+      if [ -x /etc/init.d/lwresd ] ; then
+        warn "`/etc/init.d/lwresd reload`"
+      fi
+      ;;
+    *named*)
+      warn "`/etc/init.d/named reload`"
+      ;;
+  esac
+}
+
+remove_tmp_files () {
+  rm $TMP_DATA $TMP_FILE 2>/dev/null
+}
+
+trap remove_tmp_files EXIT SIGINT SIGSEGV SIGQUIT SIGTERM
+
+TMP_DATA=`mktemp /tmp/${PROGNAME}.XXXXXX`
+TMP_FILE=`mktemp /tmp/${PROGNAME}.XXXXXX`
+
+###########################################################
+# Parse commandline
+###########################################################
+
+# Now set the parsed args but save the original commandline for recursive calls
+COMMANDLINE="$@"
+ACTION=""
+VARIABLE=""
+while true ; do
+  case "$1" in
+    -s|--service) VARIABLE=SERVICE;;
+    -e|--extension) VARIABLE=EXT;;
+    -p|--process) VARIABLE=PROC;;
+    -i|--pid) VARIABLE=PID;;
+    -f|--script) VARIABLE=SCRIPT;;
+    -t|--text) VARIABLE=TEXT;;
+    -l|--searchlist) VARIABLE=SEARCH;;
+    -d|--domain) VARIABLE=DOMAIN;;
+    -n|--nameservers) VARIABLE=DNS;;
+    -q|--quiet) QUIET=yes;;
+    -v|--verbose) VERBOSE=yes;;
+    -h|--help) usage;;
+    -o|--save_now) VARIABLE=SAVENOW;;
+    -a|--save_later) VARIABLE=SAVELATER;;
+    -k|--keep) KEEP=yes;;
+       --resolv) FILENAME=$RESOLVCONF;;
+       --named) FILENAME=$NAMEDCONF;;
+       --no_restart) NO_RESTART=yes;;
+    "") break ;;
+    --)
+      shift
+      test -n "$ACTION" -o $# -gt 1 \
+        && usage "Exactly one action may be given.\n"\
+                 "Currently given actions: $ACTION $*"
+      ACTION="$1"
+      shift
+      break
+      ;;
+    -*) usage Unknown option $1;;
+    *)
+      test -n "$ACTION" && usage "Exactly one action may be given.\n"\
+                                 "Currently given actions: $ACTION $1"
+      ACTION="$1"
+      ;;
+  esac
+  if [ -n "$VARIABLE" ] ; then
+    test -z "$2" && usage Option $1 needs an argument
+    eval $VARIABLE=\$2
+    shift
+    VARIABLE=""
+  fi
+  shift
+done
+test -z "$ACTION" && usage No action was given
+
+###########################################################
+# Check if the arguments to the options are usefull
+###########################################################
+
+case $ACTION in
+  modify)
+#z#    case "$SERVICE" in
+#z#      dhclient|dhcpcd|pppd|ipppd|pcmcia|hotplug) ;;
+#z#      *) usage "service must be one of dhclient dhcpcd" \
+#z#               " pppd ipppd pcmcia hotplug";;
+#z#    esac
+    test -z "$SERVICE" && usage "a vaild service must be set with --service"
+
+    if [ "$SERVICE" != "hotplug" ] ; then
+      if [ -z "$PROC" ] ; then
+        usage "a running process/daemon must be set with --process"
+      else
+        PROCPID=`/sbin/pidofproc $PROC 2>/dev/null`
+        if [ -z "$PROCPID" ] ; then
+          usage "$PROC is not running currently, this may not happen"
+        else
+          debug "pid of prodess $PROC is $PROCPID"
+        fi
+      fi
+    fi
+
+    if [ -z "$PID" ] ; then
+      PID="$PROCPID"
+      # usage "you must set the pid of $PROC with --pid"
+    else
+      PIDPROC=`ps h $PID 2>/dev/null |(read a b c d e f; echo $e)`
+      if [ -z "$PIDPROC" ] ; then
+        warn "there is no process with id $PID"
+      else
+        debug "process with pid $PID is $PIDPROC"
+      fi
+    fi
+
+#    if [ -z "$SCRIPT" ] ; then
+#      usage "you must set the script that modifies $FILENAME with --script"
+#    else
+    if [ -n "$SCRIPT" ] ; then
+      if [ -e "$SCRIPT" ] ; then
+        debug "script $SCRIPT found"
+      else
+        usage "there is no script named $SCRIPT"
+      fi
+    fi
+
+    if [ -z "$TEXT" ] ; then
+      usage "You have to provide an descriptive text with --text\n" \
+            "With --text=- you can use a here document"
+    else
+      # If TEXT="-" read it as here document
+      if [ "$TEXT" = "-" ] ; then
+        TEXT=""
+        while read a; do
+          test -z "$a" && a="\n\n"
+          TEXT="$TEXT $a"
+        done
+      fi
+    fi
+
+    if [ -n "$DOMAIN" -a -n "$SEARCH" ] ; then
+      usage "only one of --domain and --searchlist may be used\n" \
+            "in resolv.conf search and domain are mutually exclusiv"
+    fi
+
+    FILENAME=""
+    ;;
+  restore)
+#z#    case "$SERVICE" in
+#z#      dhclient|dhcpcd|pppd|ipppd|pcmcia|hotplug) ;;
+#z#      *) usage "service must be one of dhclient dhcpcd" \
+#z#               " pppd ipppd pcmcia hotplug";;
+#z#    esac
+    test -z "$SERVICE" && usage "a vaild service must be set with --service"
+    ;;
+  cleanup)
+    if [ -z "$FILENAME" ] ; then
+      $0 $COMMANDLINE --resolv
+      $0 $COMMANDLINE --named
+      exit
+    fi
+    ;;
+  check)
+    # ignore all options
+    if [ -z "$FILENAME" ] ; then
+      FILENAME=$RESOLVCONF
+    fi
+    KEEP=""
+    SAVENOW=""
+    ;;
+  *) usage "$ACTION is not a valid action" ;;
+esac
+
+
+###########################################################
+# respect variables in config and choose right filenames
+###########################################################
+
+debug "pre-config: FILENAME=$FILENAME"
+
+eval `grep "^[[:space:]]*\(\
+MODIFY_RESOLV_CONF_DYNAMICALLY\|\
+MODIFY_NAMED_CONF_DYNAMICALLY\|\
+MODIFY_RESOLV_CONF_STATIC_DNS\
+\)=" /etc/sysconfig/network/config 2>/dev/null`
+
+if [ "$MODIFY_NAMED_CONF_DYNAMICALLY" = "yes" ] ; then
+  test -z "$FILENAME" && FILENAME=$NAMEDCONF
+fi
+if [ "$MODIFY_RESOLV_CONF_DYNAMICALLY" = "yes" ] ; then
+  test -z "$FILENAME" && FILENAME=$RESOLVCONF
+fi
+
+debug "post-config: FILENAME=$FILENAME"
+
+case "$FILENAME" in
+  "")
+    log "Service $SERVICE tried to modify resolver configuration, but it"
+    log "was not modified due to MODIFY_RESOLV\NAMED_CONF_DYNAMICALLY=no"
+    exit
+    ;;
+  $NAMEDCONF)
+    if ! [ -r "$FILENAME" -a -x /etc/init.d/named ] ; then
+      if [ "$ACTION" = "cleanup" ] ; then
+        exit 0
+      else
+        log "Service $SERVICE tried to modify $FILENAME, but named seems" \
+            "not to be installed"
+        log "Check your settings of MODIFY_RESOLV\NAMED_CONF_DYNAMICALLY"
+        exit 1
+      fi
+    fi
+    ;;
+  $RESOLVCONF)
+    if ! [ -r "$FILENAME" ] ; then
+      touch $FILENAME
+      chmod 644 $FILENAME
+    fi
+    ;;
+esac
+BACKUP="${FILENAME}.saved.by.$SERVICE"
+test -n "$EXT" && BACKUP="${BACKUP}.${EXT}"
+
+###########################################################
+# Read current resolv.conf
+###########################################################
+
+read_meta () {
+  if [ -e $FILENAME ] ; then
+    RC_BLOCK=`sed -n "/### BEGIN INFO/,/### END INFO/s/^[[:space:]#]*//p" \
+                                                                 $FILENAME`
+    if [ -n "$RC_BLOCK" ] ; then
+      while read NAME TOKEN; do
+        # Note the quotes around RC_BLOCK. Without it we get all in one line.
+        eval $NAME='`echo "$RC_BLOCK" | sed -n "/^$TOKEN:[[:space:]]*/s///p"`'
+        debug "$NAME=${!NAME}"
+      done << "        EOL"
+        RC_SERVICE   Modified_by
+        RC_BACKUP    Backup
+        RC_PROC      Process
+        RC_PID       Process_id
+        RC_SCRIPT    Script
+        RC_SAVELATER Saveto
+        EOL
+      # Here we want all in one line so we do not quote RC_BLOCK, but we lose
+      # all formatting of the text (to be enhanced).
+      RC_TEXT=`echo $RC_BLOCK | sed -e "s/^.*Info:[[:space:]]*//" \
+                                    -e "s/ END INFO.*$//"`
+      debug "RC_TEXT=${RC_TEXT:0:20} ..."
+    fi
+  fi
+}
+
+read_meta
+
+###########################################################
+# Divide all available backups
+###########################################################
+
+# . /sbin/modify_cf.lib
+
+# Check all existing backups and divide them into valid direct, valid indirect
+# and invalid backups.
+# "all existing backups" = all files /etc/resolv.conf.saved.by.* and all
+#                          files found in the backup field of another
+#                          valid backup
+# "valid direct" = file which the backup entry in resolv.conf points to
+# "valid indirect" = file which the backup entry of another valid backup
+#                    points to
+# "invalid" = files /etc/resolv.conf.saved.by.* which are not valid
+# All valid backups build a stack of files. These files are stored in three
+# variables:
+# DIRECT_BACKUP: Contains the only valid direct backup.
+# INDIRECT_BACKUPS: Contains all indirect backups except the last of the stack.
+#                  Files are ordered like the stack. The first is the backup
+#                  of the valid direct backup.
+# LAST_BACKUP: Contains the last file of the stack of valid indirect backups.
+#              This file does not contain an info block or has an invalid
+#              entry in its backup field.
+# INVALID_BACKUPS: Contains all invalid backups sorted in chronological
+# order, the newest first. This files are only used if there is no valid
+# backup, but resolv.conf was modified dynamically.
+
+read_field_backup () {
+  ls "$*" &>/dev/null || return
+  BAFI=`\
+  sed -n \
+    "/### BEGIN INFO/,/### END INFO/s/^[[:space:]#]*Backup:[[:space:]]*//p" \
+    "$*"`
+  ls "$BAFI" 2>/dev/null
+}
+
+# get all backups in chronoligical order, the newest first
+for bp in `ls -t ${FILENAME}.saved.by* \
+                 $(read_field_backup ${FILENAME}*) 2>/dev/null`; do
+  for abp in $ALL_BACKUPS; do
+    test "$bp" = "$abp" && continue 2
+  done
+  ALL_BACKUPS="$ALL_BACKUPS $bp"
+done
+test -r "$RC_BACKUP" && DIRECT_BACKUP="$RC_BACKUP"
+debug "(0) DIRECT_BACKUP: $DIRECT_BACKUP"
+debug "(0) ALL_BACKUPS: $ALL_BACKUPS"
+
+if [ -n "$ALL_BACKUPS" ] ; then
+  # At first put all except DIRECT_BACKUP from ALL_BACKUPS to INVALID_BACKUPS
+  INVALID_BACKUPS=`\
+  for a in $ALL_BACKUPS; do
+    test "$a" != "$DIRECT_BACKUP" && echo "$a"
+  done`
+  # Then we are going to build a chain of backups and delete the chain elements
+  # from INVALID_BACKUPS.
+  NEXT_BACKUP=`read_field_backup "$DIRECT_BACKUP"`
+  while [ -r "$NEXT_BACKUP" ] ; do
+    debug "(searching stack) NEXT_BACKUP=$NEXT_BACKUP"
+    # At first delete NEXT_BACKUP from INVALID_BACKUPS
+    INVALID_BACKUPS=`\
+    for a in $INVALID_BACKUPS; do
+      test "$a" != "$NEXT_BACKUP" && echo "$a"
+    done`
+    # INDIRECT_BACKUPS contains all elements except the last ...
+    INDIRECT_BACKUPS="$INDIRECT_BACKUPS $LAST_BACKUP"
+    # ... which is always in LAST_BACKUP
+    LAST_BACKUP="$NEXT_BACKUP"
+    NEXT_BACKUP=`read_field_backup "$NEXT_BACKUP"`
+    # Detect a loop
+    for a in $DIRECT_BACKUP $INDIRECT_BACKUPS $LAST_BACKUP; do
+      test "$NEXT_BACKUP" = "$a" && NEXT_BACKUP=""
+    done
+  done
+  debug "(1) DIRECT_BACKUP: $DIRECT_BACKUP"
+  debug "(1) INDIRECT_BACKUPS: $INDIRECT_BACKUPS"
+  debug "(1) LAST_BACKUP: $LAST_BACKUP"
+  debug "(1) INVALID_BACKUPS: $INVALID_BACKUPS"
+fi
+
+# The remaining invalid backups have to be reordered. First all backups
+# without an infoblock then those with info block, both groups
+# still chronologically ordered.
+unset IB_1 IB_2 IB_3
+for a in $INVALID_BACKUPS; do
+  b=`sed -n "/### BEGIN INFO/,/### END INFO/p" $a`
+  if [ -z "$b" ] ; then
+    IB_1="$IB_1 $a"
+  else
+    IB_2="$IB_2 $a"
+  fi
+done
+INVALID_BACKUPS="$IB_1 $IB_2"
+debug "(2) INVALID_BACKUPS: $INVALID_BACKUPS"
+# Then we select all backups with the correct service in the filename. We now
+# have two groups, both ordered as before.
+# Then we split the first group in those which additionally contain the
+# given extension in the filename still sustainig the old order.
+unset IB_1 IB_2 IB_3
+for a in $INVALID_BACKUPS; do
+  if echo $a | grep "$SERVICE" &>/dev/null; then
+    if echo $a | grep "$SERVICE.$EXT" &>/dev/null; then
+      IB_1="$IB_1 $a"
+    else
+      IB_2="$IB_2 $a"
+    fi
+  else
+    IB_3="$IB_3 $a"
+  fi
+done
+INVALID_BACKUPS="$IB_1 $IB_2 $IB_3"
+debug "(3) INVALID_BACKUPS: $INVALID_BACKUPS"
+# Now the list starts with backups that fit most regarding the  name of the
+# backup and then at first these which seem to be backups of unmodified files.
+# Now we choose the first one. If it has an info block we try to find an
+# according stack as before and then take the last element of it.
+CHOOSEN_BACKUP=`echo "$INVALID_BACKUPS" | (read a b; echo "$a")`
+SUCC_BACKUP=`read_field_backup "$CHOOSEN_BACKUP"`
+unset LOOP_STOP
+while [ -r "$SUCC_BACKUP" ] ; do
+  LOOP_STOP="$LOOP_STOP $SUCC_BACKUP"
+  CHOOSEN_BACKUP="$SUCC_BACKUP"
+  SUCC_BACKUP=`read_field_backup "$CHOOSEN_BACKUP"`
+  # detect a loop
+  for a in $LOOP_STOP; do
+    test "$a" = "$SUCC_BACKUP" && SUCC_BACKUP=""
+  done
+done
+# IMHO this should be the at least dynamically modified file of all invalid
+# backups.
+INVALID_BACKUPS="$CHOOSEN_BACKUP $INVALID_BACKUPS"
+debug "(4) INVALID_BACKUPS: $INVALID_BACKUPS"
+
+#  x=wird auch außerhalb verwendet
+#
+#    ALL_BACKUPS
+#    BAFI
+#    CHOOSEN_BACKUP
+#  x DIRECT_BACKUP
+#  x EXT                     ro
+#  x FILENAME                ro
+#    IB_1
+#    IB_2
+#    IB_3
+#  x INDIRECT_BACKUPS
+#  x INVALID_BACKUPS
+#  x LAST_BACKUP
+#    LOOP_STOP
+#    NEXT_BACKUP
+#  x RC_BACKUP               ro
+#  x SERVICE                 ro
+#    SUCC_BACKUP
+
+###########################################################
+# Finally execute the requested action
+###########################################################
+
+# If there is a resolv.conf and --save_now was set then lets do it:
+test -n "$SAVENOW" -a -e "$FILENAME" && cp -p --backup=t $FILENAME $SAVENOW
+
+debug "BACKUP=$BACKUP"
+case $ACTION in
+  modify)
+    # maybe there is no resolv.conf or current resolv.conf points to
+    # the same backup file that should be used now
+    # We don't copy resolv.conf if there is an valid backup of the same
+    # service with the same private extension or ...
+    for a in $DIRECT_BACKUP $INDIRECT_BACKUPS $LAST_BACKUP; do
+      test "$BACKUP" = "$a" && SAVE="no"
+    done
+    # ... there isn't any
+    if [ -e $FILENAME -a "$SAVE" != "no" ] ; then
+       cp -p $FILENAME $BACKUP
+       debug "$FILENAME saved to $BACKUP"
+    fi
+    write_file
+    log "Service $SERVICE modified $FILENAME. See info block in this file"
+    notify_services
+   ;;
+  restore)
+    # If __save_later was set when modifying then we save the temporary
+    # resolv.conf
+    test -n "$RC_SAVELATER" -a -e "$FILENAME" &&
+      cp -p --backup=t $FILENAME $RC_SAVELATER
+    # We only restore if a backup with the correct name (already in $BACKUP)
+    # exists. If this backup is valid we have to save the integrity of a
+    # possibly existing backup stack. If this backup is invalid (= not part
+    # of a stack) then we just restore it, even if we invalidate an existing
+    # stack.
+    if [ -e "$BACKUP" ] ; then
+      # Now we search the possibly existing stack and store the two
+      # predecessors and one successor of it.
+      # Don't remove the empty entry ("") from the list.
+      for a in $FILENAME $DIRECT_BACKUP $INDIRECT_BACKUPS \
+               $LAST_BACKUP ""; do
+        P="$C"
+        C="$S"
+        S="$a"
+        test "$C" = "$BACKUP" && break
+      done
+      # If we did not found the Backup in the stack of valid backups, we
+      # write BACKUP to C and set FILENAME as its predecessor (P). Because
+      # the Backup can have a successor even if it is called invalid, we have
+      # to look for it.
+      if [ "$C" != "$BACKUP" ] ; then
+        P="$FILENAME"
+        C="$BACKUP"
+        S=`read_field_backup "$BACKUP"`
+      fi
+      debug "(restore) P=$P C=$C S=$S"
+      # If we were called with --keep, we don't restore the backup but
+      # keep the temporary settings.
+      if [ "$KEEP" = "yes" ] ; then
+        # We have to keep the resolver settings, but not the meta information
+        # in the info block. There are two cases:
+	# 1) The Backup (C) was the last in the stack (S="") then we remove the
+	#    info block from its predecessor (P) and remove C.
+        # 2) The Backup has itself a backup (S!="") then we have to replace the
+        #    info block in the predecessor (P) with that from the Backup (C),
+        #    but keep everything else from P. And remove C.
+        cp -p $P $TMP_FILE
+        if [ "$S" = "" ] ; then
+          sed "/### BEGIN INFO/,/### END INFO/d" $TMP_FILE > $P
+          log "kept $P and removed info block"
+        else
+          sed -n "/### BEGIN INFO/,/### END INFO/p" $C > $P
+          sed "/### BEGIN INFO/,/### END INFO/d" $TMP_FILE >> $P
+          log "kept $P and changed info block"
+        fi
+        rm $C
+        log "removed $C"
+      else
+        # Don't keep the temporary settings, restore.
+        # All we have to do is to move the Backup (C) to its predecessor (P),
+        # because the backup field of the previous predecessor already points
+        # to the filename of P and the backup field of C what then will be in
+        # P points to S (if existing).
+        mv $C $P
+        log "restored $C to $P"
+      fi
+    else
+      # If no extension was given we search for backup files of the calling
+      # service with private extensions and call us recursivle for every
+      # found extension.
+      if [ "$EXT" = "" ] ; then
+        for a in `ls -t "$BACKUP"* 2>/dev/null`; do
+          EXT=${a##$BACKUP.}
+          $0 $COMMANDLINE -e "$EXT" --no_restart
+        done
+        if [ "$EXT" = "" ] ; then
+          log "no matching backup found, left everything alone"
+        fi
+      fi
+    fi
+    # If there is no backup left, make sure that $FILENAME does not contain
+    # an info block
+    if [ -z "`ls ${FILENAME}.saved.by.* $LAST_BACKUP $INDIRECT_BACKUPS \
+                 $DIRECT_BACKUP $INVALID_BACKUPS 2>/dev/null`" ] ; then
+      if grep -qs "### BEGIN INFO" $FILENAME 2>/dev/null; then
+        log "removing info block from $FILENAME, because there is" \
+            "no backup left"
+        cp -p $FILENAME $TMP_FILE
+        sed "/### BEGIN INFO/,/### END INFO/d" $TMP_FILE >  $FILENAME
+        chmod 644 $FILENAME
+      fi
+    fi
+    notify_services
+    read_file
+    ;;
+  cleanup)
+    # Peter wants to know the old nameservers before cleaning up
+    if [ "$DNS" = "show" ] ; then
+      read_file
+      test -n "$OLDDNS" && echo $OLDDNS
+    fi
+    # If $FILENAME was modified (= RC_BLOCK nonempty) we have to restore it
+    if [ -n "$RC_BLOCK" -a "$KEEP" != "yes" ] ; then
+      # If --save_later was set when modifying then we save the temporary
+      # resolv.conf
+      test -n "$RC_SAVELATER" -a -e "$FILENAME" &&
+        cp -p --backup=t $FILENAME $RC_SAVELATER
+      # Search the most reasonable backup. That is (if existing) the LAST_BACKUP
+      # then the DIRECT_BACKUP and last the first one of INVALID_BACKUPS
+      BACKUP=`echo "$LAST_BACKUP $DIRECT_BACKUP $INVALID_BACKUPS" \
+              | (read a b; echo $a)`
+      if [ -e "$BACKUP" ] ; then
+        mv $BACKUP $FILENAME
+        log "restored $FILENAME from $BACKUP"
+      fi
+    fi
+    # Now we remove all backups
+    MSG=`rm -v $LAST_BACKUP $INDIRECT_BACKUPS $DIRECT_BACKUP \
+               $INVALID_BACKUPS 2>/dev/null`
+    test -n "$MSG" && log "Deleted the following stale backups: $MSG"
+    # After cleaning up resolc.conf should not contain an INFO block that
+    # marks it as modified. If it somehow happens that it has it, we remove it.
+    if grep -qs "### BEGIN INFO" $FILENAME 2>/dev/null; then
+      cp -p $FILENAME $TMP_FILE
+      sed "/### BEGIN INFO/,/### END INFO/d" $TMP_FILE >  $FILENAME
+      chmod 644 $FILENAME
+    fi
+    notify_services
+    read_file
+    ;;
+  check)
+    if [ -z "$RC_BLOCK" ] ; then
+      warn "$FILENAME not modified"
+    else
+      warn $RC_TEXT
+      RETVAL=1
+    fi
+    ;;
+esac
+
+# Don't delete empty file. See bug 40728
+# test "`cat $FILENAME`" = "" && rm $FILENAME
+debug "finished"
+exit $RETVAL

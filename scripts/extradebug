@@ -1,0 +1,29 @@
+# This is a debugging helper script. It collects all interesting info and bash
+# debug output into files /tmp/exded.*. Just source it in all questionable
+# scripts and add 'rm -f /tmp/exded.*' in the start section of /etc/init.d
+# boot.udev to start cleanly when booting.
+
+SCRIPT=${0##*/}
+exec 2> /tmp/exdeb.${SCRIPT}_$$.$PPID.${SEQNUM}_$1.$2
+date +"%F %T.%N" >&2
+echo -------------------------------------------------- >&2
+ps axwfu | head -1 >&2
+#ps axwfu | grep -v "grep\|sed" | grep -C3 "$$\|ifplugd\|dhcp\|ifup\|ifdown\|ifstatus" |
+ps axwfu | grep -C3 "$$\|ifplugd\|dhcp\|ifup\|ifdown\|ifstatus" |
+	sed "s/ $$ /#$$#/" >&2
+echo -------------------------------------------------- >&2
+ls -ltr --full-time /sys/class/net /dev/shm/sysconfig >&2
+echo >&2
+grep -H "" /dev/shm/sysconfig/* >&2
+echo -------------------------------------------------- >&2
+ip a >&2
+ip r >&2
+echo >&2
+iwconfig >&2
+echo >&2
+ifplugstatus >&2
+echo >&2
+echo "##################################################" >&2
+echo "##################################################" >&2
+echo >&2
+set -vx

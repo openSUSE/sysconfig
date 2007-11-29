@@ -1,0 +1,79 @@
+# Process this file with autoconf to produce a configure script.
+AC_INIT(sysconfig, esyscmd([tr -d '\n' < VERSION]), http://www.suse.de/feedback/)
+
+VERSION=$(cat ${srcdir}/VERSION)
+AC_SUBST(VERSION)
+
+AM_INIT_AUTOMAKE(sysconfig, $VERSION)
+AC_CONFIG_SRCDIR([scripts/ifup])
+AC_REVISION($Revision: 1.13 $)
+
+
+# File locations
+sysconfigdir=$sysconfdir/sysconfig
+sysconfig_hardwaredir=$sysconfdir/sysconfig/hardware
+sysconfig_networkdir=$sysconfdir/sysconfig/network
+sysconfig_network_scriptsdir=$sysconfdir/sysconfig/network/scripts
+init_ddir=$sysconfdir/init.d
+docdir=$prefix/usr/share/doc/packages/sysconfig
+pppdir=$sysconfdir/ppp
+udevrulesdir=$sysconfdir/udev/rules.d
+nm_dispatcherdir=/$sysconfdir/NetworkManager/dispatcher.d
+modprobedir=$sysconfdir/modprobe.d
+omc_svcinfodir=$prefix/usr/share/omc/svcinfo.d
+AC_SUBST(sysconfigdir)
+AC_SUBST(sysconfig_hardwaredir)
+AC_SUBST(sysconfig_networkdir)
+AC_SUBST(sysconfig_network_scriptsdir)
+AC_SUBST(init_ddir)
+AC_SUBST(docdir)
+AC_SUBST(pppdir)
+AC_SUBST(udevrulesdir)
+AC_SUBST(modprobedir)
+AC_SUBST(nm_dispatcherdir)
+AC_SUBST(omc_svcinfodir)
+
+fillup_templatesdir=$prefix/var/adm/fillup-templates
+AC_ARG_WITH(fillupdir,
+	[  --with-fillup-templatesdir=name   Set the pathname for the fillup templates directory],
+	fillup-templatesdir=$withval; AC_MSG_RESULT(configuration directory: $fillup_templatesdir),
+	fillup_templatesdir=$prefix/var/adm/fillup-templates; AC_MSG_RESULT(fillup templates directory: $fillup_templatesdir)
+)
+AC_SUBST(fillup_templatesdir)
+
+
+# Checks for programs.
+AC_PROG_AWK
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_PROG_LN_S
+AC_PROG_LIBTOOL
+
+# Checks for libraries.
+AC_CHECK_LIB([sysfs], [sysfs_get_link], [true], [AC_MSG_ERROR([*** Sorry, you have to install libsysfs (possibly in udev package) ***])])
+
+# Checks for header files.
+AC_HEADER_STDC
+AC_CHECK_HEADERS([arpa/inet.h errno.h netdb.h netinet/in.h stdlib.h string.h unistd.h])
+AC_CHECK_HEADERS([sysfs/libsysfs.h],,AC_MSG_ERROR(couldn't find libsysfs header. You might need to install the udev package))
+
+
+
+# Checks for typedefs, structures, and compiler characteristics.
+
+# Checks for library functions.
+AC_FUNC_MALLOC
+AC_CHECK_FUNCS([gethostbyname strerror])
+
+
+AC_CONFIG_FILES([Makefile
+		 doc/Makefile
+		 config/Makefile
+		 config/hardware/Makefile
+		 tools/Makefile
+		 package/sysconfig.spec
+		 package/Makefile
+       scripts/Makefile
+		 scripts/hardware/Makefile])
+AC_OUTPUT
+

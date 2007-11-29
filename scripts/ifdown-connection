@@ -1,0 +1,232 @@
+#! /bin/bash
+# Copyright (c) 2002 SuSE Linux AG Nuernberg, Germany. All rights reserved.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Christian Zoz <zoz@suse.de>, 2002
+# $Id$
+#
+
+# TODO:
+# when closing first use -TERM (except if we just try with -0)
+# for ichecking improve output and remove output from getdests() and nfscheck()
+
+usage () {
+	echo $@
+	echo "Usage: if{down,status}-connection [<config>] <hwdesc> [-o <options>]"
+	echo "  hwdesc may be the interface name or any valid description"
+	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Options are: [on]boot : we are currently booting (or shutting down)"
+	echo "             hotplug  : we are handling a hotplug event"
+	echo "             force    : use -KILL instead of -TERM"
+	echo "             try      : don't kill any process"
+	echo "All other or wrong options are silently ignored."
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+case "${SCRIPTNAME}" in
+	ifdown-*) ACTION=close ;;
+	ifstatus-*) ACTION=check ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+FIRST_SIGNAL=-15
+SECOND_SIGNAL=""
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=onboot ;;
+		hotplug)     MODE=hotplug ;;
+		try)         FIRST_SIGNAL=-0 ;;
+		force)       SECOND_SIGNAL=-9 ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		*)           debug "unknown option $1 ignored" ;;
+	esac
+	shift
+done
+
+######################################################################
+# get the interface and check if it is available or up
+# we do this just for fun, because there might be connections of already
+# unplugged devices which are neither available nor up
+#
+if ! is_iface_available ${INTERFACE%:*} ; then
+	debug "interface ${INTERFACE} is not available"
+	# exit $R_NODEV
+fi
+if ! is_iface_up ${INTERFACE%:*} ; then
+	debug "interface ${INTERFACE} is not up"
+	# exit $R_NOTRUNNING
+fi
+
+######################################################################
+# check presence of configuration file and source it
+#
+test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+
+nfscheck() {
+	local DEVICE MTP TYPE OPTS REST
+	ALLMTP=""
+	while read DEVICE MTP TYPE OPTS REST; do
+		test "$TYPE" != nfs && continue
+		HOST=${DEVICE%:*}
+		for OPT in `IFS=,; echo $OPTS`; do
+			case $OPT in addr*) HOST_ADDR=${OPT#addr=};; esac
+		done
+		ifuser $INTERFACE $HOST_ADDR || continue
+		ALLMTP="$ALLMTP $MTP"
+		NFS_MESSAGE="$NFS_MESSAGE\n   $DEVICE on $MTP (using $INTERFACE)"
+	done < /etc/mtab
+	test -z "`echo $ALLMTP`" || return 1
+}
+
+getdests() {
+	local PROTO RQ SQ LOCAL FOREIGN STATE REST FHOST FPORT LHOST LPORT N=0
+	TCP_PORTS=""
+	UDP_PORTS=""
+	while read PROTO RQ SQ LOCAL FOREIGN STATE REST; do
+		N=$((N+1)); test $N -le 2 && continue
+		FHOST=${FOREIGN%:*}
+		FPORT=${FOREIGN##*:}
+		ifuser $INTERFACE $FHOST || continue
+		if [ "$1" != "-a" -a "$2" != "-a" ] ; then
+			case "$STATE" in FIN_WAIT*|CLOSE_WAIT|TIME_WAIT|CLOSE) continue; esac
+			case "$FHOST" in 127.0.0*|0.0.0.0) continue; esac
+			case "$FPORT" in \*|53) continue; esac
+		fi
+		LHOST=${LOCAL%:*}
+		LPORT=${LOCAL##*:}
+		case "$PROTO" in
+			tcp)
+				for p in $TCP_PORTS; do
+					test "$p" = "$LPORT" && continue 2
+				done
+				TCP_PORTS="$TCP_PORTS $LPORT"
+				;;
+			udp)
+				for p in $UDP_PORTS; do
+					test "$p" = "$LPORT" && continue 2
+				done
+				UDP_PORTS="$UDP_PORTS $LPORT"
+				;;
+			*)
+				OTHER_LINES="$OTHER_LINES $PROTO $RQ $SQ $LOCAL $FOREIGN $STATE $REST"
+				;;
+		esac
+	done < <(netstat -n -tuw)
+# Alte Codefragmente:
+#	LHIP=`echo $(sed -n -e 's/[[:space:]]*localhost.*$//p' /etc/hosts) \
+#	        | sed 's/ /\\\\|/g'`
+#	DESTS=`netstat -ntuw | getdests`
+#	DESTS=`echo $DESTS | sort -u | grep -v "$LHIP"`
+#	/sbin/ifuser $INTERFACE $DESTS && exit 1
+	test -z "`echo $TCP_PORTS$UDP_PORTS`" || return 1
+}
+
+case $ACTION in
+
+	close)
+
+		test "$CONNECTION_CLOSE_BEFORE_IFDOWN" != "yes" && exit $R_SUCCESS
+		test "$CONNECTION_SEND_KILL_SIGNAL" = "yes" \
+		  -a "$FIRST_SIGNAL" = "-15" && SECOND_SIGNAL=-9
+		debug "Close all net connections"
+		getdests
+		# First send SIGTERM to all processes (or -0 if option try was set)
+		if test -n "${TCP_PORTS}" ; then
+			debug && fuser -auvn tcp ${TCP_PORTS}
+			fuser -n tcp $FIRST_SIGNAL -k ${TCP_PORTS}
+		fi
+		if test -n "${UDP_PORTS}" ; then
+			debug && fuser -auvn udp ${UDP_PORTS}
+			fuser -n udp $FIRST_SIGNAL -k ${UDP_PORTS}
+		fi
+		if [ "$CONNECTION_UMOUNT_NFS_BEFORE_IFDOWN" = "yes" ]; then
+			nfscheck
+			for MTP in $ALLMTP; do
+				debug && fuser -auvm $MTP
+				fuser $FIRST_SIGNAL -k -m $MTP
+				umount -v $MTP
+			done
+		fi
+
+		# If option force was set we will send SIGKILL to every process that is
+		# still active
+		if [ -n "$SECOND_SIGNAL" ] ; then
+			sleep 3
+			getdests
+			if test -n "${TCP_PORTS}" ; then
+				debug && fuser -auvn tcp ${TCP_PORTS}
+				fuser -n tcp $SECOND_SIGNAL -k ${TCP_PORTS}
+			fi
+			if test -n "${UDP_PORTS}" ; then
+				debug && fuser -auvn udp ${UDP_PORTS}
+				fuser -n udp $SECOND_SIGNAL -k ${UDP_PORTS}
+			fi
+			if [ "$CONNECTION_UMOUNT_NFS_BEFORE_IFDOWN" = "yes" ]; then
+				nfscheck
+				for MTP in $ALLMTP; do
+					debug && fuser -auvm $MTP
+					fuser $SECOND_SIGNAL -k -m $MTP
+					umount -f -v $MTP
+				done
+			fi
+		fi
+		;;
+
+	check)
+
+		test "$CONNECTION_CHECK_BEFORE_IFDOWN" != yes \
+		     -a "$CONNECTION_SHOW_WHEN_IFSTATUS" != yes && exit $R_SUCCESS
+		RETURN=$R_SUCCESS
+		if ! getdests; then
+			test "$CONNECTION_SHOW_WHEN_IFSTATUS" = yes &&
+				message "There are open connections:" \
+					"${TCP_PORTS:+`fuser -auvn tcp $TCP_PORTS`}" \
+					"${UDP_PORTS:+\n`fuser -auvn udp $UDP_PORTS`}"
+			RETURN=$R_BUSY
+		fi
+		if ! nfscheck; then
+			test "$CONNECTION_SHOW_WHEN_IFSTATUS" = yes &&
+				message "There are nfs mounts:$NFS_MESSAGE"
+			RETURN=$R_BUSY
+		fi
+		test "$CONNECTION_CHECK_BEFORE_IFDOWN" != yes && exit $R_SUCCESS
+		exit $RETURN
+		;;
+esac
