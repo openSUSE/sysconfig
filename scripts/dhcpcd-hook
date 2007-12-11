@@ -85,11 +85,11 @@ fi
 # (in the 'leaseinfo does not exist case' the interface can still be 
 # guessed from the name, but I doubt it's useful to run ifdown then)
 if test -z $leaseinfo; then
-        $log_dbg "Skipping 'ifdown \$INTERFACE -o dhcp' call"
+        $log_dbg "Skipping 'ifdown $INTERFACE -o dhcp' call"
         exit 0
 fi
 if ! test -e $leaseinfo; then
-        $log_dbg "$leaseinfo does not exist. Skipping 'ifdown \$INTERFACE -o dhcp' call"
+        $log_dbg "$leaseinfo does not exist. Skipping 'ifdown $INTERFACE -o dhcp' call"
         exit 0
 fi
 
