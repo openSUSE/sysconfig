@@ -394,7 +394,8 @@ mkdir -p ${RUN_FILES_BASE}/tmp
 # be started before checking which interfaces are already available and might
 # still have to be set up because the were registered to early. Bug 39005)
 if [ "$ACTION" = start ] ; then
-	date +%s > $NETWORK_RUNFILE
+	IFS=. read a b < /proc/uptime
+	echo "$a" > $NETWORK_RUNFILE
 fi
 
 if [ -n "$TYPE" ] ; then
@@ -704,7 +705,8 @@ case "$ACTION" in
 			# If only the seperator remains we are done and thus remove it
 			test "`echo $MANDATORY_DEVICES`" = __NSC__ && MANDATORY_DEVICES=
 
-			TTWAIT=$((`date +%s` - `cat $NETWORK_RUNFILE`))
+			IFS=. read a b < /proc/uptime
+			TTWAIT=$(($a - `cat $NETWORK_RUNFILE`))
 			test $TTWAIT -gt $((WAIT_FOR_INTERFACES)) \
 			     -o -z "$MANDATORY_DEVICES" && break
 
