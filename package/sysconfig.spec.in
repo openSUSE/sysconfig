@@ -1,27 +1,27 @@
 #
 # spec file for package sysconfig (Version @VERSION@)
 #
-# Copyright (c) 2005 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2007 SUSE LINUX Products GmbH, Nuernberg, Germany.
 # This file and all modifications and additions to the pristine
 # package are under the same license as the package itself.
 #
-# Please submit bugfixes or comments via http://bugs.opensuse.org
+# Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
 
 # norootforbuild
 
-Name:         sysconfig
-BuildRequires: sysfsutils
-Version:      @VERSION@
-Release:      0
-Summary:      The sysconfig scheme
-Group:        System/Base
-License:      GPL
-Autoreqprov:  on
-Requires:     iproute2 dbus-1 hal
-BuildRoot:    %{_tmppath}/%{name}-%{version}-build
-PreReq:       %fillup_prereq %insserv_prereq textutils fileutils gawk /usr/bin/sed /usr/bin/grep
-Source:       %name-%version.tar.bz2
+Name:           sysconfig
+Version:        @VERSION@
+Release:        0
+Summary:        The sysconfig scheme
+Group:          System/Base
+License:        GPL v2 or later
+AutoReqProv:    on
+PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
+Requires:       iproute2 dbus-1 hal
+BuildRequires:  sysfsutils
+BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+Source:         %name-%version.tar.bz2
 
 %description
 This package provides the SuSE system configuration scheme.
@@ -37,6 +37,8 @@ Authors:
     Arvin Schnell <arvin@suse.de>
     Michal Svec <msvec@suse.cz>
     Christian Zoz <zoz@suse.de>
+    Werner Fink <werner@suse.de>
+    Marius Tomaschewski <mt@suse.de>
 
 %prep
 %setup -n sysconfig-%{version}
@@ -110,7 +112,7 @@ if [ ${1:-0} -gt 1 ]; then
 	#	converted by /etc/sysconfig/network/scripts/convert_for_getconfig.
 	#	EOF
 	#fi
-	# conversion of persistent name ruules
+	# conversion of persistent name rules
 	if [ -f /etc/udev/rules.d/30-net_persistent_names.rules ] ; then
 		mv -v /etc/udev/rules.d/30-net_persistent_names.rules \
 		      /etc/udev/rules.d/30-net_persistent_names.rules.to_convert
@@ -179,12 +181,10 @@ if [ -d etc/sysconfig/isdn ]; then
     done
     popd >/dev/null
 fi
-
-# conversion of persistent name ruules
+# conversion of persistent name rules
 if [ -f /etc/udev/rules.d/30-net_persistent_names.rules.to_convert ] ; then
 	etc/sysconfig/network/scripts/convert_persistent_name_rules
 fi
-
 # convert hwdescs to interface names in config filenames and variables
 if [ -f etc/sysconfig/network/__convert_hwdesc_to_iface__ ] ; then
 	pushd etc/sysconfig/network
@@ -198,12 +198,13 @@ if [ -f etc/sysconfig/network/__convert_hwdesc_to_iface__ ] ; then
 	rm -f __convert_hwdesc_to_iface__
 	popd
 fi
+#
 pushd /etc/sysconfig/hardware > /dev/null
 for cfg in hwcfg-*-ccw-* ; do
 	[ -f $cfg ] && bash ./hwcfg2rules $cfg
 done
 popd > /dev/null
-
+#
 %{fillup_and_insserv -fY network}
 %{fillup_only -dns dhcp network network}
 %{fillup_only -dns config network network}

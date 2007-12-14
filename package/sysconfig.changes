@@ -1,7 +1,33 @@
 -------------------------------------------------------------------
-Fri Oct  5 09:33:14 CEST 2007 - zoz@suse.de
+Fri Dec 14 11:50:19 CET 2007 - mt@suse.de
 
-- netcontrol_services: fixed parsing output of iwconfig (bug 152071)
+- new version 0.70.3, includes patch for bug #231042 from STABLE.
+- ifup: changed to test if /proc/sys/net/ipv6 exists instead of the
+  wrong use call "sysctl net.ipv6" aborting on 11.0 (bug #347322).
+- Merged sysconfig package changelog in build system and svn
+
+-------------------------------------------------------------------
+Fri Dec 14 11:50:19 CET 2007 - zoz@suse.de
+
+- netcontrol_services: fixed parsing output of iwconfig (bug #152071)
+
+-------------------------------------------------------------------
+Wed Dec 12 09:29:25 CET 2007 - mt@suse.de
+
+- Applied fix by Stefan Seyfried to use uptime in the wait for
+  interfaces loop instead of date that may change (bug #346559).
+
+-------------------------------------------------------------------
+Tue Dec 11 11:39:56 CET 2007 - mt@suse.de
+
+- Applied dhcpcd-hook patch by Peter Varkoly fixing to log the
+  concerned interface name instead of $INTERFACE (bug #305592).
+
+-------------------------------------------------------------------
+Wed Nov 28 12:23:24 CET 2007 - werner@suse.de
+
+- Some small changes on pool.tcpip to reduce conflicts with already
+  running fetchmail deamon or MTA (bug #231042).
 
 -------------------------------------------------------------------
 Mon Sep 17 17:12:19 CEST 2007 - zoz@suse.de
