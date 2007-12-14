@@ -1058,7 +1058,7 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 
 						# Make sure we have ipv6 support or skip this address
 						if [ "$ISv6" = "yes" ]; then
-							if ! sysctl net.ipv6 &>/dev/null; then
+							if test ! -d /proc/sys/net/ipv6 ; then
 								if ! modprobe net-pf-10 2>/dev/null; then
 									logerror "Missing IPv6 support." \
 									         "Ommitting address $IPADDR."
