@@ -431,17 +431,22 @@ fi
 # PHYSICAL_IFACES  are interfaces to present physical devices, they will be
 #                  derived from AVAILABLE_IFACES
 #
+# BONDING_IFACES   are bonding interfaces derived from ifcfg-* files
+#
 # DIALUP_IFACES    are modemX, dslX, etc., they are derived from ifcfg-* files
 #
-# TUNNEL_IFACES    are interfaces that do not fit into PHYSICAL and DIALUP and
-#                  are as well derived from ifcfg-* files
+# TUNNEL_IFACES    are interfaces that do not fit into PHYSICAL, DIALUP, BRIDGE
+#                  or BONDING and are as well derived from ifcfg-* files
 #
-#    PHYSICAL, DIALUP and TUNNEL are mutually exclusive. Their union contains
-#    AVAILABLE and MANDATORY and all of them have to be set up when starting
+# BRIDGE_IFACES    are bridge interfaces derived from ifcfg-* files
 #
-# MANDATORY_IFACES these must be up and well configured for success
+# The PHYSICAL, BONDING, DIALUP, TUNNEL and BRIDGE interfaces sets are
+# mutually exclusive. Their union contains AVAILABLE and MANDATORY and
+# all of them have to be set up when starting.
+#
+# The MANDATORY_IFACES must be up and well configured for success.
 
-# At first get DIALUP and TUNNEL
+# At first sort into BONDING, DIALUP, TUNNEL and BRIDGE interface sets.
 while IFS=- read a b; do
 	test -z "$b" && continue
 	b=`type_filter $b`
@@ -449,11 +454,17 @@ while IFS=- read a b; do
 		lo|eth|tr|wlan|irda|ip6tnl|mip6mnha)
 			continue
 			;;
+		bond)
+			BONDING_IFACES="$BONDING_IFACES $b"
+			;;
 		*ppp|dsl|modem|isdn)
 			DIALUP_IFACES="$DIALUP_IFACES $b"
 			;;
-		vlan|bond|bridge|ipip|sit|gre)
+		vlan|ipip|sit|gre)
 			TUNNEL_IFACES="$TUNNEL_IFACES $b"
+			;;
+		bridge)
+			BRIDGE_IFACES="$BRIDGE_IFACES $b"
 			;;
 		*)
 			err_mesg "$b has unknown interface type. Please file a bug report."
@@ -483,7 +494,7 @@ for a in $(type_filter `ls -A /sys/class/net/`); do
 			continue
 			;;
 	esac
-	for b in $DIALUP_IFACES $TUNNEL_IFACES; do
+	for b in $BONDING_IFACES $DIALUP_IFACES $TUNNEL_IFACES $BRIDGE_IFACES; do
 		if [ "$a" = "$b" ] ; then
 			NOT_PHYSICAL_IFACES="$NOT_PHYSICAL_IFACES $a"
 			continue 2
@@ -524,11 +535,11 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 				continue 2
 			fi
 		done
-		for d in $TUNNEL_IFACES; do
+		for d in $BONDING_IFACES $TUNNEL_IFACES $BRIDGE_IFACES; do
 			if [ "$b" = "$d" ] ; then
 				b="`get_slaves $b`"
 				test $? = 0 || continue 2
-				TUNNEL_SLAVES="$TUNNEL_SLAVES $b"
+				SLAVE_IFACES="$SLAVE_IFACES $b"
 				continue 2
 			fi
 		done
@@ -541,7 +552,7 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 		     "/etc/sysconfig/network/config"
 	fi
 fi
-MANDATORY_DEVICES="$MANDATORY_DEVICES __NSC__ $TUNNEL_SLAVES"
+MANDATORY_DEVICES="$MANDATORY_DEVICES __NSC__ $SLAVE_IFACES"
 # Check for mandatory devices only when booting
 test "$MODE" = onboot || MANDATORY_DEVICES=""
 
@@ -549,8 +560,10 @@ debug "CONFIG      = $CONFIG"
 debug "INTERFACE   = $INTERFACE"
 debug "AVAILABLE_IFACES = $AVAILABLE_IFACES"
 debug "PHYSICAL_IFACES  = $PHYSICAL_IFACES"
+debug "BONDING_IFACES   = $BONDING_IFACES"
 debug "DIALUP_IFACES    = $DIALUP_IFACES"
 debug "TUNNEL_IFACES    = $TUNNEL_IFACES"
+debug "BRIDGE_IFACES    = $BRIDGE_IFACES"
 debug "MANDATORY_DEVICES = $MANDATORY_DEVICES"
 debug "SKIP             = $SKIP"
 
@@ -745,7 +758,7 @@ case "$ACTION" in
 
 
 		if [ -z "$INTERFACE" ] ; then
-			for IFACE in $DIALUP_IFACES $TUNNEL_IFACES ; do
+			for IFACE in $BONDING_IFACES $DIALUP_IFACES $TUNNEL_IFACES $BRIDGE_IFACES ; do
 				$FAKE ifup $CONFIG $IFACE -o rc $MODE
 				RET=$?
 				debug && printf "    %-9s returned %s\n" $IFACE $RET
@@ -883,7 +896,7 @@ case "$ACTION" in
  	 		done
 			debug getting MANDATORY_IFACES: FAILED=$FAILED
  	 
- 	 		for IFACE in $AVAILABLE_IFACES $DIALUP_IFACES $TUNNEL_IFACES; do
+ 	 		for IFACE in $AVAILABLE_IFACES $BONDING_IFACES $DIALUP_IFACES $TUNNEL_IFACES $BRIDGE_IFACES ; do
  	 			for MI in $MANDATORY_IFACES $TOCHECK_IFACES; do
  	 				test "$IFACE" = "$MI" && continue 2
  	 			done

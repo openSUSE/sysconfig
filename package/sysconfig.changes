@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Dec 19 15:22:27 CET 2007 - mt@suse.de
+
+- rcnetwork: Improved start order of interfaces to support for vlans
+  on a bonding interface (bug #343844) and the use of all interface
+  types in bridges.
+
+-------------------------------------------------------------------
 Fri Dec 14 11:50:19 CET 2007 - mt@suse.de
 
 - new version 0.70.3, includes patch for bug #231042 from STABLE.
