@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Dec 20 16:12:57 CET 2007 - jg@suse.de
+
+- ifup-wireless: set access point address (bug #229757)
+
+-------------------------------------------------------------------
 Wed Dec 19 15:22:27 CET 2007 - mt@suse.de
 
 - rcnetwork: Improved start order of interfaces to support for vlans
