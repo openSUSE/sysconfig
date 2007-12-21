@@ -282,6 +282,20 @@ load_bond() {
 		# words. A string describing the mode and the corresponding number. We
 		# have to compare both.
 		read OLD_OPT_VALUE OLD_OPT_VALUE_2 < /sys/class/net/$IF/bonding/$OPT_NAME
+		if [ "$OPT_NAME" == arp_ip_target ]; then
+		    for a in `cat /sys/class/net/$IF/bonding/$OPT_NAME`; do
+			if ! echo "-$a" > /sys/class/net/$IF/bonding/$OPT_NAME
+			then
+			    err_mesg "Option '$OPT_NAME': can't remove $a"
+			fi
+		    done
+		    for a in `echo "$OPT_VALUE" | tr ',' ' '` ; do
+			if ! echo "+$a" > /sys/class/net/$IF/bonding/$OPT_NAME ; then
+			    err_mesg "Option '$OPT_NAME': can't add $a"
+			fi
+		    done
+		    continue
+		fi
 		if [    "$OLD_OPT_VALUE" == "$OPT_VALUE" \
 		     -o \( "$OPT_NAME" == mode -a "$OLD_OPT_VALUE_2" == "$OPT_VALUE" \) \
 		   ] ; then
@@ -314,7 +328,7 @@ remove_bond () {
 	if [ ! -d /sys/class/net/$IF/bonding ] ; then
 		return 1 # Interface is not a bonding master
 	fi
-	ip link set down dev $1
+	ip link set down dev $IF
 	echo "-$IF" > /sys/class/net/bonding_masters
 }
 

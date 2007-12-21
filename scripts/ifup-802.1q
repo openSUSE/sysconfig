@@ -61,9 +61,14 @@ done
 ######################################################################
 # Check needed tools
 #
-if ! [ -x /usr/sbin/vconfig ]; then
+vconfig=/sbin/vconfig
+if [ ! -x $vconfig ] ; then
+  # check compatibility path
+  if [ ! -x /usr/sbin/vconfig ] ; then
 	logerror "VLAN utilities not installed"
 	exit $R_INTERNAL
+  fi
+  vconfig=/usr/sbin/vconfig 
 fi
 
 ######################################################################
@@ -94,8 +99,8 @@ start)	/sbin/modprobe 8021q
 	# Switches the naming type to vlan<N>
 	# The default is ethN.M but that's hard to reconcile
 	# with the network script framework
-	/usr/sbin/vconfig set_name_type vlan_plus_vid_no_pad >/dev/null
-	#/usr/sbin/vconfig set_bind_type per_kernel
+	$vconfig set_name_type vlan_plus_vid_no_pad >/dev/null
+	#$vconfig set_bind_type per_kernel
 
 	# Now create the VLAN interface
 	id=${INTERFACE#vlan}
@@ -104,11 +109,11 @@ start)	/sbin/modprobe 8021q
 		exit $R_INTERNAL
 	fi
 
-	/usr/sbin/vconfig add $ETHERDEVICE $id >/dev/null
+	$vconfig add $ETHERDEVICE $id >/dev/null
 	;;
 stop)
 	if [ -d /sys/class/net/$INTERFACE ] ; then
-		/usr/sbin/vconfig rem $INTERFACE >/dev/null
+		$vconfig rem $INTERFACE >/dev/null
 	fi
 	;;
 esac

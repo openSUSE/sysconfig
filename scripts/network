@@ -481,6 +481,7 @@ done < <(ls -d /etc/sysconfig/network/ifcfg-*)
 # udev/ifup (because network is started now). We will just have to wait for it
 # later in the start section if it is considered mandatory (see next section).
 for a in $(type_filter `ls -A /sys/class/net/`); do
+	test -d /sys/class/net/$a || continue
 	case "`get_iface_type $a`" in
 		eth|tr|wlan)	
 			STAMPFILE=$STAMPFILE_STUB`cat /sys/class/net/$a/ifindex`
@@ -815,7 +816,8 @@ case "$ACTION" in
 			$FAKE ifdown-route noiface -o rc $MODE
 		fi
 
-		for IFACE in ${INTERFACE:-$AVAILABLE_IFACES} ; do
+		for IFACE in ${INTERFACE:-$BRIDGE_IFACES $TUNNEL_IFACES $DIALUP_IFACES $BONDING_IFACES $PHYSICAL_IFACES $AVAILABLE_IFACES} ; do
+			test -d /sys/class/net/$IFACE || continue
 			# printf "    %-9s " $IFACE
 			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
 			RET=$?

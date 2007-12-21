@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Fri Dec 21 13:10:11 CET 2007 - mt@suse.de
+
+- new version 0.70.4
+- Adopted to search for vconfig and ethtool in /sbin as they got
+  moved there as a prerequire of /usr on NFS fixes (bug #285472).
+- Fix for arp_ip_target bonding driver option support (bug #306638).
+- Improved interface stop order in rcnetwork (bug #305333, #343844)
+  to avoid a permission denied while attempt to remove bond iface
+  because a bridge is using it.
+
+-------------------------------------------------------------------
 Thu Dec 20 16:12:57 CET 2007 - jg@suse.de
 
 - ifup-wireless: set access point address (bug #229757)

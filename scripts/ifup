@@ -744,10 +744,22 @@ if [ "$SCRIPTNAME" = ifup -a -n "$ETHTOOL_OPTIONS" ]; then
 			ETHTOOL_OPTIONS="-s $INTERFACE $ETHTOOL_OPTIONS"
 			;;
 	esac
-	MESSAGE="`/usr/sbin/ethtool $ETHTOOL_OPTIONS 2>&1`"
-	test $? != 0 \
-		&& err_mesg "Error while executing: /usr/sbin/ethtool $ETHTOOL_OPTIONS" \
-		|| info_mesg "/usr/sbin/ethtool $ETHTOOL_OPTIONS"
+
+	RETCODE=1
+	ETHTOOL=/sbin/ethtool
+	for tool in $ETHTOOL /usr$ETHTOOL ; do
+		[ -x "$tool" ] || continue
+		ETHTOOL=$tool ; RETCODE=0
+	done
+	if test $RETCODE != 0 ; then
+		MESSAGE="ethtool is not installed"
+	else
+		MESSAGE="`$ETHTOOL $ETHTOOL_OPTIONS 2>&1`"
+		RETCODE=$?
+	fi
+	test $retcode != 0 \
+		&& err_mesg "Error while executing: $ethtool $ETHTOOL_OPTIONS" \
+		|| info_mesg "$ethtool $ETHTOOL_OPTIONS"
 	test -n "$MESSAGE" && err_mesg "$MESSAGE"
 fi
 
