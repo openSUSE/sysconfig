@@ -1,6 +1,37 @@
 
-Things have changed completely. Have fun.
-;)
+This README describes changes in device initialisation that were introduced in
+openSUSE 10.3
 
-FIXME: describe changes
+In former releases there were device configuration files in
+/etc/sysconfig/hardware. These could be used to load special drivers to certain
+devices. If there was no config file for a device the best matching driver was
+loaded automatically.
 
+Now we removed /sbin/hw{up,down}. Things are done via udev directly. Device
+configuration files /etc/sysconfig/hardware/hwcfg-* are not longer used.  (To
+be honest, there is still a /sbin/hwup but it changed completely. See below.)
+
+The automatic module loading did not change much. The only difference is that
+udev calls 'modprobe $MODALIAS' directly and not via /bin/hwup as before.  If
+you want to load another driver for a device now you have to write a udev rule
+instead.
+
+To learn more about this topic have a look at these files, manpages and tools:
+ - /etc/udev/rules.d/80-drivers.rules
+ - man udev
+ - udevmonitor, udevtest, udevinfo
+ - /lib/modules/<kernelversion>/modules.alias
+ - /sys/bus/*/devices/*/modalias
+ - man modprobe
+ - modprobe -nv --show-depends `cat /sys/bus/pci/devices/..../modalias`
+
+
+About the new /sbin/hwup:
+Have a look at this short shell script to learn more about manual driver
+binding. This script may be used to manually unbind and bind drivers to
+devices. 
+For example if you want to change a network interface name, do this:
+- change the name in /etc/udev/rules.d/70-persistent-net.rules
+- call 'hwdown <old iface name>'
+- call 'hwup <old iface name>'
+- check result with 'ip a'
