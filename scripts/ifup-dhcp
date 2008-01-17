@@ -342,6 +342,11 @@ case "$ACTION" in
 			else
 				startproc -f -t ${STARTPROC_TIMEOUT:-1} -q $DHCLIENT_BIN \
 				          $DHCLIENT_ARGS $INTERFACE
+				if test -z "`ip -o -f inet addr show $DEVICE`"; then
+					message_n "`printf "    %-9s (DHCP) " $DEVICE`"
+					message no IP address yet... backgrounding.
+					exit $R_DHCP_BG
+				fi
 			fi
 		fi
 

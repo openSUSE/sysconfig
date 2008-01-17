@@ -5,6 +5,8 @@ Thu Jan 17 08:31:09 CET 2008
 - rcnetwork stop now calls ifdown on all interfaces even if service
   network was not active. This may be necessary at installation time.
   (Bug 291641)
+- ifup-dhcp now also returns 'dhcp not finished' in case of dhclient
+  (if it did not get a lease before ifup-dhcp terminates) (Bug 334659)
 
 -------------------------------------------------------------------
 Fri Dec 21 13:10:11 CET 2007 - mt@suse.de
