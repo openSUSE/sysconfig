@@ -267,9 +267,6 @@ case "$ACTION" in
 			stop_dhcdbd
 		fi
 		stop_nm_dispatcher
-		if ! netcontrol_running ; then
-			rc_exit
-		fi
 		# else fall through to NetControl
 		;;
 	try-restart)
