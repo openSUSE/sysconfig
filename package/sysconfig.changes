@@ -1,5 +1,15 @@
 -------------------------------------------------------------------
-Thu Jan 17 08:31:09 CET 2008
+Wed Jan 23 13:19:21 CET 2008 - mt@suse.de
+
+- rcnetwork: Fixed interface start order to support tunnel on top
+  of vlan interfaces by adding a separate vlan interface set (Bug
+  #305333, #343844).
+- rcnetwork: Fixed to add only non-virtual slave interfaces to the
+  mandatory interface set (MANDATORY_DEVICES) and wait for them at
+  boot time (Bug #354471).
+
+-------------------------------------------------------------------
+Thu Jan 17 08:31:09 CET 2008 - zoz@suse.de
 
 - Added README.hwcfg_and_device_initialisation (Bug 2996529)
 - rcnetwork stop now calls ifdown on all interfaces even if service
