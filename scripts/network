@@ -541,9 +541,16 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 		done
 		for d in $BONDING_IFACES $VLAN_IFACES $TUNNEL_IFACES $BRIDGE_IFACES; do
 			if [ "$b" = "$d" ] ; then
-				b="`get_slaves $b`"
+				slaves="`get_slaves $b`"
 				test $? = 0 || continue 2
-				SLAVE_IFACES="$SLAVE_IFACES $b"
+				for s in $slaves ; do
+					for v in $SLAVE_IFACES $BONDING_IFACES \
+						 $VLAN_IFACES $DIALUP_IFACES   \
+						 $TUNNEL_IFACES $BRIDGE_IFACES ; do
+						[ "$v" = "$s" ] && continue 2
+					done
+					SLAVE_IFACES="$SLAVE_IFACES $s"
+				done
 				continue 2
 			fi
 		done
@@ -555,20 +562,27 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 		echo "Hint: you may set mandatory devices in" \
 		     "/etc/sysconfig/network/config"
 	fi
+	for s in $SLAVE_IFACES ; do
+		for m in $MANDATORY_DEVICES ; do
+			[ "$m" = "$s" ] && continue 2
+		done
+		MANDATORY_SLAVES="$MANDATORY_SLAVES $s"
+	done
 fi
-MANDATORY_DEVICES="$MANDATORY_DEVICES __NSC__ $SLAVE_IFACES"
+MANDATORY_DEVICES="$MANDATORY_DEVICES __NSC__ $MANDATORY_SLAVES"
 # Check for mandatory devices only when booting
 test "$MODE" = onboot || MANDATORY_DEVICES=""
 
-debug "CONFIG      = $CONFIG"
-debug "INTERFACE   = $INTERFACE"
-debug "AVAILABLE_IFACES = $AVAILABLE_IFACES"
-debug "PHYSICAL_IFACES  = $PHYSICAL_IFACES"
-debug "BONDING_IFACES   = $BONDING_IFACES"
-debug "VLAN_IFACES      = $VLAN_IFACES"
-debug "DIALUP_IFACES    = $DIALUP_IFACES"
-debug "TUNNEL_IFACES    = $TUNNEL_IFACES"
-debug "BRIDGE_IFACES    = $BRIDGE_IFACES"
+debug "CONFIG            = $CONFIG"
+debug "INTERFACE         = $INTERFACE"
+debug "AVAILABLE_IFACES  = $AVAILABLE_IFACES"
+debug "PHYSICAL_IFACES   = $PHYSICAL_IFACES"
+debug "BONDING_IFACES    = $BONDING_IFACES"
+debug "VLAN_IFACES       = $VLAN_IFACES"
+debug "DIALUP_IFACES     = $DIALUP_IFACES"
+debug "TUNNEL_IFACES     = $TUNNEL_IFACES"
+debug "BRIDGE_IFACES     = $BRIDGE_IFACES"
+debug "SLAVE_IFACES      = $SLAVE_IFACES"
 debug "MANDATORY_DEVICES = $MANDATORY_DEVICES"
 debug "SKIP              = $SKIP"
 
