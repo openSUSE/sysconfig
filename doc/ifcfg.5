@@ -57,7 +57,7 @@ is that the latter does not make
 fail if the interface cannot be brought up.
 .TP
 .B ifplugd
-The interface will be controlled from ifplugd. At initial ifup only iflugd will
+The interface will be controlled from ifplugd. At initial ifup only ifplugd will
 be started for this interface. Then if ifplugd detects a link if calls ifup
 again which finally sets the interface up. See also variable
 .B IFPLUGD_PRIORITY
@@ -81,7 +81,7 @@ Will never be activated.
 .BR IFPLUGD_PRIORITY
 If there multiple interfaces have
 .B STARTMODE=ifplugd
-and a nonzero priority, only one of them will be set up at a time. Everytime one
+and a nonzero priority, only one of them will be set up at a time. Every time one
 of these interfaces is (un)plugged the interface with highest priority (and
 plugged cable) will be set up.
 .TP 
@@ -105,7 +105,7 @@ tunnel interfaces running in the "6to4" mode. See also
 .TP 
 .IR  \fBIPADDR\fR [ suffix ]\ { IPv4 | IPv6 }[ \fB/\fIPREFIXLEN ]
 IP address, either IPv4 or IPv6. You may add
-.B /<prefixlenght>
+.B /<prefixlength>
 in both cases and omit
 .B NETMASK
 or
@@ -117,26 +117,26 @@ below. If no address is configured the interface will just be activated (UP).
 .TP
 .BR PREFIXLEN [ \fIsuffix\fR ]
 Number of bits in IPADDR that form the network
-address. Alternatively add prefixlength to
+address. Alternatively add a prefix-length to
 .B IPADDR
 or use
 .BR NETMASK .
 .B PREFIXLEN 
 is preferred over
 .B NETMASK.
-but highest priority has a prefixlength added to the IP address in the variable
+but highest priority has a prefix-length added to the IP address in the variable
 .B IPADDR.
 .TP
 .BR NETMASK [ \fIsuffix\fR ]
-Network mask. Alternatively add prefixlength to
+Network mask. Alternatively add a prefix-length to
 .B IPADDR
 or use
 .BR PREFIXLEN .
-This variable is ignored if a prefixlength is specified.
+This variable is ignored if a prefix-length is specified.
 .TP
 .BR BROADCAST [ \fIsuffix\fR ]
 Network broadcast. If you omit the broadcast address, it will be calculated from
-netmask or prefixlength. You can affect the calculation with the variable
+netmask or prefix-length. You can affect the calculation with the variable
 .B DEFAULT_BROADCAST
 in 
 .I /etc/sysconfig/network/config.
@@ -196,9 +196,9 @@ may specify it in this variable.
 .TP
 .B ETHTOOL_OPTIONS
 If this variable is not empty ifup will call ethtool with this
-options. See manpage
+options. See
 .B ethtool (8) 
-for available options.
+manual page for available options.
 If option string starts with a '-' (e.g. '-K iface rx on') then the second word in the string
 will be replaced with the current interface name. Else (e.g. 'autoneg off speed
 10') ifup prepends '-s
@@ -224,7 +224,7 @@ they must be made executable.
 
 These scripts will be called with nearly the same arguments as ifup. The only
 difference is that the configuration-name (optional for ifup) is always set with
-the name determined by getcgf. The configuration name is stored in the variable
+the name determined by getcfg. The configuration name is stored in the variable
 .B $CONFIG
 which may be used inside the ifcfg- configuration file.
 
@@ -233,26 +233,29 @@ If
 then the post up and pre down scripts will not be executed immediately by
 ifup/ifdown. Instead dhcpcd calls ifup/ifdown with a special option always after
 it sets, changes or removes the IP address. Therefore post up scripts will be
-excuted after the interface is really up which may be much later if dhcp did not
-get a lease immedialetly. And pre down scripts are called after dhcp shut down
+executed after the interface is really up which may be much later if dhcp did not
+get a lease immediately. And pre down scripts are called after dhcp shut down
 the interface (not before as 'pre' would indicate. This is a problem of dhcpcd).
 
 .TP
 .B TUNNEL, TUNNEL_LOCAL_IPADDR, TUNNEL_LOCAL_INTERFACE, TUNNEL_REMOTE_IPADDR, T
-Using this variable you may set up different tunnels. See manpage
+Using this variable you may set up different tunnels. See
 .B ifcfg-tunnel
-.BR (5) .
+.BR (5)
+manual page.
 .TP
 .B ETHERDEVICE
-Needed only for virtual LANs. It contains the real interface to use for the vla
-interface. See manpage
+Needed only for virtual LANs (802.1q). It contains the real interface to use for the vlan
+interface. See
 .B ifcfg-vlan
-.BR (5) .
+.BR (5)
+manual page.
 .TP
 .B BONDING_MASTER, BONDING_SLAVE_*, BONDING_OPTS, BONDING_MODULE_OPTS
-These are used to set up interface bonding. See manpage
+These are used to set up interface bonding. See
 .B ifcfg-bonding
-.BR (5) .
+.BR (5)
+manual page.
 
 .SH GENERAL VARIABLES
 There are some general settings in the file
@@ -342,7 +345,7 @@ Please report bugs at <http://www.suse.de/feedback>
 Christian Zoz <zoz@suse.de> -- ifup script
 Michal Svec <msvec@suse.cz> -- ifup script
 Bjoern Jacke -- ifup script
-Mads Martin Joergensen <mmj@suse.de> -- ifup manpage 
+Mads Martin Joergensen <mmj@suse.de> -- ifup manual page
 Michal Ludvig <mludvig@suse.cz> -- tunnel support
 .fi
 .SH "SEE ALSO"

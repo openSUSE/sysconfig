@@ -81,7 +81,7 @@ a host or a network. The heading
 .B default
 indicates that the route is the default gateway. Do
 .BR not\  use\  0.0.0.0
-for this purpose. A prefixlen can be used; e.g.,
+for this purpose. A prefix-length can be used; e.g.,
 .B 10.10.0.0/16
 is valid.
 
@@ -96,7 +96,7 @@ The
 gives the netmask for a remote
 host or remote network behind a gateway.
 For the default route or if you were using
-a prefixlen in the first column, you can omit it.
+a prefix-length in the first column, you can omit it.
 
 The 
 .B fourth column 
@@ -118,7 +118,7 @@ In the latter case you may want to use
 instead. Here an empty interface field is always replaced with the interface
 name that is currently being activated. This makes sense because this file is
 only used for one configuration (for one interface). This is even necessary if
-you use several hotpluggable devices, because you cannot know the name of the
+you use several hot-pluggable devices, because you cannot know the name of the
 interface that is used with a configuration for a certain device before.
 
 

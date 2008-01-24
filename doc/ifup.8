@@ -3,13 +3,13 @@
 .\"
 .TH IFUP 8 "August 2004" "sysconfig" "Network configuration"
 .SH NAME
-ifup \- start a preconfigured net interface.
+ifup \- start a pre-configured network interface.
 .br
-ifdown \- stop a (preconfigured) net interface.
+ifdown \- stop a (pre-configured) network interface.
 .br
-ifstatus \- show the state of a (preconfigured) net interface.
+ifstatus \- show the state of a (pre-configured) network interface.
 .br
-ifrenew \- renews the dhcp lease on a net interface.
+ifrenew \- renews the dhcp lease on a network interface.
 .br
 ifprobe \- checks if the configuration for the interface has changed
 
@@ -43,14 +43,14 @@ parameters which can be assigned to an interface like IP addresses or routes.
 It is intentional that a configuration does not need to belong to an interface,
 but to a device. For built-in devices there is most of the time a fixed
 relation between
-devices and interfaces, but this is no longer the case when using hotpluggable
+devices and interfaces, but this is no longer the case when using hot-pluggable
 devices. With such devices (like PCMCIA or USB) you cannot always know which
 interface name you will get. So even if the interface name changes the interface
 to a certain device will always have the right setup.
 
 .SH DESCRIPTION
 .B ifup
-is used to bring up a preconfigured interface for networking. It is usually
+is used to bring up a pre-configured interface for networking. It is usually
 invoked by the network script at boot time or by the PCMCIA/hotplug system. It
 can also be used to start interfaces manually on the command line. It activates
 the link, adds addresses and other parameters and sets up the routes for an
@@ -199,7 +199,7 @@ interface/configfile specific scripts to be executed have a look at
 .I /etc/sysconfig/network/ifservices- <configuration-name>/
 .RS
 If you don't have a permanent network connection and like that certain services
-are not started at boot time unconditionaly but later after the network
+are not started at boot time unconditionally but later after the network
 connection was established then you can add these services here. See
 .B ifservices (5) 
 for a detailed description.
@@ -226,7 +226,7 @@ files.
 
 .SH rcnetwork
 At boot time network devices are initialized asynchronously via hotplug. Once
-this initialisation process registered an interface for it this will also
+this initialization process registered an interface for it this will also
 trigger a hotplug event which will call ifup. If service network was still not
 started ifup will just exit. As soon as service network is active ifup will do
 its job and set up the interface. Therefore the job of the network start script
@@ -271,7 +271,7 @@ Please report bugs at <http://www.suse.de/feedback>
 Christian Zoz <zoz@suse.de> -- ifup script
 Michal Svec <msvec@suse.cz> -- ifup script
 Bjoern Jacke -- ifup script
-Mads Martin Joergensen <mmj@suse.de> -- ifup manpage 
+Mads Martin Joergensen <mmj@suse.de> -- ifup manual page 
 Michal Ludvig <mludvig@suse.cz> -- tunnel support
 .fi
 .SH "SEE ALSO"

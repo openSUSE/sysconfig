@@ -7,11 +7,11 @@
 .\"
 .TH HWUP 8 "April 2004" "sysconfig" "Hardware configuration"
 .SH NAME
-hwup \- start a preconfigured hardware device.
+hwup \- start a pre-configured hardware device.
 .br
-hwdown \- stop a (preconfigured) hardware device.
+hwdown \- stop a (pre-configured) hardware device.
 .br
-hwstatus \- show the state of a (preconfigured) hardware device.
+hwstatus \- show the state of a (pre-configured) hardware device.
 .SH SYNOPSIS
 .B hw{up,down,status}
 .B [
@@ -34,15 +34,15 @@ present hardware, e.g. a PCI- or PCMCIA-card or an USB device. An
 then is the name of the corresponding interface it gets from the
 kernel when the device has been registered. A 
 .B configuration
-is a set of parameters which are required for the initialisation of the
-device like modules or initialisation scripts.
+is a set of parameters which are required for the initialization of the
+device like modules or initialization scripts.
 
 .SH DESCRIPTION
 .B hwup
-is used to initialise a device. It is usually invoked by the hotplug
+is used to initialize a device. It is usually invoked by the hotplug
 subsystem. It can also be used to configure devices manually on the
 command line. It loads the specified modules and calls any configured
-initialisation scripts required to initialise the device and/or binds
+initialization scripts required to initialize the device and/or binds
 the device to the corresponding driver. If a device was unbound from 
 its driver (e.g. by
 .BR hwdown )
@@ -151,17 +151,17 @@ or globally in
 .IR /etc/sysconfig/hardware/config .
 .TP
 .B SCRIPT{UP,DOWN}_[type]
-Script to be called for the initialisation / deconfiguration of a
+Script to be called for the initialization / deconfiguration of a
 specific device type. This script is
 called if the type of the device to be initialized matches the
 .I type
-given in this parameter. This script must be specified relativ to
+given in this parameter. This script must be specified relative to
 .IR /etc/sysconfig/hardware/config .
 .TP
 .B SCRIPT{UP,DOWN}
-Script to be called for the initialisation / deconfiguration of the
+Script to be called for the initialization / deconfiguration of the
 device. It will only be called if no matching type-specific script are
-configured. This script must be specified relativ to
+configured. This script must be specified relative to
 .IR /etc/sysconfig/hardware/config .
 .TP
 .B PRE_UP_SCRIPT
@@ -172,7 +172,7 @@ configured. This script must be specified relativ to
 .TP
 .B POST_DOWN_SCRIPT
 These scripts will be called according to their names pre or post all other actions
-in hwup or hwdown. They will be called always independant if
+in hwup or hwdown. They will be called always independent if
 .B SCRIPT{UP,DOWN}
 or
 .B SCRIPT{UP,DOWN}_[type] 
@@ -197,13 +197,13 @@ specified must match the number of CCW IDs required as specified by
 (for qeth) for this device. For CTC device the valid choices
 are
 .I 0
-for compability mode,
+for compatibility mode,
 .I 1
 for extended mode,
 .I 2
 for CTC-base tty (Linux-Linux) connections, or
 .I 3
-for compability mode with OS/390 and z/OS.
+for compatibility mode with OS/390 and z/OS.
 .TP
 .B ZFCP_LUNS
 (zfcp only). A list of configured zfcp devices. Entries in this

@@ -18,14 +18,6 @@ set UP automatically and doesn't need a config file. (But without a config file
 YaST will consider this interface as unused. To avoid that just provide and
 empty config file for it.)
 
-When you specify the etherdevice in your configuration, you should preferrably
-use a
-.B hardware description 
-instead of interface names since interface names are not always persistent. See
-explanation of hardware descriptions in section
-.B DESCRIPTION
-above.
-
 Example that sets up vlan3 on top of eth0:
 
 .I ifcfg-vlan3
@@ -47,7 +39,7 @@ Please report bugs at <http://www.suse.de/feedback>
 Christian Zoz <zoz@suse.de> -- ifup script
 Michal Svec <msvec@suse.cz> -- ifup script
 Bjoern Jacke -- ifup script
-Mads Martin Joergensen <mmj@suse.de> -- ifup manpage 
+Mads Martin Joergensen <mmj@suse.de> -- ifup manual page
 Michal Ludvig <mludvig@suse.cz> -- tunnel support
 .fi
 .SH "SEE ALSO"
