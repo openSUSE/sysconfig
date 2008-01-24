@@ -60,7 +60,7 @@ modules.conf. But these did never guarantee anything. For example there was
 Now device0 had a problem and could not be initialized, therefore eth0 was not
 registered. Then a ifup eth1 did trigger the loading of driver1, but the new
 interface was named eth0 and not eth1. This was a rare problem in former times,
-but with more and more hotpluggable devices this became a real problem.
+but with more and more hot-pluggable devices this became a real problem.
 
 The same happens with other devices as well for example storage devices. The
 kernel does assign interface names like /dev/sd<X> not fixed to certain devices.
@@ -109,7 +109,7 @@ Setting up network interfaces formerly started with the interface. There was a
 configuration for a network interface which did not need to exist. An ifup
 interface triggered a modprobe of the module specified in modules.conf. The
 driver did look for hardware it can handle and registered all interfaces it
-created. The only exception were USB and PCMCIA which are hotpluggable.
+created. The only exception were USB and PCMCIA which are hot-pluggable.
 
 From now on, since we know the device interface relations, we start at the other
 end, namely the device. At boot time we scan for available devices and trigger a

@@ -6,7 +6,7 @@ FIXME: This doc still has to be rewritten
 
 Hi all,
 
-there are two significant changes in susconfig package:
+there are two significant changes in sysconfig package:
 - /sbin/getcfg removed
 - /sbin/hw{up,down,status} removed
 
@@ -43,7 +43,7 @@ If some device needs some special driver, this may be configured in
 udev rules more flexible then before.
 Module options belong to modprobe.conf. It was a big mistake that they
 could ever be written in hwcfg-*.
-Manual device control is provoided by sysfs:
+Manual device control is provided by sysfs:
 - to release a device:
     echo -n <device id> > /sys/bus/*/drivers/*/unbind
 - to activate a device:
@@ -59,29 +59,29 @@ not use them itself.
 -----------------------------------------------------------------------------
 
 TODO:
-- maintainer von zu fixenden Paketen anschreiben
-- konvertierung aller identifizierter Konfigfiles
-- getcfg script schreiben, das
-  - hwdescs konvertieren kann
-  - den user informiert (auch im logfile)
+- mail the maintainer of packages that needs to be fixed
+- convert all identified configuration files
+- write getcfg script, that can
+  - convert hwdescs
+  - inform the user (also in the logfiles)
 
-- Doku überall anpassen
+- Adopt the documentation
   - /usr/src/linux/Documentation/networking/bonding.txt
-    they should refer to our manpages
+    they should refer to our manual pages
 
 
 -----------------------------------------------------------------------------
 
-Entfernt:
-- getcfg: nur noch ifcfg-<interface>
+Removed:
+- getcfg: ifcfg-<interface> only
 - PERSISTENT_NAME
 
 
-Variablen, die komplett entfernt werden:
+Variables, the will be removed completely:
 HWDESC
 
 
-Probleme:
+Problems:
 - scpm
-- TUNNEL_LOCAL_INTERFACE beseitigen
+- get rid of TUNNEL_LOCAL_INTERFACE
 

@@ -1,5 +1,5 @@
 
-This README describes changes in device initialisation that were introduced in
+This README describes changes in device initialization that were introduced in
 openSUSE 10.3
 
 In former releases there were device configuration files in
@@ -16,7 +16,7 @@ udev calls 'modprobe $MODALIAS' directly and not via /bin/hwup as before.  If
 you want to load another driver for a device now you have to write a udev rule
 instead.
 
-To learn more about this topic have a look at these files, manpages and tools:
+To learn more about this topic have a look at these files, man-pages and tools:
  - /etc/udev/rules.d/80-drivers.rules
  - man udev
  - udevmonitor, udevtest, udevinfo
