@@ -33,6 +33,7 @@
 # Should-Stop:
 # Default-Start:  2 3 5
 # Default-Stop:
+# Short-Description: Configure the network
 # Description:    Configure the network interfaces and set up routing
 ### END INIT INFO
 
