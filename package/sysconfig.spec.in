@@ -54,6 +54,8 @@ CFLAGS="$RPM_OPT_FLAGS -fPIC" \
             --mandir=%_mandir \
             --with-fillup-templatesdir=/var/adm/fillup-templates
 %{__make}
+
+%check
 make check
 
 %clean
