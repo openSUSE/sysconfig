@@ -55,5 +55,5 @@ tmppack: sysconfig-$(VERSION).tar.bz2
 		/tmp/@PACKAGE@-$(VERSION)/
 
 cl:
-	svn log . -v > $(distdir)/ChangeLog
+	LANG=C svn log . -v > $(distdir)/ChangeLog
 
