@@ -1,6 +1,9 @@
 -------------------------------------------------------------------
-Wed Jan 23 13:19:21 CET 2008 - mt@suse.de
+Tue Jan 29 12:45:01 CET 2008 - mt@suse.de
 
+- new version 0.70.5
+- minor rpmlint related fixes, recoded changes file to utf8.
+- spell check of manual pages and README files (Bug 349746).
 - rcnetwork: Fixed interface start order to support tunnel on top
   of vlan interfaces by adding a separate vlan interface set (Bug
   #305333, #343844).
@@ -2717,28 +2720,28 @@ Mon Aug 25 17:09:34 CEST 2003 - poeml@suse.de
 Mon Aug 25 10:59:38 CEST 2003 - mmj@suse.de
 
 - Update to version 0.23.29:
-  · code to set up interface bonding
-  · fix ifup-wireless error message
-  · Added hook to is_iface_available();
-  · Set MTU _after_ interface link is up
-  · Avoid duplicate forwarders in named.conf [#28459]
-  · Move /etc/sysconfig/* directories to filesystem package
-  · Added auto-detection for wlan devices
-  · Get rid of /var/lib/firewall (old personal-firewall cruft) [#28795]
-  · Support for tunnel of different type: ipip, gre, sit and 6to4
-  · Improved messages for rcnetwork if multiple adresses are configured
-  · New option "dhcp" to if* and if*-route:
+  Â· code to set up interface bonding
+  Â· fix ifup-wireless error message
+  Â· Added hook to is_iface_available();
+  Â· Set MTU _after_ interface link is up
+  Â· Avoid duplicate forwarders in named.conf [#28459]
+  Â· Move /etc/sysconfig/* directories to filesystem package
+  Â· Added auto-detection for wlan devices
+  Â· Get rid of /var/lib/firewall (old personal-firewall cruft) [#28795]
+  Â· Support for tunnel of different type: ipip, gre, sit and 6to4
+  Â· Improved messages for rcnetwork if multiple adresses are configured
+  Â· New option "dhcp" to if* and if*-route:
     - if* will no longer call POST_UP and PRE_DOWN scripts if
       not called with '-o dhcp' (PRE_UP and POST_DOWN are still
       called)
     - if* will call POST_UP and PRE_DOWN script and if*-route if
-      called with '-o··· dhcp'
+      called with '-oÂ·Â·Â· dhcp'
     - if*-route will not read /etc/sysconfig/network/routes if
       called with '-o    dhcp'. Only ifroute-* will be used.
       (dhcp client will call 'if* <interface> -o dhcp' when it
       got/lost/renewed a lease. So POST_UP will be executed after
       the interface is really up and configured.)
-  · Other small fixes and formatting changes
+  Â· Other small fixes and formatting changes
 
 -------------------------------------------------------------------
 Tue Aug 12 16:37:53 CEST 2003 - poeml@suse.de
@@ -2771,10 +2774,10 @@ Fri May  9 11:45:02 CEST 2003 - mmj@suse.de
 Tue Apr  1 13:24:32 CEST 2003 - mmj@suse.de
 
 - 0.23.28:
-  · Fold in 8.2 patches
-  · It's /usr/sbin/vconfig not /sbin/vconfig
-  · Fix ifup man-page FILES section
-  · It's STARTMODE not BOOTMODE
+  Â· Fold in 8.2 patches
+  Â· It's /usr/sbin/vconfig not /sbin/vconfig
+  Â· Fix ifup man-page FILES section
+  Â· It's STARTMODE not BOOTMODE
 
 -------------------------------------------------------------------
 Tue Mar 11 16:06:09 CET 2003 - mmj@suse.de
@@ -2825,11 +2828,11 @@ Thu Feb 20 11:22:15 CET 2003 - poeml@suse.de
 Mon Feb 17 16:24:49 CET 2003 - mmj@suse.de
 
 - Up to 0.23.26 - mostly changes by arvin and zoz
-  · functions, ifup - Changed handling runtime information in
+  Â· functions, ifup - Changed handling runtime information in
     /var/run/sysconfig/if-* to store more info for ppp
-  · Removed misleading comment about automatic detection of WLAN
+  Â· Removed misleading comment about automatic detection of WLAN
     hardware [#20431]
-  · Inform smpppd if we were called via rcnetwork.
+  Â· Inform smpppd if we were called via rcnetwork.
 
 -------------------------------------------------------------------
 Tue Feb 11 08:57:55 CET 2003 - mmj@suse.de
