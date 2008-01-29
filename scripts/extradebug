@@ -1,3 +1,5 @@
+#! /bin/bash
+
 # This is a debugging helper script. It collects all interesting info and bash
 # debug output into files /tmp/exded.*. Just source it in all questionable
 # scripts and add 'rm -f /tmp/exded.*' in the start section of /etc/init.d
