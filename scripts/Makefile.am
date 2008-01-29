@@ -70,4 +70,4 @@ install-data-hook:
 
 check: 
 	list='$(sysconfig_network_scripts_SCRIPTS) $(sbin_SCRIPTS) $(init_d_SCRIPTS) $(ppp_SCRIPTS) $(nm_dispatcher_SCRIPTS)'; \
-	for i in $$list; do bash -n $(srcdir)/$$i && printf '%-25s %s\n' $$i "Syntax OK" || exit 1; done
+	for i in $$list; do bash -n $(srcdir)/$$i && printf '%-30s %s\n' $$i "Syntax OK" || exit 1; done
