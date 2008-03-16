@@ -735,7 +735,7 @@ if [ "$SCRIPTNAME" = ifup -a -n "$ETHTOOL_OPTIONS" ]; then
 	# There were cases where interfaces were not ready for ethtool
 	# immediately after registration. 
 	test -n "$ETHTOOL_WAIT" && sleep $ETHTOOL_WAIT 2>/dev/null
-	case $ETHTOOL_OPTIONS in
+	case "$ETHTOOL_OPTIONS" in
 		-*) # got an option, replace second word with current interface name
 			read ETHTOOL_SWITCH xifacex ETHTOOL_SETTINGS < <(echo $ETHTOOL_OPTIONS)
 			ETHTOOL_OPTIONS="$ETHTOOL_SWITCH $INTERFACE $ETHTOOL_SETTINGS"

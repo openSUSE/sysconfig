@@ -195,14 +195,13 @@ Sometimes ifup cannot determine the interface type properly. In this cases you
 may specify it in this variable. 
 .TP
 .B ETHTOOL_OPTIONS
-If this variable is not empty ifup will call ethtool with this
-options. See
-.B ethtool (8) 
+If this variable is not empty ifup will call ethtool with this options.
+See the
+.B ethtool (8)
 manual page for available options.
-If option string starts with a '-' (e.g. '-K iface rx on') then the second word in the string
-will be replaced with the current interface name. Else (e.g. 'autoneg off speed
-10') ifup prepends '-s
-<interface>'.
+If the option string starts with a '-' (e.g. '-K iface rx on'), then the
+second word in the string will be replaced with the current interface name.
+Otherwise (e.g. 'autoneg off speed 10') ifup prepends '-s <interface>'.
 .TP
 .BR RUN_POLL_TCPIP\  { yes* | no }
 Controls running

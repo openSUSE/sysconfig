@@ -170,11 +170,11 @@ LINK_OPTIONS=
 ## Type:    string
 ## Default: ""
 #
-# If this variable is not empty ifup will call ethtool with this
-# options. See manpage ethtool for available options.
-# If option string starts with a '-' (e.g. '-K iface rx on') then the
-# second word in the string will be replaced with the current interface
-# name. Else (e.g. 'autoneg off speed 10') ifup prepends '-s <interface>'.
+# If this variable is not empty ifup will call ethtool with this options. 
+# See the ethtool (8) manual page for available options.
+# If the option string starts with a '-' (e.g. '-K iface rx on'), then the 
+# second word in the string will be replaced with the current interface name.
+# Otherwise (e.g. 'autoneg off speed 10') ifup prepends '-s <interface>'.
 #
 ETHTOOL_OPTIONS=
 
