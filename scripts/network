@@ -449,7 +449,11 @@ fi
 
 # At first sort into BONDING, DIALUP, TUNNEL and BRIDGE interface sets.
 while IFS=- read a b; do
-	test -z "$b" && continue
+	case "$b" in
+		""|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup)
+			continue
+		;;
+	esac
 	b=`type_filter $b`
 	case "`get_iface_type_from_config $b`" in
 		lo|eth|tr|wlan|irda|ip6tnl|mip6mnha)
@@ -474,7 +478,7 @@ while IFS=- read a b; do
 			err_mesg "$b has unknown interface type. Please file a bug report."
 			;;
 	esac
-done < <(ls -d /etc/sysconfig/network/ifcfg-*)
+done < <(ls -1d /etc/sysconfig/network/ifcfg-*)
 
 # Now get all available interfaces drop lo and separate them into physical and
 # not physical. Then get AVAILABLE_IFACES sorted to shutdown the not physical
@@ -525,11 +529,10 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 	# -  which are dialup or tunnel interfaces
 	# -  which serve as slave interfaces for bonding, vlan or tunnels
 	while IFS=- read a b; do
-		test -z "$b" && continue
-		case $b in
-			*~|*rpmnew|*rpmsave|lo)
-				continue;
-				;;
+		case "$b" in
+			""|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup|lo)
+				continue
+			;;
 		esac
 		case "`get_startmode $b`" in
 			on|boot|onboot|auto|ifplugd) : ;;
@@ -556,7 +559,7 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 			fi
 		done
 		MANDATORY_DEVICES="$MANDATORY_DEVICES $b"
-	done < <(ls -d /etc/sysconfig/network/ifcfg-*)
+	done < <(ls -1d /etc/sysconfig/network/ifcfg-*)
 	if [    -n "$MANDATORY_DEVICES" \
 	     -a "$MODE" != onboot \
 	     -a "$ACTION" = start ] ; then
