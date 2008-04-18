@@ -137,6 +137,18 @@ case "$ACTION" in
 		# just because there hasn't been any resolv.conf to back up
 		test -e /etc/resolv.conf || touch /etc/resolv.conf
 
+		# Create the ntp runtime cache dir before the dhcp client is started.
+		#
+		# When DHCLIENT_MODIFY_NTP_CONF is enabled, the dhcp clients add ntp
+		# servers at runtime to xntpd via the ntpdc addserver command (wrapped
+		# in ntp init script), instead of changing the /etc/ntp.conf config.
+		#
+		# Further, the server list is cached in the runtime-servers.$interface
+		# files for the lease life time, so when the ntp service is restarted,
+		# the ntp init script can pick up and apply them again.
+		test -d "$RUN_FILES_BASE/ntp" || mkdir -p "$RUN_FILES_BASE/ntp"
+
+
 		# if we were called at boot time, increase the time startproc waits,
 		# because the next scripts might rely on a configured network
 		# test "$MODE" = "boot" && STARTPROC_TIMEOUT=5

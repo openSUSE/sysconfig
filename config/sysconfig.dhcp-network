@@ -71,10 +71,16 @@ DHCLIENT_SET_DEFAULT_ROUTE="yes"
 ## Type:	yesno
 ## Default:	no
 #
-# Should the DHCP client modify the NTP configuration? (yes|no)
+# Should the DHCP client use ntp configuration data provided via DHCP?
+# (yes|no)
 #
-# If set to yes, /etc/ntp.conf is rewritten (and restored upon exit).
-# If you don't want this, set this variable to "no". (The default is "no") 
+# If set to "yes", ntp configuration data provided by a DHCP request
+# will get loaded dynamically into a running ntp daemon. This will not
+# alter /etc/ntp.conf (any more), but will write the data received to
+# /dev/shm/sysconfig/ntp/runtime-servers[.$INTERFACE] and load it.
+#
+# If set to "no", ntp configuration data offered via DHCP will not
+# get processed.
 #
 DHCLIENT_MODIFY_NTP_CONF="no"
 
