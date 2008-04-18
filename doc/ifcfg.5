@@ -209,8 +209,10 @@ Controls running
 when a dialup connection is established.
 .TP
 .BR NM_CONTROLLED\  { yes | no* }
-If the network is managed with NetworkManager but you want to control an
-interface manually with ifup/down you can set this variable to 'yes'.
+If you want the interface to be ignored by NetworkManager and therefore
+control the interface manually with ifup/down you can set this variable
+to 'no'. This variable is ignored if the network is not controlled by
+NetworkManager.
 .TP
 \fBPRE_UP_SCRIPT\fR, \fBPOST_UP_SCRIPT\fR, \fBPRE_DOWN_SCRIPT\fR and \fBPOST_DOWN_SCRIPT\fR
 Here you can hook a script (better: an executable) to perform individual actions
