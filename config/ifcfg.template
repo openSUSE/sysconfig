@@ -617,6 +617,12 @@ PREFER_WPA_SUPPLICANT=''
 # In environments with multiple Access points you may want to define the one
 # to connect to by entering its MAC address. Format is 6x2 hex digits,
 # seperated by colons, eg 01:02:03:04:05:06.
+# See also the iwconfig ap option description in the iwconfig(8) manual page.
+#
+# Note, that some drivers (mac80211 based) may require to set this variable
+# to a specific access point address, 'any' or 'off' to start scanning for
+# an appropriate cell, so ifup-wireless sets it to 'any' in Managed and
+# Ad-Hoc modes when the variable is empty.
 WIRELESS_AP=''
 
 ## Type:	yesno

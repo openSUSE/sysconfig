@@ -334,12 +334,19 @@ EOL
         run_iw_tool priv $WIRELESS_IWPRIV_OPTIONS
         test -z "$WIRELESS_ESSID" && WIRELESS_ESSID="any"
         run_iw_tool config essid "$WIRELESS_ESSID"
-	# set AP address at last, mac80211 based drivers may need this as
-	# signal to start scanning for an appropriate cell
-	test -z "$WIRELESS_AP" && WIRELESS_AP="any"
-	# it is required to set up the interface before doing that
-	ip link set up dev $INTERFACE 2>/dev/null
-	run_iw_tool config ap "$WIRELESS_AP"
+
+        # set AP address when requested in $WIRELESS_AP.
+        # At last mac80211 based drivers need this as signal to start
+        # scanning for an appropriate cell, so we set it to 'any' when
+        # $WIRELESS_AP is empty in Managed and Ad-Hoc modes.
+        # It is required to set up the interface before doing that.
+        ip link set up dev $INTERFACE 2>/dev/null
+        case "$WIRELESS_MODE" in
+                [M,m]anaged|[A,a]d-[H,h]oc|"")
+                    test -z "$WIRELESS_AP" && WIRELESS_AP='any'
+                ;;
+        esac
+        test -n "$WIRELESS_AP" && run_iw_tool config ap "$WIRELESS_AP"
 }
 
 setup_wlanngdev()
