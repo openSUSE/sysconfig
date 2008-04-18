@@ -190,8 +190,8 @@ RUN_POLL_TCPIP=
 ## Type:    yesno
 ## Default: no
 #
-# If an interface may be controlled from a user via kinternet or cinternet you
-# have to set this variable to yes.
+# If an interface may be controlled from a user via kinternet or cinternet
+# you have to set this variable to yes.
 #
 USERCONTROL=
 
@@ -222,8 +222,10 @@ _nm_name=
 ## Type:    yesno
 ## Default: no
 #
-# If the network is managed with NetworkManager but you want to control an
-# interface manually with ifup/down you can set this variable to 'yes'.
+# If you want the interface to be ignored by NetworkManager and therefore
+# control the interface manually with ifup/down you can set this variable
+# to 'no'. This variable is ignored if the network is not controlled by
+# NetworkManager.
 #
 NM_CONTROLLED=no
 
