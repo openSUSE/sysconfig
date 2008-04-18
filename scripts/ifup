@@ -372,7 +372,14 @@ if [ "$?" = 0 -a "$NODEPS" != yes ] ; then
 	for DI in $DEP_IFACES; do
 		ifdown $DI -o $OPTIONS	
 	done
+
 	message "`printf "    %-9s now going down itself" $INTERFACE`"
+	# check if iface is (still) avaliable
+	# [bonding master may go down itself
+	#  while the last slave gets removed]
+	if ! is_iface_available $INTERFACE; then
+		exit $R_SUCCESS
+	fi
 fi
 
 ######################################################################

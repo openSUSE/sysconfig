@@ -579,7 +579,8 @@ get_depending_ifaces() {
 
 	if [ -d "$BOND_PATH" ]; then
 		DEP_BONDS=`cd "$BOND_PATH"
-			grep -lws "Slave Interface: *$BASE_IFACE" *`
+			grep -s '^Slave Interface:' $BASE_IFACE |
+			while IFS=':' read text iface ; do echo -n "$iface" ; done`
 		DEP_IFACES="$DEP_IFACES${DEP_BONDS:+ $DEP_BONDS}"
 	fi
 

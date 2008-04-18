@@ -838,8 +838,12 @@ case "$ACTION" in
 			$FAKE ifdown-route noiface -o rc $MODE
 		fi
 
-		for IFACE in ${INTERFACE:-$BRIDGE_IFACES $TUNNEL_IFACES $DIALUP_IFACES $VLAN_IFACES $BONDING_IFACES $PHYSICAL_IFACES $AVAILABLE_IFACES} ; do
+		DONE_IFACES=""
+		for IFACE in ${INTERFACE:-$BRIDGE_IFACES $TUNNEL_IFACES $DIALUP_IFACES $VLAN_IFACES $PHYSICAL_IFACES $BONDING_IFACES $AVAILABLE_IFACES} ; do
 			test -d /sys/class/net/$IFACE || continue
+			for I in $DONE_IFACES ; do
+				test "x$I" = "x$IFACE" && continue 2
+			done
 			# printf "    %-9s " $IFACE
 			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
 			RET=$?
@@ -852,6 +856,7 @@ case "$ACTION" in
 				*)
 					rc_status -v1 ;;
 			esac
+			DONE_IFACES="$DONE_IFACES $IFACE"
 			rc_reset
 		done
 
