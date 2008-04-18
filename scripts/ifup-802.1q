@@ -109,7 +109,9 @@ start)	/sbin/modprobe 8021q
 		exit $R_INTERNAL
 	fi
 
-	$vconfig add $ETHERDEVICE $id >/dev/null
+	if [ ! -d /sys/class/net/$INTERFACE ] ; then
+		$vconfig add $ETHERDEVICE $id >/dev/null
+	fi
 	;;
 stop)
 	if [ -d /sys/class/net/$INTERFACE ] ; then
