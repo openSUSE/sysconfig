@@ -1121,6 +1121,13 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 							         "there is another computer using that address."
 							retcode=$R_NOTRUNNING
 						else
+							# workaround for lo interface autoconfigured while "ip link set up"
+							# without an explicit broadcast address setting (bug #357021).
+							case "$INTERFACE" in
+							lo)
+							  ip addr del $IPADDR${PREFIXLEN:+/$PREFIXLEN} dev $INTERFACE &>/dev/null
+							;;
+							esac
 							MESSAGE=`\
 								ip addr add dev $INTERFACE \
 									"local" $IPADDR${PREFIXLEN:+/$PREFIXLEN} \
