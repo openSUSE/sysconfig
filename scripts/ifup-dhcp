@@ -261,7 +261,6 @@ case "$ACTION" in
 			# (the ISC DHCP client can be finetuned via /etc/dhclient.conf 
 			# and so-called hooks (see man 8 dhclient-script)
 			test "$DHCLIENT_DEBUG"               = "yes" && args="-d"
-			test "$DHCLIENT_UDP_CHECKSUM"        = "yes" && args="$args -C"
 			test "$DHCLIENT_SET_HOSTNAME"        = "yes" && args="$args -H"
 			test "$DHCLIENT_SET_DOMAINNAME"      = "yes" && args="$args -D"
 			test "$DHCLIENT_KEEP_SEARCHLIST"     = "yes" && args="$args -K"
@@ -271,8 +270,6 @@ case "$ACTION" in
 			test "$DHCLIENT_MODIFY_NIS_CONF"    != "yes" && args="$args -Y"
 			test -n "$DHCLIENT_TIMEOUT" \
 				&& args="$args -t $DHCLIENT_TIMEOUT"
-			test -n "$DHCLIENT_REBOOT_TIMEOUT" \
-				&& args="$args -z $DHCLIENT_REBOOT_TIMEOUT"
 			test -n "$DHCLIENT_CLIENT_ID" \
 				&& args="$args -I $DHCLIENT_CLIENT_ID"
 			test -n "$DHCLIENT_VENDOR_CLASS_ID" \

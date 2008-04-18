@@ -116,8 +116,7 @@ DHCLIENT_KEEP_SEARCHLIST="yes"
 # Lease time to request ( -l option)
 #
 # Specifies (in seconds) the lease that is suggested to the server. 
-# The default is infinite. For a mobile computer you probably want to
-# set this to a lower value.
+# The default is 1 hour, use -1 to request infinite lease time.
 #
 DHCLIENT_LEASE_TIME=""
 
@@ -129,24 +128,11 @@ DHCLIENT_LEASE_TIME=""
 # You can set the timeout (dhcpcd will terminate after this time when it 
 # does not get a reply from the server). 
 #
-# The default timeout of dhcpcd is 60 seconds. However, we'll set it to a 
+# The default timeout of dhcpcd is 20 seconds. However, we'll set it to a 
 # much longer time. dhcpcd will then run as a daemon in the background and
 # broadcast a DHCPDISCOVER once in a while, trying to get a lease.
 #
 DHCLIENT_TIMEOUT="999999"
-
-## Type:	integer
-## Default:	""
-#
-# (only dhcpcd does use this setting)
-#
-# INIT-REBOOT timeout ( -z option)
-#
-# This timeout is specifically to control how long dhcpcd tries to reacquire
-# a previous lease (init-reboot state), before it starts getting a new one. 
-# Default: 10
-#
-DHCLIENT_REBOOT_TIMEOUT=""
 
 ## Type:	string
 ## Default:	AUTO
@@ -186,9 +172,7 @@ DHCLIENT_CLIENT_ID=""
 #
 # specify a vendor class ID ( -i option)
 #
-# Specifies the vendor class identifier string.  dhcpcd uses the default vendor
-# class identifier string (system name, system release, and machine type) if it
-# is not specified.
+# Specifies the vendor class identifier string. The default is dhcpcd-<version>.
 #
 DHCLIENT_VENDOR_CLASS_ID=""
 
@@ -212,18 +196,10 @@ DHCLIENT_RELEASE_BEFORE_QUIT="no"
 #
 DHCLIENT_SCRIPT_EXE=""
 
-## Type:	yesno
-## Default	yes
-#
-# Force dhcpcd to calculate UDP checksum on received packets. (yes|no)
-# This corresponds to dhcpcd's -C option.
-#
-DHCLIENT_UDP_CHECKSUM="yes"
-
 ## Type:	string
 ## Default:	""
 #
-# additional options, e.g. "-B"
+# additional options, e.g. "-a"
 #
 DHCLIENT_ADDITIONAL_OPTIONS=""
 
