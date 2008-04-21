@@ -1,4 +1,41 @@
 -------------------------------------------------------------------
+Fri Apr 18 12:04:32 CEST 2008 - mt@suse.de
+
+- new version 0.70.6
+- Adopted for dhcpcd 3.x update (not option compatible to 1.x)
+- Adopted DHCLIENT_MODIFY_NTP_CONF documentation to new runtime ntp
+  configuration feature and lease time cache directory creation in
+  ifup-dhcp script (fate#303602).
+- Added 127.0.0.2/8 to loopback interface to avoid problems with
+  programs that check ip addresses on all interfaces, e.g. ntp.
+  The 127.0.0.2 address is assigned to the hostname in /etc/hosts
+  to keep the hostname usable, even when there is no another
+  interface set up yet (bnc#355608).
+- Added patch to remove IP/PREFIXLEN set while "ip link set up" by
+  the kernel from loopback before it gets applied inclusive of a
+  broadcast address as defined in the ifcfg-lo file (bug #357021).
+- Corrected ifup-wireless fix (see bnc#329280) to set the wireless
+  access point address to 'any' in Managed and Ad-Hoc modes only,
+  to not to break Master configurations and documented this behavior
+  in ifcfg.template file (bnc#379586).
+- Added a guard in ifup-802.1q to avoid false errors in case the
+  vlan interface already exists while rcnetwork reload.
+- Fixed bonding interface down trigger to trigger down slaves first
+  when bonding interface goes down. Changed the /etc/init.d/network
+  script to stop bonding after physical interfaces and avoid to stop
+  interfaces twice (fate#303388).
+- Improved NM_CONTROLLED and ETHTOOL_OPTIONS variable description
+  in ifcfg.template and NM_CONTROLLED.
+- Improved network script to ignore ifcfg files with well known
+  backup extensions (#340891).
+
+-------------------------------------------------------------------
+Tue Apr  1 16:22:27 CEST 2008 - mkoenig@suse.de
+
+- remove dir /usr/share/omc/svcinfo.d as it is provided now
+  by filesystem 
+
+-------------------------------------------------------------------
 Tue Jan 29 12:45:01 CET 2008 - mt@suse.de
 
 - new version 0.70.5
