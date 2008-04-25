@@ -77,7 +77,7 @@ DHCLIENT_SET_DEFAULT_ROUTE="yes"
 # If set to "yes", ntp configuration data provided by a DHCP request
 # will get loaded dynamically into a running ntp daemon. This will not
 # alter /etc/ntp.conf (any more), but will write the data received to
-# /dev/shm/sysconfig/ntp/runtime-servers[.$INTERFACE] and load it.
+# /var/run/ntp/servers[.$INTERFACE] and load it.
 #
 # If set to "no", ntp configuration data offered via DHCP will not
 # get processed.

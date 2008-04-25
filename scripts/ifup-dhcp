@@ -146,7 +146,7 @@ case "$ACTION" in
 		# Further, the server list is cached in the runtime-servers.$interface
 		# files for the lease life time, so when the ntp service is restarted,
 		# the ntp init script can pick up and apply them again.
-		test -d "$RUN_FILES_BASE/ntp" || mkdir -p "$RUN_FILES_BASE/ntp"
+		test -d "/var/run/ntp" || mkdir -p "/var/run/ntp"
 
 
 		# if we were called at boot time, increase the time startproc waits,
