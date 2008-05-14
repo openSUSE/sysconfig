@@ -10,9 +10,8 @@
 
 usage () {
 	echo $@
-	echo "Usage: if{up,down}-802.1q [<config>] <hwdesc> [-o <options>]"
-	echo "  hwdesc may be the interface name or any valid description"
-	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Usage: if{up,down}-802.1q [<config>] <interface> [-o <options>]"
+	echo ""
 	echo "Any option will be ignored."
 	exit $R_USAGE
 }

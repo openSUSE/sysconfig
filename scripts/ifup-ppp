@@ -26,9 +26,8 @@
 function usage()
 {
 	echo $@
-	echo "Usage: if{up,down,status}-ppp [<config>] <hwdesc> [-o <options>]"
-	echo "  hwdesc may be the interface name or any valid description"
-	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Usage: if{up,down,status}-ppp [<config>] <interface> [-o <options>]"
+	echo ""
 	echo "Options are: prov=name : specify provider (only for ifup)"
 	echo "             debug     : be verbose"
 	echo "             rc        : indicates that we are called from rcnetwork"

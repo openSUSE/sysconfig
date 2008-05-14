@@ -19,9 +19,7 @@ This option must be set to 'yes' to identify this interface as a bridge interfac
 .TP
 .B BRIDGE_PORTS <interface1 interface2 ... interfaceN>
 This variable contains a space-separated list of N interfaces which take part in the
-bridging. You may use the usual hardware descriptions (see
-.B ifup
-.BR (8) ).
+bridging.
 
 .SH OPTIONAL VARIABLES
 .TP
@@ -72,15 +70,14 @@ the only bridge on the LAN, or when you know that there are no loops in
 the topology.)
 
 .SH EXAMPLE
-Minimal example for a bridge interface on eth0 and eth1, the bridge interface itself
-is configured via dhcp:
+Minimal example for a bridge interface on eth0 and eth1, the bridge interface itself is configured via dhcp:
 
 .I ifcfg-br0
 .nf
 	STARTMODE='auto'
 	BOOTPROTO='dhcp'
 	BRIDGE='yes'
-	BRIDGE_PORTS='eth0 eth-id-11:de:ad:be:ef:99'
+	BRIDGE_PORTS='eth0 eth1'
 	BRIDGE_PORTPRIORITIES='50 20'
 .fi
 

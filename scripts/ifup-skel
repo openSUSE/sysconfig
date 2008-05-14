@@ -29,10 +29,8 @@
 
 usage () {
 	echo $@
-	echo "Usage: if{up,down}-..... [<config>] <hwdesc> [-o <options>]"
-	echo "  hwdesc may be the interface name or any valid description"
-	echo "  of the corresponding device, for details see ifup(8)."
-	echo
+	echo "Usage: if{up,down}-..... [<config>] <interface> [-o <options>]"
+	echo ""
 	echo "Options are: option    : explanation"
 	echo "All other or wrong options are silently ignored."
 	echo

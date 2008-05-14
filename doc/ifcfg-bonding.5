@@ -18,10 +18,7 @@ the usual network settings. But you must add additional variables
 must be set to 'yes' to identify this interface as a bonding interface
 .TP
 .B BONDING_SLAVE_<X>
-here you specify the slave network devices. It may contain just an interface
-name or any valid hardware description if interface names are not persistent.
-See man ifup for details about hardware descriptions. The suffix <X> must only
-contain numbers and characters.
+here you specify the interface name representing the slave network device.
 .TP
 .B BONDING_OPTS
 contains additional options for ifenslave, this one is optional and not important
@@ -44,8 +41,8 @@ Example for a bonding device on eth0 and eth1 using the backup mode
    IPADDR='192.168.0.1/24'
 
    BONDING_MASTER='yes'
-   BONDING_SLAVE_0='bus-pci-0000:00:11.0'  # you can use eth0 here, too
-   BONDING_SLAVE_1='bus-pci-0000:00:12.0'  # or eth1
+   BONDING_SLAVE_0='eth0'
+   BONDING_SLAVE_1='eth1'
    BONDING_MODULE_OPTS='mode=1'            # backup mode
 .fi
 

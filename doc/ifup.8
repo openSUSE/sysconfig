@@ -18,7 +18,7 @@ ifprobe \- checks if the configuration for the interface has changed
 .B [
 .I <configuration-name>
 .B ]
-.I <hardware-description>
+.I <interface>
 .B [-o 
 .I options
 .B ]
@@ -33,33 +33,24 @@ in a dedicated way. A
 is always a piece of hardware representing a network interface, a PCI or
 PCMCIA card or a USB device. An
 .B interface
-then is the name of the network
-interface it gets from the
-kernel when the device has been registered. A 
+then is the name of the network interface it gets from the kernel, when the
+device has been registered. A
 .B configuration
 is a set of
 parameters which can be assigned to an interface like IP addresses or routes.
 
-It is intentional that a configuration does not need to belong to an interface,
-but to a device. For built-in devices there is most of the time a fixed
-relation between
-devices and interfaces, but this is no longer the case when using hot-pluggable
-devices. With such devices (like PCMCIA or USB) you cannot always know which
-interface name you will get. So even if the interface name changes the interface
-to a certain device will always have the right setup.
-
 .SH DESCRIPTION
 .B ifup
 is used to bring up a pre-configured interface for networking. It is usually
-invoked by the network script at boot time or by the PCMCIA/hotplug system. It
-can also be used to start interfaces manually on the command line. It activates
-the link, adds addresses and other parameters and sets up the routes for an
-interface.
+invoked by the network script at boot time or by the PCMCIA/hotplug system.
+It can also be used to start interfaces manually on the command line.
+It activates the link, adds addresses and other parameters and sets up the
+routes for an interface.
 .P
 .B ifdown
 is used to set down the interface and flush all its addresses. It is possible
-to let ifdown check the interface if it is still used before setting it down. If
-configured it may then get rid of the using processes or refuse setting it
+to let ifdown check the interface if it is still used before setting it down.
+If configured it may then get rid of the using processes or refuse setting it
 down. Have a look at
 .I /etc/sysconfig/network/config 
 to enable this feature.
@@ -75,39 +66,55 @@ interface down. It only restarts the corresponding dhcpcd or dhclient process.
 checks if any of the configuration files for this interface have been changed
 since the interface is up. Checked files are the corresponding ifcfg-*,
 ifroute-*, ifservices-* and common configuration files config, dhcp and routes.
-
-.B <hardware-description>
-may just be the interface name.
+.P
+.B <interface>
+is the network interface name.
 .br
-But it can be more. It describes the device of the interface to be set up. As
-there is no fixed relation between devices and the names their interfaces get
-from the kernel, it might be necessary to specify the device exactly. The
-hardware-description may be the current interface name, the MAC address or the
-bus location where the device resides. It has to be compliant with the
-device naming rules as specified in
-.BR getcfg(8) . 
-.B ifup 
-uses
-.B getcfg
-to obtain all missing information, for example the interface name of a device
-with given hardware-description.
-.br
-ifup uses getcfg also to get the best matching configuration for the interface.
-Every configuration is stored in files below
-.I /etc/sysconfig/network 
-which are named 
-.BI ifcfg- <configuration-name> . 
+The network interface names of physical network devices are assigned by
+the kernel and may be modified by
+.BR udev (7)
+rules; see the
+.B PERSISTENT INTERFACE NAMES
+section.
 .P
 .I <configuration-name>
-is the name of a configuration that should be used to set up the interface. It
-may be used to circumvent the automatic search for a configuration with getcfg.
-In this case the configuration names are not restricted. For example if you have
-a configuration file ifcfg-my-special you may call ifup my-special <hwdesc>.
+is the optional parameter with the name of a configuration, that should be used
+to set up the interface. Every configuration is stored in files below
+.I /etc/sysconfig/network 
+which are named 
+.BI ifcfg- <configuration-name> .
+By default, the interface name is used as configuration name. The parameter
+exists for compatibility reasons, but may be also used to circumvent this
+fixed relation.
 
 .SH PERSISTENT INTERFACE NAMES
-See 
-.I /usr/share/doc/packages/sysconfig/README.Persistent_Interface_Names
-for more information about that.
+The support for persistent interface names for physical network devices using
+.I ifcfg-<hardware-description>
+configuration files is removed from sysconfig since openSUSE 10.3. Instead,
+an automatic assignment of persistent interface names is implemented using
+.BR udev (7)
+rules.
+
+When a network device driver is loaded, the kernel assigns the next currently
+free interface name to it. For built-in devices there is most of the time a
+fixed relation between devices and interfaces, but this is no longer the case
+when using hot-pluggable devices. With such devices (like PCMCIA or USB) you
+cannot always know which interface name it will get - it depends for example
+on the order the devices got plugged in.
+
+The network interface assigned in the kernel is reported to the udev daemon.
+When a device appears the first time, the udev persistent net generator rule
+creates a rule matching the device, by default using the hardware (MAC)
+address, that renames the interface name assigned by the kernel to one, that
+is not used in any another rule and thus unique for the device. This rule is
+appended to the persistent net rule file and executed. When the same device
+appears in the system next time, the generated rule renames the interface to
+the persistent name again.
+
+The generated persistent interface name rules can be adopted in yast2 network
+module or by editing the rule file directly. Currently, they are stored in the
+.I /etc/udev/rules.d/70-persistent-net.rules
+udev rule file.
 
 .SH OPTIONS
 .IP "The following are options to be specified after the -o switch."
@@ -224,7 +231,7 @@ Also these are described there and can be used individually in
 .B ifcfg-*
 files.
 
-.SH rcnetwork
+.SH rcnetwork (/etc/init.d/network)
 At boot time network devices are initialized asynchronously via hotplug. Once
 this initialization process registered an interface for it this will also
 trigger a hotplug event which will call ifup. If service network was still not
@@ -239,9 +246,8 @@ consists of:
 .fi
 
 At boot time the scripts tries to determine the list of mandatory devices
-automatically. It considers all interfaces that have a startmode 'auto' or
-'onboot' as mandatory. Also interfaces that serve for tunnels, vlan or bonding
-are considered as mandatory. Normally it waits 20 seconds for them and exits
+automatically. It considers all interfaces that have a startmode 'auto'
+or 'onboot' as mandatory. Normally it waits 20 seconds for them and exits
 then with failed is any mandatory interface is still missing.
 
 Alternatively you may specify all mandatory devices manually in the variable
@@ -260,9 +266,8 @@ manually. (rcnetwork calls 'ifup ... -o rc').
 .I interface
 
 ifup and rcnetwork write status files in
-.IR /var/run/sysconfig . 
-If something went
-completely wrong this files might be interesting.
+.IR /dev/shm/sysconfig . 
+If something went completely wrong this files might be interesting.
 
 .SH BUGS
 Please report bugs at <http://www.suse.de/feedback>

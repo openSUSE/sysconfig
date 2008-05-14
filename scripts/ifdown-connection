@@ -24,9 +24,8 @@
 
 usage () {
 	echo $@
-	echo "Usage: if{down,status}-connection [<config>] <hwdesc> [-o <options>]"
-	echo "  hwdesc may be the interface name or any valid description"
-	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Usage: if{down,status}-connection [<config>] <interface> [-o <options>]"
+	echo ""
 	echo "Options are: [on]boot : we are currently booting (or shutting down)"
 	echo "             hotplug  : we are handling a hotplug event"
 	echo "             force    : use -KILL instead of -TERM"

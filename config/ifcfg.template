@@ -343,8 +343,7 @@ BRIDGE='yes'
 ## Default: 
 #
 # This variable contains a space-separated list of N interfaces which take part 
-# in the bridging. You may use also hardware descriptions if your interface
-# names are not persistent.
+# in the bridging.
 #
 BRIDGE_PORTS=''
 

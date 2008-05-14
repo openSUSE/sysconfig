@@ -31,7 +31,7 @@
 usage () {
 	echo $@
 	echo "Usage: if{up,down,status} [<config>] <interface> [-o <options>]"
-	echo
+	echo ""
 	echo "Options are:"
 	echo "    [on]boot : we are currently booting (or shutting down)"
 	echo "    auto     : alias for boot"
@@ -80,7 +80,7 @@ test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
 ######################################################################
 # Commandline parsing
 #
-# if{up,down,status} [config] hwdesc [-o options]
+# if{up,down,status} [config] interface [-o options]
 SCRIPTNAME=${0##*/}
 debug $*
 case "$1" in ""|-h|*help*) usage; esac

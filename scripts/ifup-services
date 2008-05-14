@@ -24,9 +24,8 @@
 
 usage () {
 	echo $@
-	echo "Usage: if{up,down,status}-services [<config>] <hwdesc> [-o <options>]"
-	echo "  hwdesc may be the interface name or any valid description"
-	echo "  of the corresponding device, for details see ifup(8)."
+	echo "Usage: if{up,down,status}-services [<config>] <interface> [-o <options>]"
+	echo ""
 	echo "Options are:"
 	echo "    [on]boot : we are currently booting (or shutting down)"
 	echo "    auto     : alias for boot"

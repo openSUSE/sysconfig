@@ -24,9 +24,8 @@
 
 usage () {
         echo $@
-        echo "Usage: if{up,down,status}-wireless [<config>] <hwdesc> [-o <options>]"
-        echo "  hwdesc may be the interface name or any valid description"
-        echo "  of the corresponding device, for details see ifup(8)."
+        echo "Usage: if{up,down,status}-wireless [<config>] <interface> [-o <options>]"
+        echo ""
         echo "Options are: [on]boot : we are currently booting (or shutting down)"
         echo "             hotplug  : we are handling a hotplug event"
         echo "All other or wrong options are silently ignored."
