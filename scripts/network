@@ -108,16 +108,6 @@ if [ ! -x "$NETWORKMANAGER_BIN" -a "$NETWORKMANAGER" == yes ] ; then
 	         "or install NetworkManager."
 	NETWORKMANAGER=no
 fi
-if [ "$NETWORKMANAGER" != yes ] ; then
-	NM_DISPATCHER=no
-fi
-if [ ! -x "$NM_DISPATCHER_BIN" -a "$NM_DISPATCHER" == yes ] ; then
-	err_mesg "NetworkManagerDispatcher is not installed, skipping it." \
-	         "Please set" \
-	         "\n/etc/sysconfig/network/config:NetworkManagerDispatcher=no" \
-	         "or install NetworkManagerDispatcher."
-	NM_DISPATCHER=no
-fi
 
 check_firewall() {
 	test "$MODE" = onboot && return -1
@@ -144,85 +134,12 @@ start_nm_online() {
 		return 0
 	fi
 	local rc_startmode="${stat}${attn}waiting${norm}"
-	$NM_ONLINE_BIN $NM_ONLINE_TIMEOUT
+	$NM_ONLINE_BIN --exit --timeout $NM_ONLINE_TIMEOUT
 	case $? in
 		0) rc_status -v ;;
 		1) echo -e "$rc_startmode" 1>&2 ;;
 		*) rc_status -v ;;
 	esac
-}
-
-start_nm_dispatcher() {
-	test "$NM_DISPATCHER" == yes || return
-	checkproc $NM_DISPATCHER_BIN
-	if [ $? = 0 ]; then
-		mesg_n "NetworkManagerDispatcher already running"
-	else
-		mesg_n "Starting the NetworkManagerDispatcher"
-		startproc $NM_DISPATCHER_BIN
-	fi
-	rc_status -v
-}
-
-stop_nm_dispatcher() {
-	test -x "$NM_DISPATCHER_BIN" || return 0
-	checkproc $NM_DISPATCHER_BIN 2>/dev/null
-	if [ $? = 0 ]; then
-		mesg_n "Shutting down the NetworkManagerDispatcher"
-		killproc -TERM $NM_DISPATCHER_BIN
-		rc_status -v
-	fi
-}
-
-check_nm_dispatcher() {
-	test -x "$NM_DISPATCHER_BIN" || return 0
-	rc_status
-	NM_STATUS=$?
-	mesg_n "Checking for the NetworkManagerDispatcher: "
-	checkproc $NM_DISPATCHER_BIN
-	rc_status -v
-	NMD_STATUS=$?
-	if [ "$NM_DISPATCHER" != yes ] ; then
-		rc_reset
-		rc_failed $NM_STATUS
-	fi
-	return $NMD_STATUS
-}
-
-start_dhcdbd() {
-	test -x "$DHCDBD_BIN" || return 0
-	checkproc $DHCDBD_BIN
-	if [ $? = 0 ]; then
-		mesg_n "DHCP DBUS Daemon already running"
-	else
-		mesg_n "Starting the DHCP DBUS Daemon"
-		startproc $DHCDBD_BIN --system
-	fi
-	rc_status -v
-
-}
-
-stop_dhcdbd() {
-	test -x "$DHCDBD_BIN" || return 0
-	checkproc $DHCDBD_BIN 2>/dev/null
-	if [ $? = 0 ]; then
-		mesg_n "Shutting down the DHCP DBUS Daemon"
-		killproc -TERM $DHCDBD_BIN
-		rc_status -v
-	else
-		return 0
-	fi
-}
-
-check_dhcdbd() {
-	test -x "$DHCDBD_BIN" || return 0
-	rc_status
-	NM_STATUS=$?
-	mesg_n "Checking for the DHCP DBUS Daemon: "
-	checkproc $DHCDBD_BIN
-	rc_status -v
-	DHCDBD_STATUS=$?
-	return $DHCDBD_STATUS
 }
 
 cd "$OLDPWD"
@@ -232,7 +149,6 @@ case "$ACTION" in
 			if nm_running; then
 				mesg_n "NetworkManager already running"
 				rc_status -v
-				start_nm_dispatcher
 			elif netcontrol_running; then
 				mesg "'NetControl' is active but" \
 				     "configuration says 'NetworkManager'."
@@ -240,8 +156,6 @@ case "$ACTION" in
 				rc_failed 7
 				rc_status -v
 			else
-				start_dhcdbd
-				start_nm_dispatcher
 				mesg_n "Starting the NetworkManager"
 				$FAKE startproc $NETWORKMANAGER_BIN
 				rc_status -v
@@ -265,9 +179,7 @@ case "$ACTION" in
 			mesg_n "Shutting down the NetworkManager"
 			$FAKE killproc -TERM $NETWORKMANAGER_BIN
 			rc_status -v
-			stop_dhcdbd
 		fi
-		stop_nm_dispatcher
 		# else fall through to NetControl
 		;;
 	try-restart)
@@ -338,8 +250,6 @@ case "$ACTION" in
 			mesg_n "Checking for the NetworkManager: "
 			nm_running
 			rc_status -v
-			check_nm_dispatcher
-			check_dhcdbd
 			NM_STATUS=$?
 			if netcontrol_running; then
 				mesg "NetControl System is active as well." \

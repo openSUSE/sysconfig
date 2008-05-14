@@ -228,14 +228,3 @@ NETWORKMANAGER=no
 #
 NM_ONLINE_TIMEOUT="0"
  
-## Type:        yesno
-## Default:     yes
-#
-# When using NetworkManager you may want to trigger special actions when an
-# interface comes up. NetworkManagerDispatcher is a daemon that listens to
-# dbus-messages that tell that an interface is up/down and triggers whatever
-# you like. Read more about it in the manpage to NetworkManagerDispatcher.
-#
-# This variable has no effect if NETWORKMANAGER=no
-#
-NM_DISPATCHER=yes
