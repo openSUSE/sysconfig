@@ -6,6 +6,12 @@ EXTRA_DIST = 	VERSION \
 AUTOMAKE_OPTIONS = foreign dist-bzip2
 
 CLEANFILES = *~
+MAINTAINERCLEANFILES = aclocal.m4 config.guess config.sub \
+	configure depcomp install-sh ltmain.sh Makefile.in missing \
+	sysconfig-$(VERSION).tar.bz2 sysconfig-$(VERSION).tar.gz
+
+maintainer-clean-local:
+	-rm -rf autom4te.cache
 
 SUBDIRS = doc scripts tools config package
 

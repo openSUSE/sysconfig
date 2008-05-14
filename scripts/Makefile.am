@@ -1,5 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
+CLEANFILES = *~
+MAINTAINERCLEANFILES = Makefile.in
+
 SUBDIRS = hardware 
 
 sysconfig_network_scripts_SCRIPTS =	functions \

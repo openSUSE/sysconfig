@@ -1,5 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
+CLEANFILES = *~
+MAINTAINERCLEANFILES = Makefile.in
+
 SUBDIRS = hardware
 
 sysconfig_network_DATA =	ifcfg.template \
@@ -37,3 +40,4 @@ install-data-hook:
 	ln -s ../../../init.d/ypbind $(DESTDIR)$(prefix)@sysconfig_networkdir@/ifservices.template/S30ypbind 
 	ln -s ../../../init.d/autofs $(DESTDIR)$(prefix)@sysconfig_networkdir@/ifservices.template/S40autofs 
 	chmod 644  $(DESTDIR)$(prefix)@omc_svcinfodir@/network.xml
+

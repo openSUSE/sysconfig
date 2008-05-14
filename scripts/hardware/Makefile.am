@@ -1,5 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
+CLEANFILES = *~
+MAINTAINERCLEANFILES = Makefile.in
+
 sbin_SCRIPTS =	hwup
 
 sysconfig_hardware_SCRIPTS = hwcfg2rules

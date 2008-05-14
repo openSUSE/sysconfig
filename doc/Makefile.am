@@ -1,5 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
+CLEANFILES = *~
+MAINTAINERCLEANFILES = Makefile.in
+
 man_MANS = 	ifup.8 \
 		ifdown.8 \
 		ifservices.5 \

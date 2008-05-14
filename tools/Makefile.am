@@ -1,7 +1,7 @@
 # vim: ai
 
 CLEANFILES = *~
-
+MAINTAINERCLEANFILES = Makefile.in
 
 sbin_PROGRAMS = ifuser \
 		autoip
