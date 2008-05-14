@@ -31,8 +31,6 @@ NETWORK_RUNFILE="$RUN_FILES_BASE/network"
 STAMPFILE_STUB="$RUN_FILES_BASE/new-stamp-"
 NETWORKMANAGER_BIN=/usr/sbin/NetworkManager
 NM_ONLINE_BIN=/usr/bin/nm-online
-NM_DISPATCHER_BIN=/usr/sbin/NetworkManagerDispatcher
-DHCDBD_BIN=/usr/sbin/dhcdbd
 
 #
 # to test the next two functions:
