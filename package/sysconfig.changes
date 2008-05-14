@@ -1,4 +1,21 @@
 -------------------------------------------------------------------
+Wed May 14 13:36:36 CEST 2008 - mt@suse.de
+
+- new version 0.70.7
+- Removed obsolete NetworkManagerDispatcher and DHCP DBUS Daemon
+  handling from /etc/init.d/network script and the NM_DISPATCHER
+  variable from network/config (bnc#389156).
+- Updated ntp runtime documentation of DHCLIENT_MODIFY_NTP_CONF
+  variable in network/config to /var/run/ntp/servers[.$INTERFACE].
+- Updated persistent interface names documentation in the ifup.8
+  manual page and replaced obsolete hwdesc parameter name and
+  descriptions with interface in usage messages (bnc#372058).
+- Replaced obsolete TUNNEL_LOCAL_INTERFACE with new TUNNEL_DEVICE
+  variable in the ifcfg-tunnel.5 manual page (bnc#384073).
+- Fixed typos in ifcfg.5 and routes.5 manual pages (bnc#384071,
+  bnc#384077).
+
+-------------------------------------------------------------------
 Fri Apr 18 12:04:32 CEST 2008 - mt@suse.de
 
 - new version 0.70.6
