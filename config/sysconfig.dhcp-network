@@ -212,13 +212,16 @@ DHCLIENT_ADDITIONAL_OPTIONS=""
 DHCLIENT_SLEEP="0"
 
 ## Type:	integer
-## Default:	5
+## Default:	15
 #
 # When the DHCP client is started at boot time, the boot process will stop
 # until the interface is successfully configured, but at most for
 # DHCLIENT_WAIT_AT_BOOT seconds.
 #
-DHCLIENT_WAIT_AT_BOOT="5"
+# Note: RFC 2131 specifies, that the dhcp client should wait a random time
+# between one and ten seconds to desynchronize the use of DHCP at startup.
+#
+DHCLIENT_WAIT_AT_BOOT="15"
 
 ## Type:        yesno
 ## Default:     yes
