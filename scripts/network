@@ -692,6 +692,9 @@ case "$ACTION" in
 
 		if [ -z "$INTERFACE" ] ; then
 			for IFACE in $BONDING_IFACES $VLAN_IFACES $DIALUP_IFACES $TUNNEL_IFACES $BRIDGE_IFACES ; do
+				for SI in $SKIP; do
+					test "$IFACE" = "$SI" && continue 2
+				done
 				$FAKE ifup $CONFIG $IFACE -o rc $MODE
 				RET=$?
 				debug && printf "    %-9s returned %s\n" $IFACE $RET
@@ -785,7 +788,7 @@ case "$ACTION" in
 		;;
 
 	reload)
-		if ! $0 status >/dev/null; then
+		if ! $0 status &>/dev/null; then
 			echo -n service network not active
 			rc_failed 7
 			rc_status -v
