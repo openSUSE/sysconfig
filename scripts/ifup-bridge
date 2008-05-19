@@ -105,7 +105,7 @@ up)
 
 	# Add ports
 	echo -en "Ports:"
-	COUNTER=1
+	COUNTER=0
 	for PORT_INTERFACE in $BRIDGE_PORTS; do
 		MESSAGE=`ip link set dev "$PORT_INTERFACE" up && brctl addif "$INTERFACE" "$PORT_INTERFACE"`
 		if [ $? -ne 0 ]; then
@@ -113,19 +113,23 @@ up)
 		else
 			# set path costs
 			if [ -n "$BRIDGE_PATHCOSTS" ]; then
-				COSTS=`echo $BRIDGE_PATHCOSTS | cut -d\  -f $COUNTER`
-				brctl setpathcost $INTERFACE $PORT_INTERFACE $COSTS
+				COSTS=(${BRIDGE_PATHCOSTS})
+				if test -n "${COSTS[$COUNTER]}" ; then
+					brctl setpathcost $INTERFACE $PORT_INTERFACE ${COSTS[$COUNTER]}
+				fi
 			fi
 			# set port prio
 			if [ -n "$BRIDGE_PORTPRIORITIES" ]; then
-				PRIO=`echo $BRIDGE_PORTPRIORITIES | cut -d\  -f $COUNTER`
-				brctl setportprio $INTERFACE $PORT_INTERFACE $PRIO
+				PRIOS=(${BRIDGE_PORTPRIORITIES})
+				if test -n "${PRIOS[$COUNTER]}" ; then
+					brctl setportprio $INTERFACE $PORT_INTERFACE ${PRIOS[$COUNTER]}
+				fi
 			fi
 			echo -en " [$PORT_INTERFACE]"
 		fi
-		COUNTER=$[$COUNTER+1]
+		COUNTER=$((COUNTER+1))
 	done
-	echo -en "\n";
+	echo -en "\n"
 
 	# Set flags
 	[ -n "$BRIDGE_AGEINGTIME" ] && brctl setageing     "$INTERFACE" "$BRIDGE_AGEINGTIME"

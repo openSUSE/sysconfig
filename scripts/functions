@@ -35,7 +35,7 @@ NM_ONLINE_BIN=/usr/bin/nm-online
 #
 # to test the next two functions:
 #
-# for i in $(seq 0 32); do
+# for i in {0..32}; do
 # 	echo $i: $(pfxlen2mask $i) " ---> " $(mask2pfxlen $(pfxlen2mask $i))
 # done
 
@@ -204,13 +204,12 @@ convert_ipv4address_to_6to4 () {
 
 convert_6to4_to_ipv4address () {
 	ADDR=$1
-	PART_1=`expr $ADDR : '2002:\([^:]*\):[^:]*:'`
-	PART_2=`expr $ADDR : '2002:[^:]*:\([^:]*\):'`
-	if [ "$PART_1" = "" -o "$PART_2" = "" ]; then 
+	LIST=($(IFS=:; echo $ADDR))
+	if [ ${#LIST[@]} -ne 4 -o "${LIST[0]}" != "2002" ] ; then
 		echo $ADDR
 	fi
-	NORM_1=`printf "%04x" 0x$PART_1`
-	NORM_2=`printf "%04x" 0x$PART_2`
+	NORM_1=`printf "%04x" 0x${LIST[1]} 2>/dev/null`
+	NORM_2=`printf "%04x" 0x${LIST[2]} 2>/dev/null`
 
 	printf "::%u.%u.%u.%u" \
 		0x${NORM_1:0:2} 0x${NORM_1:2:2} \
@@ -240,7 +239,7 @@ load_bond() {
 	   /sbin/modprobe bonding
 		# If we add module option max_bonds=0 in the modprobe command above then
 		# we may skip the following lines in this if-fi block.
-		for a in `seq 33`; do
+		for a in {1..33}; do
 			test -r /sys/class/net/bonding_masters && break
 			usleep 300000
 		done
@@ -252,7 +251,7 @@ load_bond() {
 	if [ ! -d /sys/class/net/$IF/bonding ] ; then
 		echo "+$IF" > /sys/class/net/bonding_masters
 	fi
-	for a in `seq 33`; do
+	for a in {1..33}; do
 		test -d /sys/class/net/$IF/bonding && break
 		usleep 300000
 	done
@@ -287,7 +286,7 @@ load_bond() {
 			    err_mesg "Option '$OPT_NAME': can't remove $a"
 			fi
 		    done
-		    for a in `echo "$OPT_VALUE" | tr ',' ' '` ; do
+		    for a in ${OPT_VALUE//,/ } ; do
 			if ! echo "+$a" > /sys/class/net/$IF/bonding/$OPT_NAME ; then
 			    err_mesg "Option '$OPT_NAME': can't add $a"
 			fi

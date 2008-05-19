@@ -114,7 +114,7 @@ fi
 get_network_count()
 {
     count=0
-    for i in `seq 1 9` ; do
+    for i in {1..9} ; do
         W="`eval echo \\$WIRELESS_AUTH_MODE_$i`"
         if [ -n "`eval echo $\"$W\"`" ]; then
             count=$((count+1))
