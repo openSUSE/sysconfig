@@ -436,8 +436,9 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 	# take all configurations except these
 	# -  which seem to be backup files
 	# -  which have STARTMODE != onboot/auto
-	# -  which are dialup or tunnel interfaces
-	# -  which serve as slave interfaces for bonding, vlan or tunnels
+	# -  which are virtual, dialup or tunnel interfaces
+	# -  which serve as slave interfaces for bonding, vlan
+	#    or tunnels, except the slave interfaces are physical
 	while IFS=- read a b; do
 		case "$b" in
 			""|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup|lo)
