@@ -40,7 +40,6 @@ test "$ACTION" == up   -a "$GLOBAL_POST_UP_EXEC"  != yes && exit
 shopt -s nullglob
 for a in if-${ACTION}.d/*; do
 	test -x "$a" || continue
-	get_config_name
 	info_mesg "calling '`pwd`/$a '${INTERFACE}' ${INTERFACE} -o nm'"
 	$a "${INTERFACE}" ${INTERFACE} -o nm
 done
