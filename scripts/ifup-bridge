@@ -69,7 +69,7 @@ done
 # Check needed tools
 #
 if ! [ -x /sbin/brctl ]; then
-	logerror "bridge-utils not installed"
+	err_mesg "bridge-utils not installed"
 	exit $R_INTERNAL
 fi
 
@@ -77,6 +77,11 @@ fi
 # check presence of configuration file and source it
 #
 test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+
+######################################################################
+# global variables
+#
+SYSFS="/sys/class/net"
 
 ######################################################################
 case $ACTION in
@@ -88,82 +93,116 @@ up)
 	printf "    %-9s " "$INTERFACE"
 
 	# Add bridge
-	brctl show | grep -v "bridge id" | grep "^$INTERFACE" &>/dev/null
-	case "$?" in
-	0)
-		logerror "Warning: Bridge $INTERFACE already up!"
-		exit $R_ERROR
-		;;
-	*)
-		MESSAGE=`brctl addbr "$INTERFACE"`
-		if [ $? -ne 0 ]; then
-			logerror "Error: failed to add bridge $INTERFACE: $MESSAGE"
+	if test -d $SYSFS/$INTERFACE/ ; then
+		if test -d $SYSFS/$INTERFACE/bridge ; then
+			err_mesg "Warning: Bridge $INTERFACE already exists!"
+			printf "    %-9s " "$INTERFACE"
+		else
+			err_mesg "Error: Interface $INTERFACE exists and is not a bridge!"
 			exit $R_ERROR
 		fi
-		;;
-	esac
+	else
+		MESSAGE=`brctl addbr "$INTERFACE"`
+		if [ $? -ne 0 ]; then
+			err_mesg "Error: Failed to create bridge $INTERFACE: $MESSAGE"
+			exit $R_ERROR
+		fi
+	fi
 
 	# Add ports
-	echo -en "Ports:"
+	printf "Ports:"
+	for PORT in $(ls -1 $SYSFS/$INTERFACE/brif/ 2>/dev/null) ; do
+		printf " <${PORT}>"
+	done
 	COUNTER=0
+	BRIFINDEX=`cat $SYSFS/$INTERFACE/ifindex`
 	for PORT_INTERFACE in $BRIDGE_PORTS; do
-		MESSAGE=`ip link set dev "$PORT_INTERFACE" up && brctl addif "$INTERFACE" "$PORT_INTERFACE"`
-		if [ $? -ne 0 ]; then
-			logerror " Warning: failed to bring $PORT_INTERFACE up: $MESSAGE"
+		SHOW=1
+		# add port to bridge
+		if test -d $SYSFS/$PORT_INTERFACE/ -a \
+			-d $SYSFS/$PORT_INTERFACE/brport/bridge ; then
+			INDEX=`cat $SYSFS/$PORT_INTERFACE/brport/bridge/ifindex`
+			if test $((INDEX)) -ne $((BRIFINDEX)) ; then
+				err_mesg " Error: Port $PORT_INTERFACE is member of another bridge"
+				exit $R_ERROR
+			fi
+			if ! is_iface_up $PORT_INTERFACE ; then
+				ip link set dev "$PORT_INTERFACE" up
+			fi
+			SHOW=0
 		else
-			# set path costs
-			if [ -n "$BRIDGE_PATHCOSTS" ]; then
-				COSTS=(${BRIDGE_PATHCOSTS})
-				if test -n "${COSTS[$COUNTER]}" ; then
-					brctl setpathcost $INTERFACE $PORT_INTERFACE ${COSTS[$COUNTER]}
-				fi
+			MESSAGE=`ip link set dev "$PORT_INTERFACE" up && brctl addif "$INTERFACE" "$PORT_INTERFACE"`
+			if [ $? -ne 0 ]; then
+				err_mesg " Warning: failed to add $PORT_INTERFACE to the bridge: $MESSAGE"
+				printf "    %-9s Ports:" "$INTERFACE"
+				COUNTER=$((COUNTER+1))
+				continue
 			fi
-			# set port prio
-			if [ -n "$BRIDGE_PORTPRIORITIES" ]; then
-				PRIOS=(${BRIDGE_PORTPRIORITIES})
-				if test -n "${PRIOS[$COUNTER]}" ; then
-					brctl setportprio $INTERFACE $PORT_INTERFACE ${PRIOS[$COUNTER]}
-				fi
-			fi
-			echo -en " [$PORT_INTERFACE]"
 		fi
+
+		# set path costs
+		if [ -n "$BRIDGE_PATHCOSTS" ]; then
+			COSTS=(${BRIDGE_PATHCOSTS})
+			if test -n "${COSTS[$COUNTER]}" ; then
+				brctl setpathcost $INTERFACE $PORT_INTERFACE ${COSTS[$COUNTER]}
+			fi
+		fi
+		# set port prio
+		if [ -n "$BRIDGE_PORTPRIORITIES" ]; then
+			PRIOS=(${BRIDGE_PORTPRIORITIES})
+			if test -n "${PRIOS[$COUNTER]}" ; then
+				brctl setportprio $INTERFACE $PORT_INTERFACE ${PRIOS[$COUNTER]}
+			fi
+		fi
+
+		test $SHOW -eq 1 && {
+			printf " [$PORT_INTERFACE]"
+		}
 		COUNTER=$((COUNTER+1))
 	done
-	echo -en "\n"
+	printf "\n"
 
 	# Set flags
-	[ -n "$BRIDGE_AGEINGTIME" ] && brctl setageing     "$INTERFACE" "$BRIDGE_AGEINGTIME"
-	[ -n "$BRIDGE_STP"        ] && brctl stp           "$INTERFACE" "$BRIDGE_STP"
-	[ -n "$BRIDGE_PRIORITY"   ] && brctl setbridgeprio "$INTERFACE" "$BRIDGE_PRIORITY"
-	[ -n "$BRIDGE_FORWARDDELAY" ] && brctl setfd       "$INTERFACE" "$BRIDGE_FORWARDDELAY"
-	[ -n "$BRIDGE_HELLOTIME"  ] && brctl sethello      "$INTERFACE" "$BRIDGE_HELLOTIME"
-	[ -n "$BRIDGE_MAXAGE"     ] && brctl setmaxage     "$INTERFACE" "$BRIDGE_MAXAGE"
+	[ -n "$BRIDGE_AGEINGTIME"   ] && brctl setageing     "$INTERFACE" "$BRIDGE_AGEINGTIME"
+	[ -n "$BRIDGE_STP"          ] && brctl stp           "$INTERFACE" "$BRIDGE_STP"
+	[ -n "$BRIDGE_PRIORITY"     ] && brctl setbridgeprio "$INTERFACE" "$BRIDGE_PRIORITY"
+	[ -n "$BRIDGE_FORWARDDELAY" ] && brctl setfd         "$INTERFACE" "$BRIDGE_FORWARDDELAY"
+	[ -n "$BRIDGE_HELLOTIME"    ] && brctl sethello      "$INTERFACE" "$BRIDGE_HELLOTIME"
+	[ -n "$BRIDGE_MAXAGE"       ] && brctl setmaxage     "$INTERFACE" "$BRIDGE_MAXAGE"
 
 	ip link set up dev $INTERFACE
 	N=-300
-	NMAX=`cat /sys/class/net/$INTERFACE/bridge/forward_delay`
-	# mesg_n "`printf "    %-9s bridge still in learning state " "$INTERFACE"`"
+	NMAX=`cat $SYSFS/$INTERFACE/bridge/forward_delay`
+	DOTS=0
+	EMPTY=0
+	STATE=0
 	mesg_n "`printf "    %-9s forwarddelay (see man ifcfg-bridge) " $INTERFACE`"
 	while test "$((N+=100))" -lt "$NMAX" ; do
 		STATE=0
-		for sf in /sys/class/net/$INTERFACE/brif/*/state; do
+		for bp in $(ls -1 $SYSFS/$INTERFACE/brif/ 2>/dev/null) ; do
+			EMPTY=1
+			sf="$SYSFS/$INTERFACE/brif/$bp/state"
+			test -e $sf || continue
 			S=`cat $sf`
-			# echo "${s##*brif/}: $S"
 			if [ "$S" == 2 ] ; then
 				STATE=-1
 				break
 			fi
 			: $((STATE+=S))
 		done
-		# echo br waiting $a ___ $STATE
-		mesg_n "."
+		test $EMPTY && break
 		test "$STATE" -gt 0 && break
+		# make a dot every 2nd second
+		test $DOTS -eq 0 && { mesg_n "." ; DOTS=1 ; } || DOTS=0
 		sleep 1
 	done
-	test "$STATE" -gt 0    \
-		&& mesg "... ready" \
-		|| mesg " not ready. Proceeding in background."
-
+	if test $EMPTY -eq 0 ; then
+		mesg "- no ports in bridge."
+	else
+		test "$STATE" -gt 0    \
+			&& mesg "... ready" \
+			|| mesg " not ready. Proceeding in background."
+	fi
 	RETVAL=$R_SUCCESS
 	;;
 down)
@@ -171,14 +210,16 @@ down)
 	######################################################################
 	# Bridge shutdown
 	#
-	brctl show | grep -v "bridge id" | grep "^$INTERFACE" &>/dev/null
-	if [ $? -eq 0 ]; then
+	if test -d $SYSFS/$INTERFACE/bridge ; then
 		MESSAGE=`brctl delbr "$INTERFACE"`
 		if [ $? -ne 0 ]; then
 			err_mesg "Error: failed to delete bridge $INTERFACE: $MESSAGE"
 			exit $R_STATUS
 		fi
-		for PORT_INTERFACE in $BRIDGE_PORTS; do
+		for PORT_INTERFACE in $BRIDGE_PORTS \
+			$(ls -1 $SYSFS/$INTERFACE/brif/ 2>/dev/null)
+		do
+			test -d $SYSFS/$PORT_INTERFACE || continue
 			MESSAGE=`ip link set dev "$PORT_INTERFACE" down`
 			if [ $? -ne 0 ]; then
 				err_mesg "Warning: failed to bring $PORT_INTERFACE down: $MESSAGE"
