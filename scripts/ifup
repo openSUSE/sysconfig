@@ -146,6 +146,11 @@ case $SCRIPTNAME in
 			IFUPFILE=$RUN_FILES_BASE/if-$INTERFACE
 		fi
 		if [ -e $IFUPFILE ] ; then
+			if [ ! -e "ifcfg-$CONFIG" ] ; then
+				message "`printf "    %-9s config file removed: %s" \
+				         $INTERFACE "--> restart interface!"`"
+				exit $R_NOT_UP2DATE
+			fi
 			for FILE in if{cfg,route,services}-$CONFIG \
 			            config dhcp wireless routes; do
 				test -e $FILE || continue
