@@ -110,31 +110,36 @@ up)
 	fi
 
 	# Add ports
-	printf "Ports:"
-	for PORT in $(ls -1 $SYSFS/$INTERFACE/brif/ 2>/dev/null) ; do
-		printf " <${PORT}>"
+	printf "Ports: "
+	for PORT_INTERFACE in $(ls -1 $SYSFS/$INTERFACE/brif/ 2>/dev/null) ; do
+		printf "<${PORT_INTERFACE}> "
 	done
+	SHOW=1
 	COUNTER=0
 	BRIFINDEX=`cat $SYSFS/$INTERFACE/ifindex`
 	for PORT_INTERFACE in $BRIDGE_PORTS; do
+		test $SHOW -eq 2 && printf "    %-9s Ports:" "$INTERFACE"
 		SHOW=1
 		# add port to bridge
 		if test -d $SYSFS/$PORT_INTERFACE/ -a \
 			-d $SYSFS/$PORT_INTERFACE/brport/bridge ; then
 			INDEX=`cat $SYSFS/$PORT_INTERFACE/brport/bridge/ifindex`
 			if test $((INDEX)) -ne $((BRIFINDEX)) ; then
+				printf "\n    %-9s " "$INTERFACE"
 				err_mesg " Error: Port $PORT_INTERFACE is member of another bridge"
 				exit $R_ERROR
 			fi
+			# else ok, port already in this bridge
 			if ! is_iface_up $PORT_INTERFACE ; then
 				ip link set dev "$PORT_INTERFACE" up
 			fi
 			SHOW=0
 		else
-			MESSAGE=`ip link set dev "$PORT_INTERFACE" up && brctl addif "$INTERFACE" "$PORT_INTERFACE"`
+			MESSAGE=`ip link set dev "$PORT_INTERFACE" up 2>&1 && brctl addif "$INTERFACE" "$PORT_INTERFACE" 2>&1`
 			if [ $? -ne 0 ]; then
-				err_mesg " Warning: failed to add $PORT_INTERFACE to the bridge: $MESSAGE"
-				printf "    %-9s Ports:" "$INTERFACE"
+				printf "\n    %-9s " "$INTERFACE"
+				err_mesg "Warning: failed to add port $PORT_INTERFACE: $MESSAGE"
+				SHOW=2
 				COUNTER=$((COUNTER+1))
 				continue
 			fi
@@ -155,12 +160,10 @@ up)
 			fi
 		fi
 
-		test $SHOW -eq 1 && {
-			printf " [$PORT_INTERFACE]"
-		}
+		test $SHOW -eq 1 && printf "[$PORT_INTERFACE] "
 		COUNTER=$((COUNTER+1))
 	done
-	printf "\n"
+	test $SHOW -lt 2 && printf "\n"
 
 	# Set flags
 	[ -n "$BRIDGE_AGEINGTIME"   ] && brctl setageing     "$INTERFACE" "$BRIDGE_AGEINGTIME"
