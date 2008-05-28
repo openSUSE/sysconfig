@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Fri May 23 11:51:51 CEST 2008 - mt@suse.de
+
+- new version 0.70.8
+- Improved ifup-bridge script reliability and allow that the
+  bridge exists, e.g. because created by xen (bnc#378595).
+- Increased DHCLIENT_WAIT_AT_BOOT to 15 and added comment note,
+  that RFC 2131 specifies, that the dhcp client should wait a
+  random time between one and ten seconds to desynchronize the
+  use of DHCP at startup (bnc#390676).
+- Fixed rcnetwork reload to delete [vlan] interfaces when the
+  ifcfg file got deleted and honor the -o skip option for the
+  non-physical interfaces (bnc#346566).
+
+-------------------------------------------------------------------
 Wed May 14 13:36:36 CEST 2008 - mt@suse.de
 
 - new version 0.70.7
