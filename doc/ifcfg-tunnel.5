@@ -12,28 +12,57 @@ ifcfg-tunnel \- network tunnel interface configuration
 .B /etc/sysconfig/network/ifcfg-ipip*
 .br
 .B /etc/sysconfig/network/ifcfg-sit*
+.br
+
+.B /etc/sysconfig/network/ifcfg-tun*
+.br
+.B /etc/sysconfig/network/ifcfg-tap*
 
 .SH Tunnel interfaces
-It is
-possible to create tunnel interfaces for three different protocols:
+It is possible to create static IP tunnel interfaces for three different
+protocols:
+.RS
+.PD 0
+.TP
 .I SIT
-(IPv6 over IPv4 tunnel),
+IPv6 over IPv4 tunnel
+.TP
 .I GRE
-(universal IPv4 tunnel) and
+universal IPv4 tunnel
+.TP
 .I IPIP
-(IPv4 over IPv4 tunnel). Since there is not yet a YaST2 support for creating 
-tunnels one must write appropriate config files by hand for now. 
+IPv4 over IPv4 tunnel
+.PD
+.RE
 
-These new variables are to be used in tunnel config files:
+Additionally, also creation of user space program driven tunnels using
+the universal TUN/TAP device driver is supported:
+.RS
+.PD 0
+.TP
+.I TAP
+Ethernet tunnel interface
+.TP
+.I TUN
+Point-to-Point IP tunnel interface
+.PD
+.RE
+
+Since there is not yet a YaST2 support for creating tunnels one must
+write appropriate config files by hand for now. 
+
+.SH VARIABLES
+These variables can used in ip tunnel config files:
 .TP
 .B TUNNEL
 Here you have to set the tunnel protocol. This may be "sit" for IPv6 over IPv4
-tunnel, "gre" for universal IPv4 tunnel and "ipip" for IPv4 over IPv4 tunnel.
+tunnel, "gre" for universal IPv4 tunnel, "ipip" for IPv4 over IPv4 tunnel and
+"tap" or "tun" for the user space program driven tunnels.
 .TP
 .BR TUNNEL_LOCAL_IPADDR \ or \ TUNNEL_DEVICE
 The address of the local tunnel's end could be directly specified in 
 .B TUNNEL_LOCAL_IPADDR
-variable. The address must be present on another interface of this host
+variable. The address must be present on an existing interface of this host
 (the TUNNEL_DEVICE). If
 .B TUNNEL_LOCAL_IPADDR
 is empty the first ipv4 address from the interface given in the variable
@@ -54,6 +83,15 @@ packet. This is also the default if the TTL variable wasn't used.
 .B TUNNEL_OPTIONS
 Here you may set additional options for the command
 .B ip tunnel add
+.TP
+.B TUNNEL_SET_PERSISTENT
+Create a persistent tun or tap interface.
+.TP
+.BR TUNNEL_SET_OWNER \ and \ TUNNEL_SET_GROUP
+Set the tun/tap interface owner and group.
+.TP
+.B TUNNEL_DAEMON
+Not implemented yet: Starts the specified userspace daemon (aiccu, openvpn, ...).
 
 .SH Examples for tunnel configurations
 This are some generic examples for different tunnel types. Replace the shown

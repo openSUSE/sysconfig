@@ -84,7 +84,7 @@ is_iface_available () {
 		ippp*|isdn*) return 0 ;;
 		modem*|dsl*|ppp*) return 0 ;;
 		vlan*) return 0 ;;
-		sit*|gre*|ipip*) return 0 ;;
+		sit*|gre*|ipip*|tun*|tap*) return 0 ;;
 	esac
 	test "${SCRIPTNAME%%-*}" = ifdown -a "$MODE" = hotplug && return 0
 	test "${SCRIPTNAME%%-*}" = ifup -a "$BONDING_MASTER" = yes && return 0
@@ -101,29 +101,56 @@ is_iface_up () {
 	esac
 }
 
+get_ethtool_drv_info () {
+	test -n "$1" || return 1
+	local ethtool="/sbin/ethtool"
+	if [ ! -x $ethtool ] ; then
+		[ -x /usr${ethtool} ] && ethtool="/usr${ethtool}"  || return 1
+	fi
+	$ethtool -i "$IF" 2>/dev/null |
+	while read key val ; do
+		case "$key" in
+			driver:)           printf 'ETHTOOL_DRV_NAME=%q\n'       "$val" ;;
+			version:)          printf 'ETHTOOL_DRV_VERSION=%q\n'    "$val" ;;
+			firmware-version:) printf 'ETHTOOL_DRV_FW_VERSION=%q\n' "$val" ;;
+			bus-info:)         printf 'ETHTOOL_DRV_BUS_INFO=%q\n'   "$val" ;;
+		esac
+	done 2>/dev/null # bash printf required for %q format
+}
+
 get_iface_type () {
 	local IF=$1 TYPE
 	test -n "$IF" || return 1
 	test -d /sys/class/net/$IF || return 2
 	case "`cat /sys/class/net/$IF/type`" in
-		  1) TYPE=eth    # Ethernet, may also be wireless
-		     test -d /sys/class/net/$IF/wireless && TYPE=wlan
-		     test -d /sys/class/net/$IF/bridge && TYPE=bridge
-		     test -f /proc/net/vlan/$IF && TYPE=vlan
-		     test -d /sys/class/net/$IF/bonding && TYPE=bond ;;
-		 24) TYPE=eth ;; # firewire ;; # IEEE 1394 IPv4 - RFC 2734
-		 32) TYPE=eth ;; # InfiniBand, treat it like ethernet?
-		512) TYPE=ppp ;;
-		768) TYPE=ipip ;; # IPIP tunnel
-		769) TYPE= ;; # IP6IP6 tunnel
-		772) TYPE=lo ;;
-		776) TYPE=sit ;; # sit0 device - IPv6-in-IPv4
-		778) TYPE=gre ;; # GRE over IP
-		783) TYPE=irda ;; # Linux-IrDA
-		801) TYPE=wlan_aux ;;
+		    1)
+			TYPE=eth    # Ethernet, may also be wireless
+			test -d /sys/class/net/$IF/wireless && TYPE=wlan
+			test -d /sys/class/net/$IF/bridge && TYPE=bridge
+			test -f /proc/net/vlan/$IF && TYPE=vlan
+			test -d /sys/class/net/$IF/bonding && TYPE=bond
+			test -d /sys/devices/virtual/net/$IF && {
+				eval local `get_ethtool_drv_info $IF`
+				test "$ETHTOOL_DRV_NAME" == "tun" && \
+				TYPE="$ETHTOOL_DRV_BUS_INFO" || \
+				case $IF in tap*) TYPE=tap ;; esac
+				# may be another virtual eth iface
+			}
+			;;
+		   24)	TYPE=eth ;; # firewire ;; # IEEE 1394 IPv4 - RFC 2734
+		   32)	TYPE=eth ;; # InfiniBand, treat it like ethernet?
+		  512)	TYPE=ppp ;;
+		  768)	TYPE=ipip ;; # IPIP tunnel
+		  769)	TYPE= ;; # IP6IP6 tunnel
+		  772)	TYPE=lo ;;
+		  776)	TYPE=sit ;; # sit0 device - IPv6-in-IPv4
+		  778)	TYPE=gre ;; # GRE over IP
+		  783)	TYPE=irda ;; # Linux-IrDA
+		  801)	TYPE=wlan_aux ;;
+		65534)	TYPE=tun ;;
 	esac
-	# The following case statement still has to be replaced by something which
-	# does not rely on the interface names.
+	# The following case statement still has to be replaced by something
+	# which does not rely on the interface names.
 	case $IF in
 		ippp*|isdn*) TYPE=isdn;;
 		ip6tnl*)     TYPE=ip6tnl;; # This might be type 769 ...
@@ -158,6 +185,8 @@ get_iface_type_from_config () {
 		BONDING_MASTER yes bond
 		ETHERDEVICE _not_empty_ vlan
 		BRIDGE yes bridge
+		TUNNEL tap tap
+		TUNNEL tun tun
 		TUNNEL sit sit
 		TUNNEL gre gre
 		TUNNEL ipip ipip

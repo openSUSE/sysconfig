@@ -19,6 +19,7 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					ifup-services \
 					ifup-skel \
 					ifup-wireless \
+					ifup-tunnel \
 					dhcpcd-hook \
 					drop-hotplug-symlink.sh \
 					ifplugd-selectif \
@@ -58,6 +59,8 @@ install-data-hook:
 	ln -sf ifdown-connection	$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-connection
 	ln -sf ifup-wireless		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-wireless
 	ln -sf ifup-wireless		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-wireless
+	ln -sf ifup-tunnel              $(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-tunnel
+	ln -sf ifup-tunnel              $(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-tunnel
 	ln -sf ifup-ppp			$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-ppp
 	ln -sf ifup-ppp			$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-ppp
 	ln -sf ifup-802.1q		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-802.1q

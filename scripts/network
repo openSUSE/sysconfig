@@ -49,7 +49,7 @@ if ! . scripts/functions 2>/dev/null; then
 	rc_exit
 fi
 
-# . scripts/extradebug
+test "$DEBUG" = "EXTRA" && . scripts/extradebug
 
 # Only use ifup option 'onboot' if booting or changing runlevel
 # Therefore we check if we were called from init
@@ -378,7 +378,7 @@ while IFS=- read a b; do
 		*ppp|dsl|modem|isdn)
 			DIALUP_IFACES="$DIALUP_IFACES $b"
 			;;
-		ipip|sit|gre)
+		ipip|sit|gre|tun|tap)
 			TUNNEL_IFACES="$TUNNEL_IFACES $b"
 			;;
 		bridge)

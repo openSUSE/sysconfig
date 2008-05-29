@@ -1,0 +1,309 @@
+#! /bin/bash
+#
+# Copyright (c) 2007 SUSE LINUX Products GmbH, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Authors: Marius Tomaschewski <mt@suse.de>
+#          Michal Ludvig <mludvig@suse.cz>
+#
+# The static ipip,gre,sit tunnel code extracted from main ifup script.
+#
+# $Id: $
+#
+
+usage () {
+	echo $@
+	echo "Usage: if{up,down,status}-tunnel [<config>] <interface> [-o <options>]"
+	echo ""
+	echo "Options are:"
+	echo "    [on]boot : we are currently booting (or shutting down)"
+	echo "    hotplug  : we are handling a hotplug event"
+	echo "    auto     : alias for onboot"
+	echo "    debug    : be verbose"
+	echo ""
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+ACTION=${SCRIPTNAME#if}
+ACTION=${ACTION%%-*}
+case "${ACTION}" in
+	up|status|down|check) ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=auto ;;
+		hotplug)     MODE=auto ;;
+		auto)        MODE=auto ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		*)           debug unknown option $1 ;;
+	esac
+	shift
+done
+
+######################################################################
+# check presence of configuration file and source it
+#
+if [ -f ifcfg-$CONFIG ] ; then
+	. ifcfg-$CONFIG
+else
+	message "could not find configuration file ifcfg-$CONFIG"
+fi
+
+
+######################################################################
+# function adding a static ip tunnel
+#
+iptunnel_add ()
+{
+	# Backwards compliance hack:
+	# TUNNEL_DEVICE is new since SL9.1/SLES9. Up to then,
+	# TUNNEL_LOCAL_INTERFACE was used in configurations.
+  	if [ -z "$TUNNEL_DEVICE" ] ; then
+		TUNNEL_DEVICE=$TUNNEL_LOCAL_INTERFACE
+	fi
+
+	# Get IPv4 address of local tunnel endpoint
+	# in the case it wasn't set in the config file.
+	if [ -z "$TUNNEL_LOCAL_IPADDR" ] ; then
+		if [ -z "$TUNNEL_DEVICE" ]; then
+			logerror "set TUNNEL_LOCAL_IPADDR or TUNNEL_DEVICE"
+			return $R_USAGE
+		fi
+
+		TUNNEL_LOCAL_IPADDR=`is_iface_up $TUNNEL_DEVICE && \
+		                     get_ipv4address $TUNNEL_DEVICE`
+		if [ "$?" != 0 ] ; then
+			logerror "failed to get IPv4 address of $TUNNEL_DEVICE"
+			return $R_ERROR
+		fi
+	fi
+
+	# Create a new tunnel
+	MESSAGE=`ip tunnel add $INTERFACE mode "$TUNNEL" \
+		 ${TUNNEL_LOCAL_IPADDR:+local "$TUNNEL_LOCAL_IPADDR"} \
+		 ${TUNNEL_REMOTE_IPADDR:+remote "$TUNNEL_REMOTE_IPADDR"} \
+		 ${TUNNEL_TTL:+ttl "$TUNNEL_TTL"} $TUNNEL_OPTIONS 2>&1`
+	if [ $? != 0 ] ; then
+		logerror "failed to add tunnel $INTERFACE"
+		logerror "$MESSAGE"
+		return $R_ERROR
+	fi
+
+	# Check if tunnel link exists (needed?)
+	MESSAGE=`ip link show $INTERFACE 2>&1`
+	if [ $? != 0 ] ; then
+		logerror "failed to add tunnel $INTERFACE"
+		logerror "$MESSAGE"
+		logerror "(does it already exist with a different name?)"
+		return $R_ERROR
+	fi
+
+	case "$BOOTPROTO" in
+	6to4)
+		# convert IPv4 to IPv6
+		test -n "$TUNNEL_LOCAL_IPADDR_V6" ||
+		TUNNEL_LOCAL_IPADDR_V6=`printf "%s/16" $(convert_ipv4address_to_6to4 $TUNNEL_LOCAL_IPADDR)`
+
+		MESSAGE=`ip link set up dev $INTERFACE $LINK_OPTIONS 2>&1`
+		if [ $? != 0 ] ; then
+			logerror "failed to set up interface $INTERFACE"
+			logerror "$MESSAGE"
+			return $R_ERROR
+		fi
+		
+		if [ -n "$MTU" ] ; then
+			MESSAGE=`ip link set $INTERFACE mtu $MTU 2>&1`
+			if [ $? !=0 ] ; then
+				logerror "failed to set MTU for interface $INTERFACE"
+				logerror "$MESSAGE"
+				return $R_ERROR
+			fi
+		fi
+
+		MESSAGE=`ip -6 addr add $TUNNEL_LOCAL_IPADDR_V6 dev $INTERFACE 2>&1`
+		if [ $? != 0 ] ; then
+			logerror "failed to add address $TUNNEL_LOCAL_IPADDR_V6 to" \
+				 " interface $INTERFACE"
+			logerror "$MESSAGE"
+			return $R_ERROR
+		fi
+	;;
+	esac
+
+	# This message shuold be printed at the very end
+	message_if_not_run_from_rc "$BOOTPROTO tunnel $INTERFACE is configured"
+	return $R_SUCCESS
+}
+
+######################################################################
+# function deleting a static ip tunnel
+#
+iptunnel_del ()
+{
+	MESSAGE=`ip tunnel del $INTERFACE 2>&1`
+	if [ $? = 0 ] ; then
+		message_if_not_run_from_rc "tunnel $INTERFACE is removed"
+		return $R_SUCCESS
+	else
+		logerror "failed to delete tunnel $INTERFACE"
+		logerror "$MESSAGE"
+		return $R_ERROR
+	fi
+}
+######################################################################
+# function returning the path of tunctl utility (in /usr on 10.3)
+tunctl_bin ()
+{
+	for tunctl in /bin/tunctl /usr/bin/tunctl ; do
+		test -x "$tunctl" && echo "$tunctl"
+	done
+	echo ""
+}
+
+######################################################################
+# now do what has to be done
+#
+RETVAL=$R_SUCCESS
+case $ACTION in
+up)
+	printf "    %-9s " "$INTERFACE"
+
+	case "$INTERFACETYPE" in
+	sit)
+		case "$BOOTPROTO" in
+		static|6to4)
+			iptunnel_add
+			RETVAL=$?
+		;;
+		*)
+			logerror "unsupported tunnel boot protocol $BOOTPROTO"
+			RETVAL=$R_USAGE
+		;;
+		esac
+	;;
+	gre|ipip)
+		case "$BOOTPROTO" in
+		static)
+			iptunnel_add
+			RETVAL=$?
+		;;
+		*)
+			logerror "unsupported tunnel boot protocol $BOOTPROTO"
+			RETVAL=$R_USAGE
+		;;
+		esac
+	;;
+	tun|tap)
+		if [ "$TUNNEL_SET_PERSISTENT" == "yes" ] ; then
+			case "$INTERFACETYPE" in
+			tap)	TUNCTL_TYPE_ARG="-p" ;;
+			tun)	TUNCTL_TYPE_ARG="-n" ;;
+			esac
+
+			tunctl=$(tunctl_bin)
+			if [ -z "$tunctl" ] ; then
+				logerror "tunctl not available -- install tunctl or uml-utilities"
+				exit $R_ERROR
+			fi
+
+			$tunctl -t $INTERFACE ${TUNCTL_TYPE_ARG} \
+				${TUNNEL_SET_OWNER:+-u "$TUNNEL_SET_OWNER"} \
+				${TUNNEL_SET_GROUP:+-g "$TUNNEL_SET_OWNER"} \
+				2>&1 || exit $R_NODEV
+
+		elif -z "$TUNNEL_DAEMON" ; then
+			logerror "set TUNNEL_DAEMON or TUNNEL_SET_PERSISTENT"
+			exit $R_NODEV
+		fi
+
+		if [ -n "$TUNNEL_DAEMON" ] ; then
+			: fixme
+		fi
+	;;
+	esac
+;;
+down)
+	if is_iface_up $INTERFACE ; then
+		ip link set dev $INTERFACE down
+	fi
+
+	case "$INTERFACETYPE" in
+	tun|tap)
+		printf "    %-9s " "$INTERFACE"
+
+		if [ -n "$TUNNEL_DAEMON" ] ; then
+			: fixme
+		fi
+
+		if [ -d /sys/class/net/$INTERFACE ] ; then
+			tunctl=$(tunctl_bin)
+			if [ -z "$tunctl" ] ; then
+				logerror "tunctl not available -- install tunctl or uml-utilities"
+				exit $R_ERROR
+			fi
+
+			$tunctl -d $INTERFACE 2>&1 || RETVAL=$R_ERROR
+		fi
+	;;
+	sit|gre|ipip)
+		iptunnel_del
+		RETVAL=$?
+	;;
+	esac
+;;
+status)
+	# FIXME: check status of tun|tap tunnel daemon
+
+	if is_iface_up $INTERFACE ; then
+		: ip addr show $INTERFACE
+	else
+		RETVAL=$R_NOTRUNNING
+	fi
+;;
+check)
+	: check action not implemented for $INTERFACE
+;;
+esac
+
+exit $RETVAL

@@ -75,7 +75,7 @@ cd /etc/sysconfig/network || exit $R_INTERNAL
 test -f ./config && . ./config
 test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
 
-# . scripts/extradebug
+test "$DEBUG" = "EXTRA" && . scripts/extradebug
 
 ######################################################################
 # Commandline parsing
@@ -499,6 +499,8 @@ if [ "$BUSNAME" = pcmcia ] ; then
 fi
 if [ -n "$DEVNAME" ] ; then
 	message "`printf "    %-9s device: %s" $INTERFACE "$DEVNAME"`"
+elif [ -n "$NAME" -a -z "$MESS_NO_IFACE" ] ; then
+	message "`printf "    %-9s name: %s" "$INTERFACE" "$NAME"`"
 else
 	message "`printf "    %-9s %s" "$INTERFACE" "$MESS_NO_IFACE"`"
 fi
@@ -670,24 +672,36 @@ if [ "$DHCP" != yes ] ; then
 		scripts/${SCRIPTNAME}-connection $CONFIG $INTERFACE \
 		                                 ${OPTIONS:+-o $OPTIONS}
 	fi
-	
-	# before setting up interfaces we have to configure wireless NICs
+
+	# FIXME: uff, cleanup cleanup cleanup
+
 	if [ "$SCRIPTNAME" = ifup ] ; then
+		# before setting up interfaces we have to configure
+		# wireless NICs
+		# FIXME: really without $INTERFACETYPE check ?
 		scripts/${SCRIPTNAME}-wireless $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		test "$?" -ne 0 && exit
-	fi
-	
-	# Frob vlan interface
-	if [ "$SCRIPTNAME" = ifup -a "$INTERFACETYPE" = vlan ]; then
-		scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+
+		case "$INTERFACETYPE" in
+		vlan)
+			# Frob vlan interface
+			scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		bridge)
+			# Frob bridge interface
+			scripts/${SCRIPTNAME}-bridge $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		ipip|sit|gre|tun|tap)
+			# Frob tunnel interface
+			scripts/${SCRIPTNAME}-tunnel $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			# FIXME: BG handling of TUNNEL_DAEMON?
+			test "$?" -ne 0 && exit
+		;;
+		esac
 	fi
 
-	# Frob bridge interface
-	if [ "$INTERFACETYPE" == bridge -a "$SCRIPTNAME" = ifup ]; then
-		scripts/${SCRIPTNAME}-bridge $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-		test "$?" -ne 0 && exit
-	fi
-	
 	# exec if*-ppp for modem and dsl
 	case $INTERFACETYPE in
 		modem|dsl|ppp)
@@ -729,6 +743,8 @@ if [ "$DHCP" != yes ] ; then
 		services)      : ;;
 		skel)          : ;;
 		wireless)      : ;;
+		tun|tap)       : ;;
+		ipip|sit|gre)  : ;;
 		*)
 			if [ -x "$INTERFACESCRIPT" ] ; then
 				$INTERFACESCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
@@ -777,79 +793,10 @@ fi
 
 
 ######################################################################
-# Tunnel setup
+# obsolete 6to4 tunnel hack ?
 #
-if [    "$INTERFACETYPE" = "sit" \
-     -o "$INTERFACETYPE" = "gre" \
-     -o "$INTERFACETYPE" = "ipip" ]; then
-
-	# Backwards compliance hack:
-	# TUNNEL_DEVICE is new since SL9.1/SLES9. Up to then TUNNEL_LOCAL_INTERFACE
-	# was used in configuration files
-	if [ -z "$TUNNEL_DEVICE" ] ; then
-		TUNNEL_DEVICE=$TUNNEL_LOCAL_INTERFACE
-	fi
-	# Get current interface name of tunnel device	
-	TUNNEL_LOCAL_INTERFACE=$TUNNEL_DEVICE
-
-	# Get IPv4 address of local tunnel endpoint 
-	# in the case it wasn't set in the config file.
-	if [ -z "$TUNNEL_LOCAL_IPADDR" -a -n "$TUNNEL_LOCAL_INTERFACE" ]; then
-		TUNNEL_LOCAL_IPADDR=`is_iface_up $TUNNEL_LOCAL_INTERFACE && \
-		                     get_ipv4address $TUNNEL_LOCAL_INTERFACE`
-		if [ "$?" != 0 ] ; then
-			logerror "failed to get IPv4 address of $TUNNEL_LOCAL_INTERFACE" \
-			         "($TUNNEL_DEVICE)"
-			exit $R_ERROR
-		fi
-	fi
-
-	TUNNEL_LOCAL_IPADDR_V6=`printf "%s/16" $(convert_ipv4address_to_6to4 $TUNNEL_LOCAL_IPADDR)`
-
-	case "$SCRIPTNAME" in
-		ifup)
-			# Create a new tunnel
-			MESSAGE=`ip tunnel add $INTERFACE mode "$TUNNEL" \
-				${TUNNEL_LOCAL_IPADDR:+local "$TUNNEL_LOCAL_IPADDR"} \
-				${TUNNEL_REMOTE_IPADDR:+remote "$TUNNEL_REMOTE_IPADDR"} \
-				${TUNNEL_TTL:+ttl "$TUNNEL_TTL"} $TUNNEL_OPTIONS 2>&1`
-			if [ $? = 0 ] ; then
-				:
-			else
-				logerror "failed to add tunnel $INTERFACE"
-				logerror "$MESSAGE"
-				exit $R_ERROR
-			fi
-	
-			MESSAGE=`ip link show $INTERFACE 2>&1`
-			if [ $? = 0 ] ; then
-				# This message shuold be printed at the very end
-				message_if_not_run_from_rc "tunnel $INTERFACE is configured"
-			else
-				logerror "failed to add tunnel $INTERFACE"
-				logerror "$MESSAGE"
-				logerror "(does it already exist with a different name?)"
-				exit $R_ERROR
-			fi
-			;;
-		ifdown)
-			MESSAGE=`ip tunnel del $INTERFACE 2>&1`
-			if [ $? = 0 ] ; then
-				message_if_not_run_from_rc "tunnel $INTERFACE is removed"
-			else
-				logerror "failed to delete tunnel $INTERFACE"
-				logerror "$MESSAGE"
-				exit $R_ERROR
-			fi
-			;;
-	esac
-
-	# We only handle bringing up the 6to4 tunnel in a special way.
-	# Shutting down and querying for it's status is the same
-	# as for 'static' tunnels.
-	if [ "$BOOTPROTO" = "6to4" -a "$SCRIPTNAME" != "ifup" ]; then
-		BOOTPROTO="static"
-	fi
+if [ "$BOOTPROTO" = "6to4" -a "$SCRIPTNAME" != "ifup" ]; then
+	BOOTPROTO="static"
 fi
 
 
@@ -992,33 +939,8 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 	*skip)
 		:
 		;;
-	# Configure IPv6 6to4 tunnels.
 	6to4)
-
-		MESSAGE=`ip link set up dev $INTERFACE $LINK_OPTIONS 2>&1`
-		if [ $? != 0 ] ; then
-			logerror "failed to set up interface $INTERFACE"
-			logerror "$MESSAGE"
-			exit $R_ERROR
-		fi
-
-		if [ -n "$MTU" ] ; then
-			MESSAGE=`ip link set $INTERFACE mtu $MTU 2>&1`
-			if [ $? !=0 ] ; then
-				logerror "failed to set MTU for interface $INTERFACE"
-				logerror "$MESSAGE"
-				exit $R_ERROR
-			fi
-		fi
-
-		MESSAGE=`ip -6 addr add $TUNNEL_LOCAL_IPADDR_V6 dev $INTERFACE 2>&1`
-		if [ $? != 0 ] ; then
-			logerror "failed to add address $TUNNEL_LOCAL_IPADDR_V6 to" \
-			         "interface $INTERFACE"
-			logerror "$MESSAGE"
-			exit $R_ERROR
-		fi
-
+		# just route, configuration handled in $SCRIPTNAME-tunnel
 		ifup-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		retcode=$?
 	;;
@@ -1237,22 +1159,31 @@ if [ "$DHCP" != yes ] ; then
 		fi
 	fi
 	
-	# after shutting down interfaces ifup-wireless has to kill the wpa daemon
 	if [ "$SCRIPTNAME" = ifdown ] ; then
+		# after shutting down interfaces ifup-wireless
+		# has to kill the wpa daemon
+		# FIXME: again without INTERFACETYPE check?
 		scripts/${SCRIPTNAME}-wireless $CONFIG $INTERFACE \
 		${OPTIONS:+-o $OPTIONS}
-	fi
 
-	# Frob vlan interface, part II
-	if [ "$SCRIPTNAME" = ifdown -a "$INTERFACETYPE" = vlan ]; then
-		scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		case "$INTERFACETYPE" in
+		vlan)
+			# Frob vlan interface, part II
+			scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		bridge)
+			# Frob bridge interface, part II
+			scripts/${SCRIPTNAME}-bridge $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		ipip|sit|gre|tun|tap)
+			# Frob tunnel interface, part II
+			scripts/${SCRIPTNAME}-tunnel $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		esac
 	fi
-
-	# Frob bridge interface, part II
-	if [ "$INTERFACETYPE" == bridge -a "$SCRIPTNAME" != ifup ]; then
-		scripts/${SCRIPTNAME}-bridge $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-	fi
-
 fi
 	
 ######################################################################
