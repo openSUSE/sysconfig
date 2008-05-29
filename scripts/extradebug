@@ -6,7 +6,11 @@
 # boot.udev to start cleanly when booting.
 
 SCRIPT=${0##*/}
-exec 2> /tmp/exdeb.${SCRIPT}_$$.$PPID.${SEQNUM}_$1.$2
+
+. /etc/sysconfig/network/scripts/functions.common
+test -d $RUN_FILES_BASE && dir=$RUN_FILES_BASE || dir=/
+exec 2> $dir/exdeb.${SCRIPT}_$$.$PPID.${SEQNUM}_$1.$2
+
 date +"%F %T.%N" >&2
 echo -------------------------------------------------- >&2
 ps axwfu | head -1 >&2
@@ -16,7 +20,7 @@ ps axwwfu | grep -C3 "$$\|ifplugd\|dhcp\|ifup\|ifdown\|ifstatus" |
 echo -------------------------------------------------- >&2
 ls -ltr --full-time /sys/class/net /dev/shm/sysconfig >&2
 echo >&2
-grep -H "" /dev/shm/sysconfig/* >&2
+grep -H "" $(ls -1d /dev/shm/sysconfig/* | grep -v "[/]exdeb") >&2
 echo -------------------------------------------------- >&2
 ip a >&2
 ip r >&2
