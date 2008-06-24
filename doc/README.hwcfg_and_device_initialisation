@@ -12,9 +12,7 @@ configuration files /etc/sysconfig/hardware/hwcfg-* are not longer used.  (To
 be honest, there is still a /sbin/hwup but it changed completely. See below.)
 
 The automatic module loading did not change much. The only difference is that
-udev calls 'modprobe $MODALIAS' directly and not via /bin/hwup as before.  If
-you want to load another driver for a device now you have to write a udev rule
-instead.
+udev calls 'modprobe $MODALIAS' directly and not via /bin/hwup as before.
 
 To learn more about this topic have a look at these files, man-pages and tools:
  - /etc/udev/rules.d/80-drivers.rules
@@ -25,13 +23,19 @@ To learn more about this topic have a look at these files, man-pages and tools:
  - man modprobe
  - modprobe -nv --show-depends `cat /sys/bus/pci/devices/..../modalias`
 
+Module parameters can be specified in /etc/modprobe.conf.local, e.g. as:
+
+ options <module name> <module options>
 
 About the new /sbin/hwup:
 Have a look at this short shell script to learn more about manual driver
 binding. This script may be used to manually unbind and bind drivers to
 devices. 
-For example if you want to change a network interface name, do this:
+
+For example if you want to change a network interface name, do this in
+yast2 network or:
 - change the name in /etc/udev/rules.d/70-persistent-net.rules
 - call 'hwdown <old iface name>'
 - call 'hwup <old iface name>'
 - check result with 'ip a'
+
