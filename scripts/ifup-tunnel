@@ -249,7 +249,7 @@ up)
 
 			$tunctl -t $INTERFACE ${TUNCTL_TYPE_ARG} \
 				${TUNNEL_SET_OWNER:+-u "$TUNNEL_SET_OWNER"} \
-				${TUNNEL_SET_GROUP:+-g "$TUNNEL_SET_OWNER"} \
+				${TUNNEL_SET_GROUP:+-g "$TUNNEL_SET_GROUP"} \
 				2>&1 || exit $R_NODEV
 
 		elif -z "$TUNNEL_DAEMON" ; then
