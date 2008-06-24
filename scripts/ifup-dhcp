@@ -295,6 +295,10 @@ case "$ACTION" in
 			# dhcpcd-hook/ifup machinery [#85849]
 			args="$args -c ${DHCLIENT_SCRIPT_EXE:-/etc/sysconfig/network/scripts/dhcpcd-hook}"
 
+
+			# avoid deconfiguration of the interface at startup in nfsroot case (bnc#397484)
+			test "$STARTMODE" == "nfsroot" && args="-p $args"
+
 			DHCLIENT_ARGS=$args
 
 			# just in case /var is not mounted
@@ -310,13 +314,20 @@ case "$ACTION" in
 			fi
 
 			# now start dhcpcd
-			$DHCLIENT_BIN $DHCLIENT_ARGS $INTERFACE </dev/null &>/dev/null &
+			( $DHCLIENT_BIN $DHCLIENT_ARGS $INTERFACE </dev/null ) 2>&1 | $LOGGER -p debug -t "$SCRIPTNAME" &
 
 			# wait some more time until dhcpcd has done its job.
 			# it would be easier to wait for the pidfile, but it is written later
 			for ((i=0; i<${DHCLIENT_WAIT_AT_BOOT:-15}; i++)); do 
-				if [ -e $info -a ! $info -ot $timestamp ]; then continue
-				else message_n .\ ; sleep 1
+				if [ -e $info -a ! $info -ot $timestamp ]; then
+					continue
+				else
+					message_n .\ ; sleep 1
+				fi
+				if ! dhcpc_on_iface -q ; then
+					[ $i -lt 2 ] && message_n .\ .\ 
+					message "client NOT running"
+					exit $R_NOTRUNNING
 				fi
 			done
 			if [ -e $info -a ! $info -ot $timestamp ]; then 
