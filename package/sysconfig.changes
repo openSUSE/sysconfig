@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Wed Jun 25 10:55:42 CEST 2008 - mt@suse.de
+
+- Removed sentence about writing of udev rules (bnc#399224),
+  added info about module options in /etc/modprobe.conf.local
+- Added check if the dhcpcd client is still running in the
+  DHCLIENT_WAIT_AT_BOOT wait loop.
+- Added fix adding -p dhcpcd option to avoid deconfiguration
+  of the interface at startup in nfsroot case (bnc#397484)
+- Fixed typo in ifup-tunnel while applying TUNNEL_SET_GROUP
+
+-------------------------------------------------------------------
 Thu May 29 17:57:36 CEST 2008 - mt@suse.de
 
 - new version 0.71.0
