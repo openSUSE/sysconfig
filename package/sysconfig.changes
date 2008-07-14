@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Jul 14 13:59:32 CEST 2008 - mt@suse.de
+
+- Fixed typo in ethtool retcode check in ifup (bnc#405434).
+
+-------------------------------------------------------------------
 Wed Jun 25 10:55:42 CEST 2008 - mt@suse.de
 
 - Removed sentence about writing of udev rules (bnc#399224),

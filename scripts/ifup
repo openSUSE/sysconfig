@@ -785,7 +785,7 @@ if [ "$SCRIPTNAME" = ifup -a -n "$ETHTOOL_OPTIONS" ]; then
 		MESSAGE="`$ETHTOOL $ETHTOOL_OPTIONS 2>&1`"
 		RETCODE=$?
 	fi
-	test $retcode != 0 \
+	test $RETCODE != 0 \
 		&& err_mesg "Error while executing: $ethtool $ETHTOOL_OPTIONS" \
 		|| info_mesg "$ethtool $ETHTOOL_OPTIONS"
 	test -n "$MESSAGE" && err_mesg "$MESSAGE"
