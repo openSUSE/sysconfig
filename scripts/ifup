@@ -696,7 +696,6 @@ if [ "$DHCP" != yes ] ; then
 		ipip|sit|gre|tun|tap)
 			# Frob tunnel interface
 			scripts/${SCRIPTNAME}-tunnel $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			# FIXME: BG handling of TUNNEL_DAEMON?
 			test "$?" -ne 0 && exit
 		;;
 		esac

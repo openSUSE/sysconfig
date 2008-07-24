@@ -235,7 +235,8 @@ up)
 		esac
 	;;
 	tun|tap)
-		if [ "$TUNNEL_SET_PERSISTENT" == "yes" ] ; then
+		# we use a persistent tunnel by default
+		if [ "$TUNNEL_SET_PERSISTENT" != no ] ; then
 			case "$INTERFACETYPE" in
 			tap)	TUNCTL_TYPE_ARG="-p" ;;
 			tun)	TUNCTL_TYPE_ARG="-n" ;;
@@ -243,7 +244,7 @@ up)
 
 			tunctl=$(tunctl_bin)
 			if [ -z "$tunctl" ] ; then
-				logerror "tunctl not available -- install tunctl or uml-utilities"
+				logerror "tunctl not available -- install tunctl package"
 				exit $R_ERROR
 			fi
 
@@ -252,13 +253,9 @@ up)
 				${TUNNEL_SET_GROUP:+-g "$TUNNEL_SET_GROUP"} \
 				2>&1 || exit $R_NODEV
 
-		elif -z "$TUNNEL_DAEMON" ; then
-			logerror "set TUNNEL_DAEMON or TUNNEL_SET_PERSISTENT"
+		else
+			logerror "non-persistent tunnels not supported yet"
 			exit $R_NODEV
-		fi
-
-		if [ -n "$TUNNEL_DAEMON" ] ; then
-			: fixme
 		fi
 	;;
 	esac
@@ -271,10 +268,6 @@ down)
 	case "$INTERFACETYPE" in
 	tun|tap)
 		printf "    %-9s " "$INTERFACE"
-
-		if [ -n "$TUNNEL_DAEMON" ] ; then
-			: fixme
-		fi
 
 		if [ -d /sys/class/net/$INTERFACE ] ; then
 			tunctl=$(tunctl_bin)
@@ -293,8 +286,6 @@ down)
 	esac
 ;;
 status)
-	# FIXME: check status of tun|tap tunnel daemon
-
 	if is_iface_up $INTERFACE ; then
 		: ip addr show $INTERFACE
 	else

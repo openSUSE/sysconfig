@@ -85,14 +85,12 @@ Here you may set additional options for the command
 .B ip tunnel add
 .TP
 .B TUNNEL_SET_PERSISTENT
-Create a persistent tun or tap interface.
+Create a persistent tun or tap interface. Default is "yes".
+Non-persistent tunnels are not supported yet.
 .TP
 .BR TUNNEL_SET_OWNER \ and \ TUNNEL_SET_GROUP
-Set the tun/tap interface owner and group.
-.TP
-.B TUNNEL_DAEMON
-Not implemented yet: Starts the specified userspace daemon (aiccu, openvpn, ...).
-
+Allows to set the owner and group (by name or UID/GID) for persistent
+tun/tap interfaces.
 .SH Examples for tunnel configurations
 This are some generic examples for different tunnel types. Replace the shown
 addresses and interface names by your individual ones. As configuration names
@@ -166,6 +164,52 @@ use a config file like this: Default filename:
    IPADDR='3ffe:ffff::1234/64'
    TUNNEL_TTL='64'
 .fi
+
+.TP
+.B Universal TUN/TAP tunnels
+The universal TUN/TAP kernel driver provides an interface for user
+space programs to operate a tunnel. There are two modes in which
+the interface can be created:
+.nf
+  TUN (a Point-to-Point interface using local and remote IP) or
+  TAP (like normal ethernet interface, e.g. for use in bridges).
+.fi
+
+The following configuration allows to create the interfaces
+persistently:
+
+.I ifcfg-tap0
+.nf
+   STARTMODE='onboot'
+   BOOTPROTO='static'
+   TUNNEL='tap'
+   # optionally:
+   TUNNEL_SET_PERSISTENT='yes'
+   TUNNEL_SET_OWNER='username'
+   TUNNEL_SET_GROUP='groupname'
+.fi
+
+.I ifcfg-tun0
+.nf
+   STARTMODE='onboot'
+   BOOTPROTO='static'
+   TUNNEL='tun'
+   # optionally:
+   TUNNEL_SET_PERSISTENT='yes'
+   TUNNEL_SET_OWNER='username'
+   TUNNEL_SET_GROUP='groupname'
+.fi
+
+The user space program can be started later, e.g. by the
+.BR ifservices (5)
+mechanism. The TUNNEL_SET_OWNER and TUNNEL_SET_GROUP settings
+allow to run the user space program with an different UID/GID
+than 0 (root). When not specified, the user space program has
+to run with UID 0.
+
+Non-persistent tunnels (TUNNEL_SET_PERSISTENT=no), where the
+user space program (e.g. openvpn) is started directly in ifup,
+are not supported yet.
 
 .SH BUGS
 Please report bugs at <http://www.suse.de/feedback>

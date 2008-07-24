@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jul 24 09:59:24 CEST 2008 - mt@suse.de
+
+- Improved ifcfg-tunnel.5 manual page, added tun/tap examples.
+- Changed TUNNEL_SET_PERSISTENT default to 'yes'; non-persistent
+  tunnels are not supported yet.
+
+-------------------------------------------------------------------
 Mon Jul 14 13:59:32 CEST 2008 - mt@suse.de
 
 - Fixed typo in ethtool retcode check in ifup (bnc#405434).
