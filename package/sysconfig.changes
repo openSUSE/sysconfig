@@ -1,6 +1,7 @@
 -------------------------------------------------------------------
 Thu Jul 24 09:59:24 CEST 2008 - mt@suse.de
 
+- new version 0.71.1
 - Improved ifcfg-tunnel.5 manual page, added tun/tap examples.
 - Changed TUNNEL_SET_PERSISTENT default to 'yes'; non-persistent
   tunnels are not supported yet.
