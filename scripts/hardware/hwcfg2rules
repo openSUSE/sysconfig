@@ -13,10 +13,60 @@ write_dasd_rules () {
     cat >> $file <<EOF
 ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$busid", IMPORT{program}="collect $busid %k $busid $ccwtype-$subtype"
 ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype-$subtype", IMPORT{program}="collect $busid %k $busid $ccwtype-$subtype"
-ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/0.0.0150]online}="1"
+ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/$busid]online}="1"
 EOF
 }
     
+write_zfcp_rules () {
+    local file=$UDEVDIR/$RULE-$type-${busid}.rules
+
+    echo "# Rules converted from $cfgname" > $file
+    cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$busid", IMPORT{program}="collect $busid %k $busid zfcp"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="zfcp", IMPORT{program}="collect $busid %k $busid zfcp"
+EOF
+    for lun in $ZFCP_LUNS ; do
+	set -- $(IFS=: ; echo $lun)
+	tmpwwpn=$1
+	for wwpn in $wwpn_list ; do
+	    if [ "$wwpn" == "$1" ] ; then
+		tmpwwpn=
+	    fi
+	done
+	if [ -n "$tmpwwpn" ] ; then
+	    wwpn_list="$wwpn_list $tmpwwpn"
+	fi
+    done
+    for wwpn in $wwpn_list ; do
+	cat >> $file <<EOF
+ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/$busid]port_add}="$wwpn"
+EOF
+    done
+    cat >> $file <<EOF
+ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/$busid]online}="1"
+EOF
+    for lunid in $ZFCP_LUNS ; do
+	set -- $(IFS=: ; echo $lunid)
+	wwpn=$1
+	lun=$2
+	cat >> $file <<EOF
+ACTION=="add", SUBSYSTEMS=="ccw", KERNELS=="$busid", TEST=="[ccw/$busid]$wwpn", ATTR{[ccw/$busid]$wwpn/unit_add}="$lun"
+EOF
+    done
+    
+}
+    
+write_iucv_rules () {
+    local file=$UDEVDIR/$RULE-$type-${id}.rules
+    local attr
+
+    echo "# Rules converted from $cfgname" > $file
+    cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="bus", KERNEL=="iucv", RUN+="modprobe netiucv"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="netiucv", ATTR{connection}="$id"
+EOF
+}
+
 write_ctc_rules () {
     local file=$UDEVDIR/$RULE-$type-${busid}.rules
     local attr
@@ -155,6 +205,9 @@ case "$devtype" in
 	bus=$1
 	busid=$2
 	;;
+    id)
+	id=$1;
+	;;
     *)
 	echo "Unhandled configuration type \"$devtype\""
 	exit 1
@@ -162,6 +215,7 @@ case "$devtype" in
 esac
 
 [ "$bus" ] && [ -z "$busid" ] && echo "No bus ID given" && exit 1
+[ "$devtype" = "id" ] && [ -z "$id" ] && echo "No ID given" && exit 1
 
 if [ "$bus" = "ccw" ] ; then
     if [ -z "$ccwtype" ] ; then
@@ -248,6 +302,9 @@ if [ "$bus" = "ccw" ] ; then
 	dasd)
 	    write_dasd_rules
 	    ;;
+	zfcp)
+	    write_zfcp_rules
+	    ;;
 	ctc|lcs)
 	    write_ctc_rules
 	    ;;
@@ -259,5 +316,13 @@ if [ "$bus" = "ccw" ] ; then
 	    ;;
     esac
 else
-    echo "Unknown bus type $bus"
+    if [ -z "$bus" ] ; then
+	if [ "$type" = "iucv" ] ; then
+	    write_iucv_rules
+	else
+	    echo "Unknown type $type"
+	fi
+    else
+	echo "Unknown bus type $bus"
+    fi
 fi
