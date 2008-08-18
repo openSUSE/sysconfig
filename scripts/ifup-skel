@@ -1,6 +1,7 @@
 #! /bin/bash
 #
-# Copyright (c) 2002-2003 SuSE Linux AG Nuernberg, Germany.
+# Copyright (c) 2002-2006 SuSE Linux AG Nuernberg, Germany.
+# Copyright (c) 2007-2008 SUSE LINUX Products GmbH, Germany.
 # All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it under
@@ -19,23 +20,28 @@
 #
 # Authors: Michal Svec <msvec@suse.cz>
 #          Christian Zoz <zoz@suse.de>
+#          Marius Tomaschewski <mt@suse.de>
 #
 # $Id$
 #
 
-# 
-# USE THIS AS A SKELETON FOR ADDITIONAL if{up,down,status}-* SCRIPTS
-#
-
 usage () {
 	echo $@
-	echo "Usage: if{up,down}-..... [<config>] <interface> [-o <options>]"
 	echo ""
-	echo "Options are: option    : explanation"
+	echo "This is a skeleton for additional if{up,down,status}-* scripts."
+	echo " !!! PLEASE MODIFY/REMOVE THESE LINES IN YOUR FINAL SCRIPT !!!"
+	echo ""
+	#	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	echo "Usage: if{up,down,status}-..... [<config>] <interface> [-o <options>]"
+	echo ""
+	echo "Options are:"
+	echo "    [on]boot : we are currently booting (or shutting down)"
+	echo "    hotplug  : we are handling a hotplug event"
+	echo "    auto     : alias for onboot"
+	echo "    debug    : be verbose"
+	echo ""
 	echo "All other or wrong options are silently ignored."
-	echo
-	echo "      This is just a skeleton."
-	echo "  !!! PLEASE MODIFY THESE LINES !!!"
+	echo ""
 	exit $R_USAGE
 }
 
@@ -53,7 +59,7 @@ test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
 SCRIPTNAME=${0##*/}
 debug $*
 ACTION=${SCRIPTNAME#if}
-ACTION=${ACTION%%-skel}  # <--- adapt it to the scriptname !!!!!!!!!!!
+ACTION=${ACTION%%-*}
 case "${ACTION}" in
 	up|status|down|check) ;;
 	*) usage
@@ -104,19 +110,27 @@ else
 fi
 
 ######################################################################
+# Check needed tools
+#
+
+
+######################################################################
 # now do what has to be done
 #
+RETVAL=$R_SUCCESS
 case $ACTION in
 	up)
 		: do ifup job
-		;;
+	;;
 	down)
 		: do ifdown job
-		;;
+	;;
 	status)
 		: do status job
-		;;
+	;;
 	check)
 		: do check job
-		;;
+	;;
 esac
+
+exit $RETVAL
