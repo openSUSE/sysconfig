@@ -484,6 +484,16 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 		MANDATORY_SLAVES="$MANDATORY_SLAVES $s"
 	done
 fi
+
+#
+# find out the start order of non-physical & non-mandatory
+# interfaces resolving their slave interfaces recursively
+#
+START_VIFACES=""
+resolve_iface_startorder START_VIFACES \
+	"$BONDING_IFACES $VLAN_IFACES $DIALUP_IFACES $TUNNEL_IFACES $BRIDGE_IFACES" \
+	"$PHYSICAL_IFACES $MANDATORY_DEVICES $MANDATORY_SLAVES"
+
 MANDATORY_DEVICES="$MANDATORY_DEVICES __NSC__ $MANDATORY_SLAVES"
 # Check for mandatory devices only when booting
 test "$MODE" = onboot || MANDATORY_DEVICES=""
@@ -499,7 +509,10 @@ debug "TUNNEL_IFACES     = $TUNNEL_IFACES"
 debug "BRIDGE_IFACES     = $BRIDGE_IFACES"
 debug "SLAVE_IFACES      = $SLAVE_IFACES"
 debug "MANDATORY_DEVICES = $MANDATORY_DEVICES"
+debug "START_VIFACES     = $START_VIFACES"
 debug "SKIP              = $SKIP"
+start_list="$PHYSICAL_IFACES ; $MANDATORY_DEVICES ; $START_VIFACES"
+debug "start order       : ${start_list//  / }"
 
 status() {
 	local M IFACE
@@ -692,7 +705,7 @@ case "$ACTION" in
 
 
 		if [ -z "$INTERFACE" ] ; then
-			for IFACE in $BONDING_IFACES $VLAN_IFACES $DIALUP_IFACES $TUNNEL_IFACES $BRIDGE_IFACES ; do
+			for IFACE in $START_VIFACES ; do
 				for SI in $SKIP; do
 					test "$IFACE" = "$SI" && continue 2
 				done
@@ -753,7 +766,12 @@ case "$ACTION" in
 		fi
 
 		DONE_IFACES=""
-		for IFACE in ${INTERFACE:-$BRIDGE_IFACES $TUNNEL_IFACES $DIALUP_IFACES $VLAN_IFACES $PHYSICAL_IFACES $BONDING_IFACES $AVAILABLE_IFACES} ; do
+		STOP_VIFACES=""
+		for IFACE in ${START_VIFACES} ; do
+			STOP_VIFACES="$IFACE $STOP_VIFACES"
+		done
+
+		for IFACE in ${INTERFACE:-$STOP_VIFACES $PHYSICAL_IFACES $BONDING_IFACES $AVAILABLE_IFACES} ; do
 			test -d /sys/class/net/$IFACE || continue
 			for I in $DONE_IFACES ; do
 				test "x$I" = "x$IFACE" && continue 2
@@ -839,7 +857,7 @@ case "$ACTION" in
  	 		done
 			debug getting MANDATORY_IFACES: FAILED=$FAILED
  	 
- 	 		for IFACE in $AVAILABLE_IFACES $BONDING_IFACES $VLAN_IFACES $DIALUP_IFACES $TUNNEL_IFACES $BRIDGE_IFACES ; do
+ 	 		for IFACE in $AVAILABLE_IFACES $START_VIFACES ; do
  	 			for MI in $MANDATORY_IFACES $TOCHECK_IFACES; do
  	 				test "$IFACE" = "$MI" && continue 2
  	 			done

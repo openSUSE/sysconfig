@@ -618,6 +618,67 @@ get_depending_ifaces() {
 	fi
 }
 
+resolve_iface_startorder()
+{
+    #
+    #
+    # This function creates a start ordered list of virtual interfaces
+    # as bondings, vlans and bridges known by the get_slaves() function.
+    # It reads the base or "slave" interfaces of each virtual interface
+    # recursively and inserts the slaves into the result list before the
+    # virtual interface itself. Further it detects interface usage loops
+    # like: interface a needs b that needs a.
+    # The optional skip list allows to stop the recursion insertion at
+    # e.g. already started / existing physical slave interfaces.
+    #
+    # $1:  the name of the result start ordered list variable to set
+    # $2:  list of virtual interfaces to resolve the start order for
+    # $3:  list of (physical) slave interfaces to skip/stop reading
+    #
+    # returns 0 on success,
+    #         1 on empty result list name,
+    #         2 on interface usage loop error
+    #
+    local NAME="$1"
+    local TODO="$2"
+    local SKIP="$3"
+    local LIST=''
+
+    _resolve_iface_startorder() {
+	local GUARD="$1"
+	local TODO="$2"
+	local SKIP="$3"
+	local slaves iface i
+	for iface in $TODO ; do
+		for i in $GUARD ; do
+			[ "x$i" = "x$iface" ] && {
+				err_mesg "Interface dependency loop " \
+				         "detected: $GUARD $iface"
+				return 2
+			}
+		done
+		for i in $LIST $SKIP ; do
+			[ "x$i" = "x$iface" ] && continue 2
+		done
+
+		slaves="`get_slaves $iface`"
+		[ $? = 0 ] || continue 2
+
+		_resolve_iface_startorder "$GUARD $iface" \
+			"$slaves" "$SKIP" || return $?
+
+		[ "x$LIST" = x ] && LIST="$iface" || LIST="$LIST $iface"
+	done
+	return 0
+    }
+
+    [ "x$NAME" = x ] && return 1
+
+    _resolve_iface_startorder "" "$TODO" "$SKIP" || return $?
+
+    eval "$NAME='$LIST'"
+}
+
 nm_running () {
 	local MSG RET
 	test -x "$NETWORKMANAGER_BIN" || return

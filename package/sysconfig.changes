@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Aug  6 09:28:26 CEST 2008 - mt@suse.de
+
+- Added recursive resolving of virtual interface start order;
+  also breaking rcnetwork reload in some cases (bnc#403968).
+
+-------------------------------------------------------------------
 Thu Jul 24 09:59:24 CEST 2008 - mt@suse.de
 
 - new version 0.71.1
