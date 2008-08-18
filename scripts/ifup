@@ -976,15 +976,19 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						fi
 						IPADDR=${!IPVAR}
 						test -z "$IPADDR" && continue
-						if [ -z "$PREFIXLEN" ] ; then
-							PREFIXLEN=`mask2pfxlen $NETMASK`
-						fi
+
+						# extract IPADDR and PREFIXLEN from IPADDR
+						# or fallback to use PREFIXLEN or NETMASK.
 						case $IPADDR in
 							*/*)
 								PREFIXLEN=${IPADDR#*/}
 								IPADDR=${IPADDR%/*}
-								;;
-							*) ;;         # IP=$IP${PREFIXLEN:+/$PREFIXLEN} ;;
+							;;
+							*)
+								if [ -z "$PREFIXLEN" ] ; then
+									PREFIXLEN=`mask2pfxlen $NETMASK`
+								fi
+							;;
 						esac
 						if [ -z "$NETMASK" ] ; then
 							NETMASK=`pfxlen2mask $PREFIXLEN`
@@ -1025,11 +1029,8 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 								fi
 								if [ "$REMOTE_IPADDR" ]; then
 									message_n "`printf "IP/Peer:    %s / %s  " $IPADDR $REMOTE_IPADDR`"
-								# elif [ "$ISv6" = "yes" ]; then
 								else
 									message_n "`printf "IP address: %s/%s  " $IPADDR $PREFIXLEN`"
-								# else
-								#	message_n "`printf "IP/Netmask: %s / %s  " $IPADDR $NETMASK`"
 								fi
 								if [ "$INTERFACETYPE" == bond ] ; then
 									message_n " as bonding master"
