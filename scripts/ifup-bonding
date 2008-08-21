@@ -1,0 +1,294 @@
+#! /bin/bash
+#
+# Copyright (c) 2007 SUSE LINUX Products GmbH, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Authors: Marius Tomaschewski <mt@suse.de>
+#          Christian Zoz <zoz@suse.de>
+#
+# $Id: $
+#
+
+usage () {
+	echo $@
+	echo "Usage: if{up,down,status}-bonding [<config>] <interface> [-o <options>]"
+	echo ""
+	echo "Options are:"
+	echo "    [on]boot : we are currently booting (or shutting down)"
+	echo "    hotplug  : we are handling a hotplug event"
+	echo "    auto     : alias for onboot"
+	echo "    debug    : be verbose"
+	echo ""
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+ACTION=${SCRIPTNAME#if}
+ACTION=${ACTION%%-*}
+case "${ACTION}" in
+	up|status|down|check) ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=auto ;;
+		hotplug)     MODE=auto ;;
+		auto)        MODE=auto ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		*)           debug unknown option $1 ;;
+	esac
+	shift
+done
+
+######################################################################
+# get the interface and check if it is available or up
+#
+# if ! is_iface_available  $INTERFACE ; then
+# 	logerror "interface ${INTERFACE} is not available"
+# 	exit $R_NODEV
+# fi
+# if ! is_iface_up $INTERFACE ; then
+# 	logerror "interface ${INTERFACE} is not up"
+# 	exit $R_NOTRUNNING
+# fi
+
+######################################################################
+# check presence of configuration file and source it
+#
+if [ -f ifcfg-$CONFIG ] ; then
+	. ifcfg-$CONFIG
+else
+	message "could not find configuration file ifcfg-$CONFIG"
+fi
+
+######################################################################
+# Check needed tools
+#
+
+######################################################################
+# Helper variables and functions
+sysfs_npath="/sys/class/net"
+sysfs_iface="$sysfs_npath/$INTERFACE"
+
+# Loads module 'bonding' if not already loaded.
+# Creates a new bonding master interface and sets its options.
+# Usage: load_bond $INTERFACE $BONDING_MODULE_OPTIONS
+# Module option 'max_bonds' will be ignored. Use one configuration file per
+# bonding interface instead.
+# If first argument is '_no_fail_' then failures in setting interface options
+# will not return an error.
+load_bond() {
+	local NIF OPT OPT_NAME OPT_VALUE OLD_OPT_VALUE OLD_OPT_VALUE_2 NOFAIL
+	local INTERFACE
+	NOFAIL=0
+	if [ "$1" == _no_fail_ ] ; then
+		NOFAIL=1
+		shift
+	fi
+
+	INTERFACE=$1
+	test -z "$INTERFACE" && return 0
+	shift
+
+	if [ -d "$sysfs_iface" -a ! -d "$sysfs_iface/bonding" ] ; then
+		return 1 # Iface exists but of another type
+	fi
+
+	if [ ! -r "$sysfs_npath/bonding_masters" ] ; then
+		/sbin/modprobe bonding
+		# If we add module option max_bonds=0 in the modprobe command above
+		# then we may skip the following lines in this if-fi block.
+		for a in {1..33}; do
+			test -r "$sysfs_npath/bonding_masters" && break
+			usleep 300000
+		done
+		NIF=`cat "$sysfs_npath/bonding_masters"`
+		if [ -n "$NIF" -a "$NIF" != "$INTERFACE" ] ; then
+			nameif -r $INTERFACE $NIF
+		fi
+	fi
+
+	if [ ! -d "$sysfs_iface/bonding" ] ; then
+		echo "+$INTERFACE" > "$sysfs_npath/bonding_masters"
+	fi
+	for a in {1..33}; do
+		test -d "$sysfs_iface/bonding" && break
+		usleep 300000
+	done
+	if [ ! -d "$sysfs_iface/bonding" ] ; then
+		return 1
+	fi
+
+	# Set options
+	sleep 1
+	for OPT in $*; do
+		read OPT_NAME OPT_VALUE < <(IFS==; echo $OPT)
+		if [ "$OPT_NAME" == max_bonds ] ; then
+			err_mesg "Don't use option max_bonds."
+			continue
+		fi
+		if [ ! -w "$sysfs_iface/bonding/$OPT_NAME" ] ; then
+			err_mesg "There is no option '$OPT_NAME' for interface '$INTERFACE'."
+			echo "-$INTERFACE" > "$sysfs_npath/bonding_masters"
+			return 1 # or continue? I guess its better to fail completely
+		fi
+		# Some options may only be changed if the interface is up and slaves are
+		# already assigned. Others may only be changed if it is down. To avoid
+		# unneccessary error messages or warnings we check first if the option
+		# already has the specified value.
+		# Special case for option 'mode': this sysfs attribute contains two
+		# words. A string describing the mode and the corresponding number. We
+		# have to compare both.
+		read OLD_OPT_VALUE OLD_OPT_VALUE_2 < /sys/class/net/$INTERFACE/bonding/$OPT_NAME
+		if [ "$OPT_NAME" == arp_ip_target ]; then
+		    for a in `cat "$sysfs_iface/bonding/$OPT_NAME"`; do
+			if ! echo "-$a" > "$sysfs_iface/bonding/$OPT_NAME"
+			then
+			    err_mesg "Option '$OPT_NAME': can't remove $a"
+			fi
+		    done
+		    for a in ${OPT_VALUE//,/ } ; do
+			if ! echo "+$a" > "$sysfs_iface/bonding/$OPT_NAME" ; then
+			    err_mesg "Option '$OPT_NAME': can't add $a"
+			fi
+		    done
+		    continue
+		fi
+		if [    "$OLD_OPT_VALUE" == "$OPT_VALUE" \
+		     -o \( "$OPT_NAME" == mode -a "$OLD_OPT_VALUE_2" == "$OPT_VALUE" \) \
+		   ] ; then
+			info_mesg "Bonding interface '$INTERFACE':" \
+			          "option '$OPT_NAME' is already set to '$OPT_VALUE'"
+			continue
+		fi
+		info_mesg "Bonding interface '$INTERFACE':" \
+		          "Setting option '$OPT_NAME' to '$OPT_VALUE'"
+		if ! echo "$OPT_VALUE" > "$sysfs_iface/bonding/$OPT_NAME" 2>/dev/null ; then
+			err_mesg "Option '$OPT_NAME' of interface '$INTERFACE' cannot be set to" \
+			         "'$OPT_VALUE'."
+			# Should we continue? Its better to fail if not requested differently
+			test "$NOFAIL" == 1 && continue
+			echo "-$INTERFACE" > "$sysfs_npath/bonding_masters"
+			return 1
+		fi
+	done
+	return 0
+}
+
+# Removes a bonding master interface
+# Usage: remove_bond $INTERFACE
+remove_bond () {
+	local INTERFACE="$1"
+	if [ ! -d "$sysfs_iface" ] ; then
+		return 0 # Interface does not exist; nothing to do
+	fi
+	if [ ! -d "$sysfs_iface/bonding" ] ; then
+		return 1 # Interface is not a bonding master
+	fi
+	ip link set down dev $INTERFACE &>/dev/null
+	echo "-$INTERFACE" > "$sysfs_npath/bonding_masters" &>/dev/null
+}
+
+
+######################################################################
+# now do what has to be done
+#
+case $ACTION in
+up)
+	if ! load_bond $INTERFACE $BONDING_MODULE_OPTS ; then
+		logerror "Bonding: could not get interface $INTERFACE"
+		exit $R_NODEV
+	fi
+
+	# get up the bonding device before enslaving
+	ip link set $INTERFACE up 2>&1
+
+	# enslave all BONDING_SLAVE* from configuration file
+	for BSVAR in ${!BONDING_SLAVE*} ; do
+		INDEX=${BSVAR#BONDING_SLAVE}
+		BONDING_SLAVE=${!BSVAR}
+		[ "x$BONDING_SLAVE" = x ] && continue
+
+		echo "+$BONDING_SLAVE" > "$sysfs_iface/bonding/slaves"
+		if [ "$?" -gt 0 ]; then
+			logerror "Could not enslave interface '$BONDING_SLAVE'"
+			if ! is_iface_available "$BONDING_SLAVE" ; then
+				logerror "Slave interface '$BONDING_SLAVE' is not available. Skipped."
+			else
+				logerror "Removing bonding interface '$INTERFACE'"
+				ifdown $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				exit $R_ERROR
+			fi
+		else
+			message "`printf "    %-9s enslaved interface: %s" \
+				"$INTERFACE" "$BONDING_SLAVE"`"
+		fi
+	done
+
+	# Some option have to be changed after enslaving (e.g. primary)
+	# Therefore we call load_bond() a second time
+	load_bond "$INTERFACE" "$BONDING_MODULE_OPTS"
+;;
+down)
+	# bonding interface must be up for removing slaves
+	if test -d "$sysfs_iface" ; then
+		test "`cat "$sysfs_iface/operstate"`" != up \
+			&& ip link set up dev "$INTERFACE"
+
+		for BONDING_SLAVE in `cat "$sysfs_iface/bonding/slaves" 2>/dev/null` ; do
+			echo "-$BONDING_SLAVE" > "$sysfs_iface/bonding/slaves"
+		done
+
+	fi
+	remove_bond $INTERFACE
+;;
+status)
+	if test -r "/proc/net/bonding/$INTERFACE" ; then
+		message_if_not_run_from_rc `cat "/proc/net/bonding/$INTERFACE" 2>/dev/null`
+	fi
+;;
+check)
+	: check action not implemented for $INTERFACE
+;;
+esac
+
+exit $RETVAL
