@@ -89,30 +89,33 @@ test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
 ######################################################################
 # Normalize & resolve & cleanup the bootproto value from config
 #
-clean_dhcp_bootprotos() {
-	local bplower=$(echo "$1" | awk '{print tolower($0);}')
-	local bparray=()
-	add_to_array() {
-		local b p
-		for b in $@ ; do
-			for p in ${bparray[@]} ; do
-				test "$p" = "$b" && continue 2
-			done
-			bparray=(${bparray[@]} ${b})
+explicit_dhcp4=no
+explicit_dhcp6=no
+BOOTPROTO=$(echo "$BOOTPROTO" | awk '{print tolower($0);}')
+BOOTPROTOS=()
+add_bootproto_once() {
+	local b p
+	for b in $@ ; do
+		for p in ${BOOTPROTOS[@]} ; do
+			test "$p" = "$b" && continue 2
 		done
-	}
-	for bp in ${bplower//+/ } ; do
-		case "$bp" in
-			(dhcp)  add_to_array dhcp4 dhcp6 ;;
-			(dhcp4|dhcp6) add_to_array ${bp} ;;
-			(*) continue                     ;;
-		esac
+		BOOTPROTOS=(${BOOTPROTOS[@]} ${b})
 	done
-	echo "${bparray[@]}"
 }
-BOOTPROTOS=( $(clean_dhcp_bootprotos "$BOOTPROTO") )
-BOOTPROTO="${BOOTPROTOS[@]}"
-BOOTPROTO="${BOOTPROTO// /+}"
+for bp in ${BOOTPROTO//+/ } ; do
+	case "$bp" in
+		(dhcp)  add_bootproto_once dhcp4 dhcp6 ;;
+		(dhcp4)
+			explicit_dhcp4=yes
+			add_bootproto_once ${bp}
+		;;
+		(dhcp6)
+			explicit_dhcp6=yes
+			add_bootproto_once ${bp}
+		;;
+		(*) continue ;;
+	esac
+done
 
 ######################################################################
 # get the interface and check if it is up
@@ -144,7 +147,7 @@ for x in "$DHCLIENT_BIN" \
 	 "/sbin/${DHCLIENT_BIN##*/}" \
 	 "/sbin/dhcpcd" "/sbin/dhclient" ;
 do
-	if [ "x$x" != x -a -x "$x" ] ; then
+	if [ "x$x" != x -a "${x##/*}" != "$x" -a -x "$x" ] ; then
 		DHCLIENT_BIN="$x"
 		DHCLIENT=${DHCLIENT_BIN##*/}
 		break
@@ -155,7 +158,7 @@ for x in "$DHCLIENT6_BIN" \
 	 "/sbin/${DHCLIENT6_BIN##*/}" \
 	 "/sbin/dhcp6c" "/sbin/dhclient6" ;
 do
-	if [ "x$x" != x -a -x "$x" ] ; then
+	if [ "x$x" != x -a "${x##/*}" != "$x" -a -x "$x" ] ; then
 		DHCLIENT6_BIN="$x"
 		DHCLIENT6=${DHCLIENT6_BIN##*/}
 		break
@@ -185,20 +188,30 @@ case "$ACTION" in
 	;;
 	*)
 		clients=0
+		bootprotos=(${BOOTPROTOS[@]})
+		BOOTPROTOS=()
 		# complain about missed clients
-		for BOOTPROTO in ${BOOTPROTOS[@]} ; do
+		for BOOTPROTO in ${bootprotos[@]} ; do
 			case "$BOOTPROTO" in
 			(dhcp4)
 				case "$DHCLIENT" in
 				(dhcpcd|dhclient)
 					if [ -x "$DHCLIENT_BIN" ] ; then
 						clients=$((clients + 1))
+						BOOTPROTOS=(${BOOTPROTOS[@]} $BOOTPROTO)
 					else
+						# Huh?!
 						DHCLIENT=""
 						print_mesg err_mesg \
 							"DHCP4 client ($DHCLIENT_BIN) is not available."
 						print_mesg err_mesg \
 							"      Please install 'dhcpcd' or 'dhcp-client'"
+					fi
+				;;
+				"")
+					if [ "x$explicit_dhcp4" = "xyes" ] ; then
+						print_mesg err_mesg "DHCP4 client is not available."
+						print_mesg err_mesg "      Please install 'dhcpcd' or 'dhcp-client'"
 					fi
 				;;
 				*)
@@ -213,12 +226,20 @@ case "$ACTION" in
 				(dhcp6c)
 					if [ -x "$DHCLIENT6_BIN" ] ; then
 						clients=$((clients + 1))
+						BOOTPROTOS=(${BOOTPROTOS[@]} $BOOTPROTO)
 					else
+						# Huh?!
 						DHCLIENT6=""
 						print_mesg err_mesg \
 							"DHCP6 client ($DHCLIENT6_BIN) is not available."
 						print_mesg err_mesg \
 							"      Please install the 'dhcpv6' package"
+					fi
+				;;
+				"")
+					if [ "x$explicit_dhcp6" = "xyes" ] ; then
+						print_mesg err_mesg "DHCP6 client is not available."
+						print_mesg err_mesg "      Please install 'dhcpv6' package'"
 					fi
 				;;
 				*)
@@ -230,10 +251,12 @@ case "$ACTION" in
 			;;
 			esac
 		done
+
 		# exit when not even one of the requested clients is installed
-		if [ $clients -eq 0 ] ; then
-			exit $R_ERROR
-		fi
+		# or the a client was explicitely requested in bootproto
+		[ "x$explicit_dhcp6" = "xyes" -a "x$DHCLIENT6" = x ] && exit $R_ERROR
+		[ "x$explicit_dhcp4" = "xyes" -a "x$DHCLIENT"  = x ] && exit $R_ERROR
+		[ $clients -eq 0 ] && exit $R_ERROR
 	;;
 esac
 
@@ -282,7 +305,7 @@ start_dhcp4_dhcpcd() {
 
 	# now start dhcpcd
 	debug "Starting dhcp client: $DHCLIENT_BIN $DHCLIENT_ARGS $INTERFACE"
-	$DHCLIENT_BIN $DHCLIENT_ARGS $INTERFACE </dev/null &>/dev/null
+	$DHCLIENT_BIN $DHCLIENT_ARGS $INTERFACE </dev/null &>/dev/null &
 }
 
 start_dhcp4_dhclient() {
@@ -317,7 +340,7 @@ start_dhcp4_dhclient() {
 	' < /etc/dhclient.conf > "$DHCPIFCONF" || return 1
 
 	debug "Starting dhcp client: $DHCLIENT_BIN -cf "$DHCPIFCONF" -lf "$DHCPIFLEASE" -pf "$DHCPIFPID" $args $INTERFACE"
-	$DHCLIENT_BIN -cf "$DHCPIFCONF" -lf "$DHCPIFLEASE" -pf "$DHCPIFPID" $args $INTERFACE </dev/null &>/dev/null
+	$DHCLIENT_BIN -cf "$DHCPIFCONF" -lf "$DHCPIFLEASE" -pf "$DHCPIFPID" $args $INTERFACE </dev/null &>/dev/null &
 }
 
 start_dhcp6_dhcp6c() {
@@ -343,7 +366,7 @@ start_dhcp6_dhcp6c() {
 	} > "$DHCP6IFCONF" || return 1
 
 	debug "Starting dhcp client: $DHCLIENT6_BIN $args $INTERFACE"
-	$DHCLIENT6_BIN $args $INTERFACE </dev/null &>/dev/null
+	$DHCLIENT6_BIN $args $INTERFACE </dev/null &>/dev/null &
 }
 
 case "$ACTION" in
@@ -558,13 +581,13 @@ case "$ACTION" in
 					case "$DHCLIENT" in
 					(dhcpcd)
 						test -n "$DHCP4_STATUS" || {
-							start_dhcp4_dhcpcd &
+							start_dhcp4_dhcpcd
 							DHCP4_STARTED="yes"
 						}
 					;;
 					(dhclient)
 						test -n "$DHCP4_STATUS" || {
-							start_dhcp4_dhclient &
+							start_dhcp4_dhclient
 							DHCP4_STARTED="yes"
 						}
 					;;
@@ -574,17 +597,22 @@ case "$ACTION" in
 					case "$DHCLIENT6" in
 					(dhcp6c)
 						test -n "$DHCP6_STATUS" || {
-							start_dhcp6_dhcp6c &
+							start_dhcp6_dhcp6c
 							DHCP6_STARTED="yes"
 						}
 					;;
 					#(dhclient)
-					#	test -n "$DHCP6_STATUS" || start_dhcp6_dhclient
+					#	test -n "$DHCP6_STATUS" || {
+					#		start_dhcp6_dhclient
+					#		DHCP6_STARTED="yes"
+					#	}
 					#;;
 					esac
 				;;
 				esac
 			done
+			# don't hurry too much...
+			[ "x$DHCP6_STARTED" = xyes -o "x$DHCP4_STARTED" = xyes ] && sleep 1
 
 			#
 			# in case we've started at least one client, wait the specified
@@ -592,6 +620,7 @@ case "$ACTION" in
 			#
 			DHCP4_MESSAGE=''
 			DHCP6_MESSAGE=''
+
 			#
 			# TODO: does one the actual clients still exit on infinite lease??
 			#       (dhcpcd does not do this any more)

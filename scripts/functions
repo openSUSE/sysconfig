@@ -640,7 +640,7 @@ dhcp_interfaces() {
 		 "/sbin/${DHCLIENT_BIN##*/}" \
 		 "/sbin/dhcpcd" "/sbin/dhclient" ;
 	do
-		if [ "x$x" != x -a -x "$x" ] ; then
+		if [ "x$x" != x -a "${x##/*}" != "$x" -a -x "$x" ] ; then
 			DHCLIENT_BIN="$x"
 			DHCLIENT=${DHCLIENT_BIN##*/}
 			break
@@ -651,7 +651,7 @@ dhcp_interfaces() {
 		 "/sbin/${DHCLIENT6_BIN##*/}" \
 		 "/sbin/dhcp6c" "/sbin/dhclient6" ;
 	do
-		if [ "x$x" != x -a -x "$x" ] ; then
+		if [ "x$x" != x -a "${x##/*}" != "$x" -a -x "$x" ] ; then
 			DHCLIENT6_BIN="$x"
 			DHCLIENT6=${DHCLIENT6_BIN##*/}
 			break
