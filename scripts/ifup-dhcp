@@ -596,7 +596,7 @@ case "$ACTION" in
 			# TODO: does one the actual clients still exit on infinite lease??
 			#       (dhcpcd does not do this any more)
 			show_dots=true
-			for ((i=0; i<=${DHCLIENT_WAIT_AT_BOOT:-15}; i++)); do
+			for ((wab_cnt=0; wab_cnt<=${DHCLIENT_WAIT_AT_BOOT:-15}; wab_cnt++)); do
 				for BOOTPROTO in ${BOOTPROTOS[@]} ; do
 					case "$BOOTPROTO" in
 					(dhcp4)
@@ -606,7 +606,7 @@ case "$ACTION" in
 							info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
 
 							if ! dhcpc4_on_iface -q ; then
-								[ $i -lt 2 ] && message_n .\ .\ 
+								[ $wab_cnt -lt 2 ] && message_n .\ .\ 
 								DHCP4_MESSAGE="DHCP4 client NOT running"
 								DHCP4_STATUS=$R_NOTRUNNING
 								continue
@@ -638,7 +638,7 @@ case "$ACTION" in
 						(dhclient)
 							# TODO: parse the lease?!
 							if ! dhcpc4_on_iface -q ; then
-								[ $i -lt 2 ] && message_n .\ .\ 
+								[ $wab_cnt -lt 2 ] && message_n .\ .\ 
 								DHCP4_MESSAGE="DHCP4 client NOT running"
 								DHCP4_STATUS=$R_NOTRUNNING
 								continue
@@ -663,7 +663,7 @@ case "$ACTION" in
 					;;
 					(dhcp6)
 						if ! dhcpc6_on_iface -q ; then
-							[ $i -lt 2 ] && message_n .\ .\ 
+							[ $wab_cnt -lt 2 ] && message_n .\ .\ 
 							DHCP6_MESSAGE="DHCP6 client NOT running"
 							DHCP6_STATUS=$R_NOTRUNNING
 							continue
