@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Thu Aug 21 09:10:56 CEST 2008 - mt@suse.de
+
+- new version 0.71.2
+- Implemented dhcpv6 support using dhcp6c client, improved the
+  dhclient[v4] support to support multiple interfaces, replaced 
+  modify_resolvconf by modular netconfig scripts (fate#303618).
+- Moved bondind code into a separate ifup-bonding script
+- Created new ifup-infiniband script to handle ib options and
+  create/delete ib child interfaces. Thanks to Moni Shoua for
+  his original implementation, suggestions, tests!
+- Cleaned up IPADDR PREFIXLEN NETMASK usage order in ifup
+
+-------------------------------------------------------------------
 Wed Aug  6 09:28:26 CEST 2008 - mt@suse.de
 
 - Added recursive resolving of virtual interface start order;
