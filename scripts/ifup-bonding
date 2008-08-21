@@ -20,7 +20,7 @@
 # Authors: Marius Tomaschewski <mt@suse.de>
 #          Christian Zoz <zoz@suse.de>
 #
-# $Id: $
+# $Id$
 #
 
 usage () {

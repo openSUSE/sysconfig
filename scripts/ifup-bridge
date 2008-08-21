@@ -1,15 +1,17 @@
 #!/bin/bash
 #
-# Copyright (c) 2005 SUSE Linux Products GmbH Nuernberg, Germany.
+# Copyright (c) 2005-2008 SUSE LINUX Products GmbH Nuernberg, Germany.
 # All rights reserved.
 #
 # Author: 
 #    Stefan Scheler <sscheler@suse.de> 
+#    Marius Tomaschewski <mt@suse.de>
 #
 # Based on a patch by:
 #    Jan Engelhardt <jengelh@linux01.gwdg.de>
 #
-
+# $Id$
+#
 usage () {
 	echo $@
 	echo "usage: if{up,down,status}-bridge [<config>] <interface> [-o <options>]"

@@ -22,7 +22,7 @@
 #
 # The static ipip,gre,sit tunnel code extracted from main ifup script.
 #
-# $Id: $
+# $Id$
 #
 
 usage () {
