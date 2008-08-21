@@ -45,33 +45,6 @@ DEBUG="no"
 # syslog. If you don't like that, then set USE_SYSLOG=no.
 USE_SYSLOG="yes"
 
-## Type:        yesno
-## Default:     yes
-# There are some services (ppp, ippp, dhcp-client, pcmcia, hotplug) that have to
-# change the /etc/resolv.conf dynamically at certain times.  E.g. if ppp/ippp
-# establishes a connection and is supplied by the peer with a list of
-# nameservers. Or pcmcia needs to set the correct nameserver for the choosen
-# configuration scheme. If you don't like these services to change
-# /etc/resolv.conf at all, then set this variable to "no".
-# If unsure, leave it at the default (which is "yes").
-#
-MODIFY_RESOLV_CONF_DYNAMICALLY="yes"
-
-## Type:        yesno
-## Default:     no
-# Like MODIFY_RESOLV_CONF_DYNAMICALLY, except it modifies
-# /etc/named.d/forwarders.conf instead of resolv.conf.
-# If unsure, leave it at the default (which is "no").
-#
-MODIFY_NAMED_CONF_DYNAMICALLY="no"
-
-## Type:        string
-## Default:     ""
-# If you need a special nameserver that should always be prepended to the list
-# of dynamically changed nameservers, you may add it here.
-#
-MODIFY_RESOLV_CONF_STATIC_DNS=""
-
 # Handling of network connections
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 # These features are designed for the convenience of the experienced
@@ -227,4 +200,107 @@ NETWORKMANAGER=no
 # This variable has no effect if NETWORKMANAGER=no
 #
 NM_ONLINE_TIMEOUT="0"
- 
+
+## Type:        yesno
+## Default:     yes
+## ServiceRestart: yast2
+#
+# This option is read by YaST during network configuration.
+#
+# If set, then the hostname is added to /etc/hosts with IP address
+# 127.0.0.2. This allows the hostname to be resolved (and thus, the host
+# to be reached), if the real network is not reachable.
+#
+# If unset, YaST will not touch /etc/hosts.
+WRITE_HOSTNAME_TO_HOSTS="yes"
+
+## Type:        string
+## Default:     "dns-resolver dns-bind ntp-runtime nis"
+#
+# Defines the start order of netconfig modules (/etc/netconfig.d/).
+#
+NETCONFIG_MODULES_ORDER="dns-resolver dns-bind ntp-runtime nis"
+
+## Type:        string
+## Default:     "auto"
+#
+# Defines the DNS merge policy as documented in netconfig(8) manual page.
+# Set to "" to disable DNS configuration.
+#
+NETCONFIG_DNS_POLICY="auto"
+
+## Type:        string
+## Default:     "resolver"
+#
+# Defines the name of the DNS forwarder that has to be configured.
+#
+NETCONFIG_DNS_FORWARDER="resolver"
+
+## Type:        string
+## Default:     ""
+#
+# List of DNS domain names used for host-name lookup.
+#
+NETCONFIG_DNS_STATIC_SEARCHLIST=""
+
+## Type:        string
+## Default:     ""
+#
+# List of DNS nameserver IP addresses to use for host-name lookup.
+#
+NETCONFIG_DNS_STATIC_SERVERS=""
+
+## Type:        string
+## Default:     "auto"
+#
+# Defines the NTP merge policy as documented in netconfig(8) manual page.
+# Set to "" to disable NTP configuration.
+#
+NETCONFIG_NTP_POLICY="auto"
+
+## Type:        string
+## Default:     ""
+#
+# List of NTP servers.
+#
+NETCONFIG_NTP_STATIC_SERVERS=""
+
+## Type:        string
+## Default:     "auto"
+#
+# Defines the NIS merge policy as documented in netconfig(8) manual page.
+# Set to "" to disable NIS configuration.
+#
+NETCONFIG_NIS_POLICY="auto"
+
+## Type:        string
+## Default:     "yes"
+#
+# Defines whether to set the default NIS domain.
+# Valid values are:
+#  - no               netconfig do not set the domainname
+#  - yes              netconfig sets the domainname with the first
+#                     interface which provides the NIS domainname.
+#  - <interface name> netconfig  sets the domainname to the value
+#                     provided with the settings for this interface.
+NETCONFIG_NIS_SETDOMAINNAME="yes"
+
+## Type:        string
+## Default:     ""
+#
+# Defines a default NIS domain.
+#
+# Further domain can be specified by adding a "_<number>" suffix to
+# the NETCONFIG_NIS_STATIC_DOMAIN and NETCONFIG_NIS_STATIC_SERVERS
+# variables, e.g.: NETCONFIG_NIS_STATIC_DOMAIN_1="second".
+#
+NETCONFIG_NIS_STATIC_DOMAIN=""
+
+## Type:        string
+## Default:     ""
+#
+# Defines a list of NIS servers for the default NIS domain or the
+# domain specified with same "_<number>" suffix.
+#
+NETCONFIG_NIS_STATIC_SERVERS=""
+

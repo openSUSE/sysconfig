@@ -22,8 +22,9 @@
 # Author: Michal Svec <msvec@suse.cz>
 #         Christian Zoz <zoz@suse.de>
 #         Mads Martin Joergensen <mmj@suse.de>
-#         Bjoern Jacke
 #         Michal Ludvig <mludvig@suse.cz>
+#         Marius Tomaschewski <mt@suse.de>
+#         Bjoern Jacke
 #
 # $Id$
 #
@@ -207,6 +208,15 @@ if [ -n "$CONFIG" -a -r ifcfg-$CONFIG ] ; then
 	echo $CONFIG > $RUN_FILES_BASE/config-$INTERFACE
 fi
 
+######################################################################
+# Normalize some values in the config
+#
+BOOTPROTO=$(echo "${BOOTPROTO}" | awk '{print tolower($0);}')
+
+
+######################################################################
+# Check if the interface is available
+#
 if ! is_iface_available $INTERFACE; then
 	if [ "$SCRIPTNAME" != ifdown ] ; then
 		logerror Interface $INTERFACE is not available
@@ -276,15 +286,11 @@ fi
 # If interface is not configured for dhcp, but ifup/down -o dhcp was
 # called from dhcpcd, then exit. This case may happen when dhcpcd was
 # called directly.
-case "$BOOTPROTO" in
-	dhcp|DHCP) : ;; # go on
-	*)
-		if [ "$DHCP" = yes ] ; then
-			logerror "Interface $INTERFACE is not configured for dhcp." \
-                  "So don't use '-o dhcp'."
-			exit $R_USAGE
-		fi ;;
-esac
+if [ "${BOOTPROTO:0:4}" != dhcp -a "$DHCP" = yes ] ; then
+	logerror "Interface $INTERFACE is not configured for dhcp." \
+		 "So don't use '-o dhcp'."
+	exit $R_USAGE
+fi
 
 
 ######################################################################
@@ -647,8 +653,8 @@ if [ "$SCRIPTNAME" = ifdown ] ; then
 fi
 
 # execute an individual prestart script if available
-if [ "$SCRIPTNAME" = ifup \
-     -a \( "$BOOTPROTO" != dhcp -o "$DHCP" != yes \) ] ; then
+if [ "$SCRIPTNAME" = ifup ] ; then
+     if [ "${BOOTPROTO:0:4}" != dhcp -o "$DHCP" != yes ] ; then
 	# NOTE: 'eval echo' in the next line is necessary to expand settings
 	# like PRE_UP_SCRIPT="~root/bin/foo"
 	for SCRIPT in `eval echo $PRE_UP_SCRIPT scripts/$PRE_UP_SCRIPT`; do
@@ -657,6 +663,7 @@ if [ "$SCRIPTNAME" = ifup \
 			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		fi
 	done
+     fi
 fi
 
 
@@ -673,7 +680,7 @@ if [ "$DHCP" != yes ] ; then
 		                                 ${OPTIONS:+-o $OPTIONS}
 	fi
 
-	# FIXME: uff, cleanup cleanup cleanup
+	# FIXME: uff, cleanup it
 
 	if [ "$SCRIPTNAME" = ifup ] ; then
 		# before setting up interfaces we have to configure
@@ -686,6 +693,16 @@ if [ "$DHCP" != yes ] ; then
 		vlan)
 			# Frob vlan interface
 			scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		ib)
+			# Frob ib interface
+			scripts/${SCRIPTNAME}-infiniband $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		bond)
+			# Frob bond interface
+			scripts/${SCRIPTNAME}-bonding $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			test "$?" -ne 0 && exit
 		;;
 		bridge)
@@ -733,14 +750,16 @@ if [ "$DHCP" != yes ] ; then
 	# Some scripts will be called anyway. So we must avoid that they will be
 	# called a second time here.
 	case "$INTERFACETYPE" in
-		802.1q)        : ;;
 		autoip)        : ;;
+		bond)          : ;;
 		bridge)        : ;;
 		dhcp)          : ;;
+		ib)            : ;;
 		ppp)           : ;;
 		route)         : ;;
 		services)      : ;;
 		skel)          : ;;
+		vlan|802.1q)   : ;;
 		wireless)      : ;;
 		tun|tap)       : ;;
 		ipip|sit|gre)  : ;;
@@ -800,59 +819,6 @@ fi
 
 
 ######################################################################
-# Prepare Bonding
-#
-if [ "$INTERFACETYPE" = bond ] ; then
-	if [ "$SCRIPTNAME" = ifup -a ! "$DHCP" = yes ] ; then
-		if ! load_bond $INTERFACE $BONDING_MODULE_OPTS ; then
-			logerror "Bonding: could not get interface $INTERFACE"
-			exit $R_NODEV
-		fi
-
-		# get up the bonding device before enslaving
-		ip link set $INTERFACE up 2>&1
-		# enslave all BONDING_SLAVE* from configuration file
-		for BSVAR in ${!BONDING_SLAVE*} ; do
-			INDEX=${BSVAR#BONDING_SLAVE}
-			BONDING_SLAVE=${!BSVAR}
-			echo +$BONDING_SLAVE > /sys/class/net/$INTERFACE/bonding/slaves
-			if [ "$?" -gt 0 ]; then
-				logerror "Could not enslave interface '$BONDING_SLAVE'"
-				if ! is_iface_available $BONDING_SLAVE ; then
-					logerror "Slave interface '$BONDING_SLAVE' is not available. Skipped."
-				else
-					logerror "Removing bonding interface '$INTERFACE'"
-					ifdown $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-					exit $R_ERROR
-				fi
-			fi
-			message "`printf "    %-9s enslaved interface: %s" \
-			                 "$INTERFACE" "$BONDING_SLAVE"`"
-		done
-		# Some option have to be changed after enslaving (e.g. primary)
-		# Therefore we call load_bond() a second time
-		load_bond $INTERFACE $BONDING_MODULE_OPTS
-	fi
-	if [ "$SCRIPTNAME" = ifdown -a ! "$DHCP" = yes ] ; then
-		# bonding interface must be up for removing slaves
-		test "`cat /sys/class/net/$INTERFACE/operstate`" != up \
-			&& ip link set up dev $INTERFACE
-		for BONDING_SLAVE in `cat /sys/class/net/$INTERFACE/bonding/slaves` ; do
-			echo -$BONDING_SLAVE > /sys/class/net/$INTERFACE/bonding/slaves
-			if [ "$?" -gt 0 ]; then
-				logerror "Could not remove slave interface '$BONDING_SLAVE'"
-			else
-				message "`printf "    %-9s removed slave : %s" \
-				                 "$INTERFACE" "$BONDING_SLAVE"`"
-			fi
-		done
-	fi
-fi
-
-######################################################################
-# bringing up/down or checking the interface (main part)
-#
-
 # Check status of ifplugd first. If ifplugd is running the interface
 # need not to be up always.
 if [ "$SCRIPTNAME" == ifstatus -a "$STARTMODE" == ifplugd ] ; then
@@ -905,11 +871,12 @@ fi
 dhcpretcode=$R_SUCCESS
 # switch type. If SKIP_MAIN_PART == skip, don't execute any section
 case "$BOOTPROTO$SKIP_MAIN_PART" in
-	dhcp+autoip|DHCP+AUTOIP)
+	dhcp+autoip|dhcp4+autoip)
 		if [ "$DHCP" = yes ] ; then      # called from dhcp client
 			${SCRIPTNAME}-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			retcode=$?
 		else                             # called from rcnetwork or manually
+			# FIXME: dhcpcd supports autoip...
 			${SCRIPTNAME}-autoip $CONFIG $INTERFACE -o prepare $OPTIONS
 			${SCRIPTNAME}-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			dhcpretcode=$?
@@ -917,11 +884,11 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 			retcode=$?
 		fi
 	;;
-	autoip|AUTOIP)
+	autoip)
 		${SCRIPTNAME}-autoip $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		retcode=$?
 	;;
-	dhcp|DHCP)
+	dhcp|dhcp4|dhcp6)
 		# With dhcp if{up,down} is called twice. See comment "DHCP special" above
 		if [ "$DHCP" = yes ] ; then      # called from dhcp client
 			SKIP_MAIN_PART=skip
@@ -937,13 +904,18 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 	# Skip it
 	*skip)
 		:
-		;;
+	;;
 	6to4)
 		# just route, configuration handled in $SCRIPTNAME-tunnel
 		ifup-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		retcode=$?
 	;;
+	none)
+		# FIXME: not even ifdown? what when config is modified?
+		:
+	;;
 	*)
+		# FIXME: move this to ifup-static script
 		case $SCRIPTNAME in
 			ifup)
 				retcode=$R_SUCCESS
@@ -976,19 +948,15 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						fi
 						IPADDR=${!IPVAR}
 						test -z "$IPADDR" && continue
-
-						# extract IPADDR and PREFIXLEN from IPADDR
-						# or fallback to use PREFIXLEN or NETMASK.
+						if [ -z "$PREFIXLEN" ] ; then
+							PREFIXLEN=`mask2pfxlen $NETMASK`
+						fi
 						case $IPADDR in
 							*/*)
 								PREFIXLEN=${IPADDR#*/}
 								IPADDR=${IPADDR%/*}
-							;;
-							*)
-								if [ -z "$PREFIXLEN" ] ; then
-									PREFIXLEN=`mask2pfxlen $NETMASK`
-								fi
-							;;
+								;;
+							*) ;;         # IP=$IP${PREFIXLEN:+/$PREFIXLEN} ;;
 						esac
 						if [ -z "$NETMASK" ] ; then
 							NETMASK=`pfxlen2mask $PREFIXLEN`
@@ -1029,8 +997,11 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 								fi
 								if [ "$REMOTE_IPADDR" ]; then
 									message_n "`printf "IP/Peer:    %s / %s  " $IPADDR $REMOTE_IPADDR`"
+								# elif [ "$ISv6" = "yes" ]; then
 								else
 									message_n "`printf "IP address: %s/%s  " $IPADDR $PREFIXLEN`"
+								# else
+								#	message_n "`printf "IP/Netmask: %s / %s  " $IPADDR $NETMASK`"
 								fi
 								if [ "$INTERFACETYPE" == bond ] ; then
 									message_n " as bonding master"
@@ -1098,10 +1069,6 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 					ip addr flush dev $INTERFACE &>/dev/null
 					ip link set dev $INTERFACE down &>/dev/null
 				fi
-				# If this is an bonding master, remove it
-				if [ "$INTERFACETYPE" == bond ] ; then
-					remove_bond $INTERFACE
-				fi
 				retcode=0 # $?
 				;;
 			ifstatus)
@@ -1112,11 +1079,7 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						message "`printf "    %-9s IP address: %s" "$i" "$d"`"
 					done < <(ip -o -4 addr show $INTERFACE)
 					ifstatus-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-					retcode=$R_SUCCESS
-					if [ "$INTERFACETYPE" == bond ] ; then
-						message_if_not_run_from_rc \
-							"`cat /proc/net/bonding/$INTERFACE`"
-					fi
+					retcode=$R_SUCCESSa
 				else
 					# message_if_not_run_from_rc "$INTERFACE is down"
 					message "`printf "    %-9s is down" $INTERFACE`"
@@ -1172,6 +1135,16 @@ if [ "$DHCP" != yes ] ; then
 			scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			test "$?" -ne 0 && exit
 		;;
+		ib)
+			# Frob ib interface
+			scripts/${SCRIPTNAME}-infiniband $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		bond)
+			# Frob bond interface, part II
+			scripts/${SCRIPTNAME}-bonding $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
 		bridge)
 			# Frob bridge interface, part II
 			scripts/${SCRIPTNAME}-bridge $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
@@ -1191,7 +1164,7 @@ fi
 #
 
 if [ "$SCRIPTNAME" = ifup \
-     -a \( "$BOOTPROTO" != dhcp -o "$DHCP" = yes \) ] ; then
+     -a \( "${BOOTPROTO:0:4}" != dhcp -o "$DHCP" = yes \) ] ; then
 
 	# start depending services
 	scripts/${SCRIPTNAME}-services $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
@@ -1221,7 +1194,7 @@ fi
 
 # execute an individual poststop script if available
 if [ "$SCRIPTNAME" = ifdown \
-     -a \( "$BOOTPROTO" != dhcp -o "$DHCP" != yes \) ] ; then
+     -a \( "${BOOTPROTO:0:4}" != dhcp -o "$DHCP" != yes \) ] ; then
 	# NOTE: 'eval echo' in the next line is necessary to expand settings
 	# like POST_DOWN_SCRIPT="~root/bin/foo"
 	for SCRIPT in `eval echo $POST_DOWN_SCRIPT scripts/$POST_DOWN_SCRIPT`; do

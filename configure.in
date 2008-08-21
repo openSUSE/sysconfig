@@ -21,6 +21,7 @@ udevrulesdir=$sysconfdir/udev/rules.d
 nm_dispatcherdir=/$sysconfdir/NetworkManager/dispatcher.d
 modprobedir=$sysconfdir/modprobe.d
 omc_svcinfodir=$prefix/usr/share/omc/svcinfo.d
+netconfig_d_scriptsdir=$sysconfdir/netconfig.d
 AC_SUBST(sysconfigdir)
 AC_SUBST(sysconfig_hardwaredir)
 AC_SUBST(sysconfig_networkdir)
@@ -32,6 +33,7 @@ AC_SUBST(udevrulesdir)
 AC_SUBST(modprobedir)
 AC_SUBST(nm_dispatcherdir)
 AC_SUBST(omc_svcinfodir)
+AC_SUBST(netconfig_d_scriptsdir)
 
 fillup_templatesdir=$prefix/var/adm/fillup-templates
 AC_ARG_WITH(fillupdir,
@@ -73,7 +75,8 @@ AC_CONFIG_FILES([Makefile
 		 tools/Makefile
 		 package/sysconfig.spec
 		 package/Makefile
-       scripts/Makefile
+		 scripts/Makefile
+		 scripts/netconfig.d/Makefile
 		 scripts/hardware/Makefile])
 AC_OUTPUT
 

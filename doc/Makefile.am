@@ -23,10 +23,12 @@ man_MANS = 	ifup.8 \
 		getcfg-make-hwdesc.8 \
 		getcfg-parse-hwdesc.8 \
 		modify_resolvconf.8 \
+		netconfig.8 \
 		routes.5
 
-doc_DATA = README COPYING Contents Network README.s390 \
-		README.storage
+doc_DATA =	README COPYING Contents Network README.s390 \
+		README.storage \
+		README.netconfig netconfig.odg netconfig.png
 
 sysconfig_hardware_DATA = README.hwcfg_and_device_initialisation
 

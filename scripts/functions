@@ -79,16 +79,19 @@ pfxlen2mask() {
 }
 
 is_iface_available () {
-	test -z "$1" && return 1
+	test -z "$1"              && 		return 1
+	test -d /sys/class/net/$1 && 		return 0
 	case $1 in
-		ippp*|isdn*) return 0 ;;
-		modem*|dsl*|ppp*) return 0 ;;
-		vlan*) return 0 ;;
-		sit*|gre*|ipip*|tun*|tap*) return 0 ;;
+		ippp*|isdn*|modem*|dsl*|ppp*)	return 0 ;;
+		ipip*|sit*|gre*|tun*|tap*)	return 0 ;;
+		ib.*|vlan)			return 0 ;;
 	esac
-	test "${SCRIPTNAME%%-*}" = ifdown -a "$MODE" = hotplug && return 0
-	test "${SCRIPTNAME%%-*}" = ifup -a "$BONDING_MASTER" = yes && return 0
-	test "${SCRIPTNAME%%-*}" = ifup -a "$BRIDGE" = yes && return 0
+	test "${SCRIPTNAME%%-*}" = ifdown -a \
+	     "$MODE" = hotplug               &&	return 0
+	test "${SCRIPTNAME%%-*}" = ifup      && \
+	case $INTERFACETYPE in
+		bond|bridge)			return 0 ;;
+	esac
 	test -d /sys/class/net/$1
 }
 
@@ -138,7 +141,7 @@ get_iface_type () {
 			}
 			;;
 		   24)	TYPE=eth ;; # firewire ;; # IEEE 1394 IPv4 - RFC 2734
-		   32)	TYPE=eth ;; # InfiniBand, treat it like ethernet?
+		   32)	TYPE=ib ;; # InfiniBand
 		  512)	TYPE=ppp ;;
 		  768)	TYPE=ipip ;; # IPIP tunnel
 		  769)	TYPE= ;; # IP6IP6 tunnel
@@ -202,6 +205,7 @@ get_iface_type_from_config () {
 	if [ -z "$TYPE" ] ; then
 		case $IF in
 			lo)          TYPE=lo;;
+			ib*)         TYPE=ib;;
 			ip6tnl*)     TYPE=ip6tnl;;
 			mip6mnha*)   TYPE=mip6mnha;;
 		esac
@@ -243,119 +247,6 @@ convert_6to4_to_ipv4address () {
 	printf "::%u.%u.%u.%u" \
 		0x${NORM_1:0:2} 0x${NORM_1:2:2} \
 		0x${NORM_2:0:2} 0x${NORM_2:2:2}
-}
-
-# Loads module 'bonding' if not already loaded.
-# Creates a new bonding master interface and sets its options.
-# Usage: load_bond $INTERFACE $BONDING_MODULE_OPTIONS
-# Module option 'max_bonds' will be ignored. Use one configuration file per
-# bonding interface instead.
-# If first argument is '_no_fail_' then failures in setting interface options
-# will not return an error.
-load_bond() {
-	local NIF OPT OPT_NAME OPT_VALUE OLD_OPT_VALUE OLD_OPT_VALUE_2 IF NOFAIL
-	if [ "$1" == _no_fail_ ] ; then
-		NOFAIL=1
-		shift
-	fi
-	IF=$1
-	test -z "$IF" && return 0
-	shift
-	if [ -d /sys/class/net/$IF -a ! -d /sys/class/net/$IF/bonding ] ; then
-		return 1 # Iface exists but of another type
-	fi
-	if [ ! -r /sys/class/net/bonding_masters ] ; then
-	   /sbin/modprobe bonding
-		# If we add module option max_bonds=0 in the modprobe command above then
-		# we may skip the following lines in this if-fi block.
-		for a in {1..33}; do
-			test -r /sys/class/net/bonding_masters && break
-			usleep 300000
-		done
-		NIF=`cat /sys/class/net/bonding_masters`
-		if [ -n "$NIF" -a "$NIF" != "$IF" ] ; then
-			nameif -r $IF $NIF
-		fi
-	fi
-	if [ ! -d /sys/class/net/$IF/bonding ] ; then
-		echo "+$IF" > /sys/class/net/bonding_masters
-	fi
-	for a in {1..33}; do
-		test -d /sys/class/net/$IF/bonding && break
-		usleep 300000
-	done
-	if [ ! -d /sys/class/net/$IF/bonding ] ; then
-		return 1
-	fi
-	# Set options
-	sleep 1
-	for OPT in $*; do
-		read OPT_NAME OPT_VALUE < <(IFS==; echo $OPT)
-		if [ "$OPT_NAME" == max_bonds ] ; then
-			err_mesg "Don't use option max_bonds."
-			continue
-		fi
-		if [ ! -w /sys/class/net/$IF/bonding/$OPT_NAME ] ; then
-			err_mesg "There is no option '$OPT_NAME' for interface '$IF'."
-			echo "-$IF" > /sys/class/net/bonding_masters
-			return 1 # or continue? I guess its better to fail completely
-		fi
-		# Some options may only be changed if the interface is up and slaves are
-		# already assigned. Others may only be changed if it is down. To avoid
-		# unneccessary error messages or warnings we check first if the option
-		# already has the specified value.
-		# Special case for option 'mode': this sysfs attribute contains two
-		# words. A string describing the mode and the corresponding number. We
-		# have to compare both.
-		read OLD_OPT_VALUE OLD_OPT_VALUE_2 < /sys/class/net/$IF/bonding/$OPT_NAME
-		if [ "$OPT_NAME" == arp_ip_target ]; then
-		    for a in `cat /sys/class/net/$IF/bonding/$OPT_NAME`; do
-			if ! echo "-$a" > /sys/class/net/$IF/bonding/$OPT_NAME
-			then
-			    err_mesg "Option '$OPT_NAME': can't remove $a"
-			fi
-		    done
-		    for a in ${OPT_VALUE//,/ } ; do
-			if ! echo "+$a" > /sys/class/net/$IF/bonding/$OPT_NAME ; then
-			    err_mesg "Option '$OPT_NAME': can't add $a"
-			fi
-		    done
-		    continue
-		fi
-		if [    "$OLD_OPT_VALUE" == "$OPT_VALUE" \
-		     -o \( "$OPT_NAME" == mode -a "$OLD_OPT_VALUE_2" == "$OPT_VALUE" \) \
-		   ] ; then
-			info_mesg "Bonding interface '$IF':" \
-			          "option '$OPT_NAME' is already set to '$OPT_VALUE'"
-			continue
-		fi
-		info_mesg "Bonding interface '$IF':" \
-		          "Setting option '$OPT_NAME' to '$OPT_VALUE'"
-		if ! echo "$OPT_VALUE" > /sys/class/net/$IF/bonding/$OPT_NAME \
-		          2>/dev/null ; then
-			err_mesg "Option '$OPT_NAME' of interface '$IF' cannot be set to" \
-			         "'$OPT_VALUE'."
-			# Should we continue? Its better to fail if not requested differently
-			test "$NOFAIL" == 1 && continue
-			echo "-$IF" > /sys/class/net/bonding_masters
-			return 1
-		fi
-	done
-	return 0
-}
-
-# Removes a bonding master interface
-# Usage: remove_bond $INTERFACE
-remove_bond () {
-	local IF=$1
-	if [ ! -d /sys/class/net/$IF ] ; then
-		return 0 # Interface does not exist; nothing to do
-	fi
-	if [ ! -d /sys/class/net/$IF/bonding ] ; then
-		return 1 # Interface is not a bonding master
-	fi
-	ip link set down dev $IF
-	echo "-$IF" > /sys/class/net/bonding_masters
 }
 
 get_variable () {
@@ -699,11 +590,39 @@ netcontrol_running() {
 # interface, but it may happen. So better safe than sorry!
 dhcpc_on_iface() {
 	local pid line retval=1
-	while read pid line; do
-		retval=0
-		test "$1" == "-q" && break
-		echo $pid
-	done < <(ps axww | grep -s "[ /]$DHCLIENT\>.*\<$INTERFACE\>")
+	if [ "x$DHCLIENT"  != x -a \
+	     "x$DHCLIENT6" != x -a \
+	     "x$INTERFACE" != x ] ; then
+		while read pid line; do
+			retval=0
+			test "$1" == "-q" && break
+			echo $pid
+		done < <(ps axww | grep -Es "[ /]($DHCLIENT|$DHCLIENT6)\>.*\<$INTERFACE\>$")
+	fi
+	return $retval
+}
+dhcpc4_on_iface() {
+	local pid line retval=1
+	if [ "x$DHCLIENT"  != x -a \
+	     "x$INTERFACE" != x ] ; then
+		while read pid line; do
+			retval=0
+			test "x$1" == "x-q" && break
+			echo $pid
+		done < <(ps axww | grep -Es "[ /]$DHCLIENT\>.*\<$INTERFACE\>$")
+	fi
+	return $retval
+}
+dhcpc6_on_iface() {
+	local pid line retval=1
+	if [ "x$DHCLIENT6"  != x -a \
+	     "x$INTERFACE" != x ] ; then
+		while read pid line; do
+			retval=0
+			test "x$1" == "x-q" && break
+			echo $pid
+		done < <(ps axww | grep -Es "[ /]$DHCLIENT6\>.*\<$INTERFACE\>$")
+	fi
 	return $retval
 }
 
@@ -712,16 +631,43 @@ ifup_on_iface() {
 	ps axww | grep -qs "[i]fup.* $INTERFACE\>"
 }
 
-dhcp-interfaces() {
+dhcp_interfaces() {
 	. /etc/sysconfig/network/dhcp
 	: ${DHCLIENT_BIN:=dhcpcd}
-	if [ -x $DHCLIENT_BIN ]; then :
-	elif [ -x /sbin/$DHCLIENT_BIN ]; then DHCLIENT_BIN=/sbin/$DHCLIENT_BIN;
-	elif [ -x /sbin/dhclient ]; then DHCLIENT_BIN=/sbin/dhclient
-	fi
-	DHCLIENT=${DHCLIENT_BIN##*/}
-	for INTERFACE in `ls /sys/class/net`; do
-		dhcpc_on_iface -q && echo $INTERFACE
+	: ${DHCLIENT6_BIN:=dhcp6c}
+	DHCLIENT=""
+	for x in "$DHCLIENT_BIN" \
+		 "/sbin/${DHCLIENT_BIN##*/}" \
+		 "/sbin/dhcpcd" "/sbin/dhclient" ;
+	do
+		if [ "x$x" != x -a -x "$x" ] ; then
+			DHCLIENT_BIN="$x"
+			DHCLIENT=${DHCLIENT_BIN##*/}
+			break
+		fi
+	done
+	DHCLIENT6=""
+	for x in "$DHCLIENT6_BIN" \
+		 "/sbin/${DHCLIENT6_BIN##*/}" \
+		 "/sbin/dhcp6c" "/sbin/dhclient6" ;
+	do
+		if [ "x$x" != x -a -x "$x" ] ; then
+			DHCLIENT6_BIN="$x"
+			DHCLIENT6=${DHCLIENT6_BIN##*/}
+			break
+		fi
+	done
+	for INTERFACE in `ls -1 /sys/class/net`; do
+		if test -d "/sys/class/net/$INTERFACE" ; then
+			dhcpc_on_iface -q && echo "$INTERFACE"
+			#if   [ "x$DHCLIENT"  != x ] && \
+			#     dhcpc4_on_iface -q ; then
+			#	echo $INTERFACE
+			#elif [ "x$DHCLIENT6" != x ] && \
+			#	dhcpc6_on_iface -q ; then
+			#	echo $INTERFACE
+			#fi
+		fi
 	done
 	return 0
 }

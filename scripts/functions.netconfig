@@ -1,0 +1,369 @@
+#!/bin/bash
+#
+# Copyright (c) 2008 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Michael Calmer <mc@suse.de>
+#
+# $Id$
+#
+
+r=$ROOT
+
+test -z "$MD5DIR" && {
+    MD5DIR=$r/var/adm/netconfig/md5
+    #echo "Warning! MD5DIR is not set: you probably called this script outside SuSEconfig...!"
+    #echo "Using MD5DIR=\"$MD5DIR\"..."
+}
+
+debug () {
+  test "$VERBOSE" = "yes" || return
+  echo -e "debug: $*" >&2
+}
+
+warn () {
+  test "$QUIET" = "yes" && return
+  echo -e "$*" >&2
+}
+
+log () {
+  logger -t "$PROGNAME" "$*"
+  debug "$*"
+  if [ "$ACTION" = "cleanup" -a "$QUIET" != "yes" ] ; then
+    echo -e "$*" >&2
+  fi
+}
+
+function get_variable()
+{
+    local line
+    while read line; do
+        eval $line
+    done < <(grep "^[[:space:]]*$1" $2 2>/dev/null)
+}
+
+#
+# Usage: check_md5_and_move $srcfile $destfile
+#
+# This function checks the existence of a file and a corresponding 
+# md5 checksum and tests whether the checksum of the file has changed.
+# If it has, nothing further will happen. If not, the "$srcfile"
+# will be moved to "$destfile".
+#
+# The return values of this function:
+# RET=0 : file successfuly copied
+# RET=1 : nothing changed ($srcfile == $destfile)
+# RET=2 : ERROR: somebody has changed the file. The file was not copied
+#         it still exists as $srcfile
+check_md5_and_move() 
+{
+    SRCFILE=$1
+    DSTFILE=$2
+    MD5FILE=$MD5DIR/$DSTFILE
+
+    RET=0
+    #
+    # make sure that the directory exists
+    mkdir -p `dirname $MD5FILE`
+    NEWMD5SUM="`cat $SRCFILE | grep -v "^#" | grep -v "^[[:space:]]*$" | md5sum`"
+    if test ! -s $DSTFILE ; then
+        touch $DSTFILE
+        rm -f $MD5FILE
+    fi
+
+    if test "$FORCE_REPLACE" = true ; then
+
+        USERMD5SUM="`cat $DSTFILE | grep -v "^#" | grep -v "^[[:space:]]*$" | md5sum`"
+        test -e $MD5FILE || echo "$USERMD5SUM" > $MD5FILE
+        OLDMD5SUM="`cat $MD5FILE`"
+
+        # backup DSTFILE only if it exist with some content and
+        # was really changed by the user and the new generated file 
+        # has a different content
+        if [ -s $DSTFILE -a \
+            "$USERMD5SUM" != "$OLDMD5SUM" -a \
+            "$USERMD5SUM" != "$NEWMD5SUM" ]; then
+
+            DATE=$(date +%Y%m%d-%H%M%S)
+            BAKFILE="$DSTFILE.$DATE"
+            #
+            # FIXME: what should happen if the backup file exists?
+            #        better to put the backup to /var/adm/backup?
+            #
+            #if [ ! -e $BAKFILE ]; then
+            cp -p $DSTFILE $BAKFILE
+            log "force replace set: backup created as $BAKFILE"
+            #fi
+        fi
+        cp -p $SRCFILE $DSTFILE
+    fi
+
+    USERMD5SUM="`cat $DSTFILE | grep -v "^#" | grep -v "^[[:space:]]*$" | md5sum`"
+    test -e $MD5FILE || echo "$USERMD5SUM" > $MD5FILE
+    OLDMD5SUM="`cat $MD5FILE`"
+    if test "$USERMD5SUM" != "$OLDMD5SUM" -a \
+            "$USERMD5SUM" != "$NEWMD5SUM" ; then
+
+        log "ATTENTION: You have modified $DSTFILE.  Leaving it untouched..."
+        log "You can find my version in $SRCFILE ..."
+        
+        RET=2
+    else
+        if test "$USERMD5SUM" != "$NEWMD5SUM" -o "$FORCE_REPLACE" = "true" ; then
+            debug "Installing new $DSTFILE"
+            cp -p $SRCFILE $DSTFILE
+        else
+            debug "No changes for $DSTFILE"
+            RET=1
+        fi
+        rm -f $SRCFILE
+    fi
+    rm -f $MD5FILE
+    echo "$NEWMD5SUM" > $MD5FILE
+
+    return $RET
+}
+
+
+function convertDhclientLease()
+{
+    test -z "$1" && return 1
+
+    # find last lease {}
+    DHC_LEASE=`echo "$1" | awk 'BEGIN {RS="lease[[:blank:]]*{"; FS="}"} {lease=$1} END {print "{" lease "} "}'`
+
+    echo -e "$DHC_LEASE" | awk 'BEGIN { IPADDR=""
+        NETMASK=""
+        NETWORK=""
+        BROADCAST=""
+        ROUTES=""
+        GATEWAYS=""
+        HOSTNAME=""
+        DNSDOMAIN=""
+        DNSSERVERS=""
+        NTPSERVERS=""
+        NISDOMAIN=""
+        NISSERVERS=""
+        DHCPSID=""
+        DHCPSNAME=""
+        LEASEDFROM=""
+        LEASETIME=""
+        RENEWALTIME=""
+        REBINDTIME=""
+        INTERFACE=""
+        CLASSID=""
+        CLIENTID=""
+        DHCPCHADDR=""
+        LPRSERVER=""
+        NETBIOSNAMESERVER="" 
+    }
+    /fixed-address/ { match($0, /fixed-address ([^;]*);/, arr); IPADDR=arr[1] }
+    /subnet-mask/ { match($0, /subnet-mask ([^;]*);/, arr); NETMASK=arr[1] }
+    /broadcast-address/ { match($0, /broadcast-address ([^;]*);/, arr); BROADCAST=arr[1] }
+    /routers/ { match($0, /routers "?([^;"]*)"?;/, arr); sub(/,/, " ", arr[1]); GATEWAYS=arr[1] }
+    /host-name/ { match($0, /host-name "?([^;"]*)"?;/, arr); HOSTNAME=arr[1] }
+    /domain-name/ { match($0, /domain-name "?([^;"]*)"?;/, arr); DNSDOMAIN=arr[1] }
+    /domain-name-servers/ { match($0, /domain-name-servers "?([^;"]*)"?;/, arr); sub(/,/, " ", arr[1]); DNSSERVERS=arr[1] }
+    /ntp-servers/ { match($0, /ntp-servers "?([^;"]*)"?;/, arr); sub(/,/, " ", arr[1]); NTPSERVERS=arr[1] }
+    /nis-domain/ { match($0, /nis-domain "?([^;"]*)"?;/, arr); NISDOMAIN=arr[1] }
+    /nis-servers/ { match($0, /nis-servers "?([^;"]*)"?;/, arr); sub(/,/, " ", arr[1]); NISSERVERS=arr[1] }
+    /dhcp-server-identifier/ { match($0, /dhcp-server-identifier ([^;]*);/, arr); DHCPSID=arr[1] }
+    /dhcp-lease-time/ { match($0, /dhcp-lease-time ([^;]*);/, arr); LEASETIME=arr[1] }
+    /interface/ { match($0, /interface "?([^;"]*)"?;/, arr); INTERFACE=arr[1] }
+    /netbios-name-servers/ { match($0, /netbios-name-servers "?([^;"]*)"?;/, arr); sub(/,/, " ", arr[1]); NETBIOSNAMESERVER=arr[1] }
+    END { print "IPADDR=\"" IPADDR "\""
+      print "NETMASK=\"" NETMASK "\""
+      print "NETWORK=\"" NETWORK "\""
+      print "BROADCAST=\"" BROADCAST "\""
+      print "ROUTES=\"" ROUTES "\""
+      print "GATEWAYS=\"" GATEWAYS "\""
+      print "HOSTNAME=\"" HOSTNAME "\""
+      print "DNSDOMAIN=\"" DNSDOMAIN "\""
+      print "DNSSERVERS=\"" DNSSERVERS "\""
+      print "NTPSERVERS=\"" NTPSERVERS "\""
+      print "NISDOMAIN=\"" NISDOMAIN "\""
+      print "NISSERVERS=\"" NISSERVERS "\""
+      print "DHCPSID=\"" DHCPSID "\""
+      print "DHCPSNAME=\"" DHCPSNAME "\""
+      print "LEASEDFROM=\"" LEASEDFROM "\""
+      print "LEASETIME=\"" LEASETIME "\""
+      print "RENEWALTIME=\"" RENEWALTIME "\""
+      print "REBINDTIME=\"" REBINDTIME "\""
+      print "INTERFACE=\"" INTERFACE "\""
+      print "CLASSID=\"" CLASSID "\""
+      print "CLIENTID=\"" CLIENTID "\""
+      print "DHCPCHADDR=\"" DHCPCHADDR "\""
+      print "LPRSERVER=\"" LPRSERVER "\""
+      print "NETBIOSNAMESERVER=\"" NETBIOSNAMESERVER "\""
+   }'
+    return 0;
+}
+
+#
+# try to open a lock (4 times) and wait if it failes
+# for the specified time
+#
+# $1 name of the program
+# $2 time to wait after a openLock failed
+#
+function openLockWait() {
+
+    test -z "$1" && return 1
+    test -z "$2" && return 1
+
+    for i in `seq 0 3`; do
+
+        openLock "$1"
+        if [ "$?" = "0" ]; then
+            debug "lockfile created"
+            return 0;
+        fi
+
+        debug "sleep $2 (try $i)"
+        sleep $2
+    done
+
+    return 1;
+}
+
+#
+# open a lock file
+#
+# $1 program name
+#
+function openLock() {
+
+    test -z "$1" && return 1
+
+    PRGNAME=$1
+    PID=$$
+
+    PIDPATH="/var/run/$PRGNAME.pid"
+
+    if [ -e $PIDPATH ]; then
+
+        # check if the process is still running
+
+        OLDPID=`cat $PIDPATH`
+
+        if [ ! -e "/proc/$OLDPID/cmdline" ]; then
+            debug "pid does not exists; remove lock"
+            # pid does not exists; remove lock
+            rm $PIDPATH
+        else
+            
+            if grep "$PRGNAME" /proc/$OLDPID/cmdline >/dev/null 2>&1 ; then
+                debug "process still running"
+                # process still running
+                return 1;
+            else
+                debug "this pid is a different process; remove the lock"
+                # this pid is a different process; remove the lock
+                rm $PIDPATH
+            fi
+        fi
+    fi
+
+    echo -n "$PID" > $PIDPATH
+    debug "lockfile created ($PIDPATH) for PID $PID"
+    return 0
+}
+
+#
+# remove the lock
+#
+# $1 program name
+#
+function unLock() {
+
+    test -z "$1" && return 1
+    
+    PRGNAME=$1
+    PID=$$
+
+    PIDPATH="/var/run/$PRGNAME.pid"
+    
+    if [ ! -e $PIDPATH ]; then
+
+        return 0
+    fi
+      
+    OLDPID=`cat $PIDPATH`
+    
+    if [ "$OLDPID" != "$PID" ]; then
+        log "cannot remove the lockfile. PIDs do not match."
+        return 1
+    fi
+
+    msg=`rm $PIDPATH`
+    if [ "$?" != "0" ]; then
+        log "removing the lock file ($PIDPATH) failed: $msg"
+        return 0
+    fi
+    
+    return 1
+}
+
+function find_first_provides() {
+
+    test -z "$1" && return 1
+    test -z "$2" && return 1
+
+    REQVAR="$1"
+    STATEDIR="$2"
+    if [ -n "$3" ]; then
+        INTERFACE="$3"
+    fi
+
+    VALUE=""
+    CFG_TIME=0
+
+    for dir in `ls $STATEDIR/`; do 
+        
+        if [ ! -d $STATEDIR/$dir ]; then
+            debug "not a dir ... skip"
+            continue
+        fi
+      
+        if [ -n "$INTERFACE" -a "$INTERFACE" != "$dir" ]; then
+            debug "we are searching for a different dir ... skip"
+            continue
+        fi
+  
+        for file in `ls $STATEDIR/$dir/netconfig* 2>/dev/null`; do
+            
+            debug "searching in $file"
+
+            get_variable "CREATETIME" $file
+
+            get_variable "$REQVAR" $file
+
+            debug "got CREATETIME=$CREATETIME and $REQVAR=${!REQVAR}"
+
+            if [ "x$VALUE" = "x" -a "x$REQVAR" != "" ]; then
+                CFG_TIME=$CREATETIME
+                VALUE=${!REQVAR}
+            elif [ -n "$CREATETIME" -a $CREATETIME -ne 0 -a \
+                   $CREATETIME -lt $CFG_TIME -a "x$REQVAR" != "x" ]; then
+                CFG_TIME=$CREATETIME
+                VALUE=${!REQVAR}
+            fi
+            # delete the variables
+            eval "$REQVAR=\"\""
+            CREATETIME=0
+        done
+    done
+    eval "$REQVAR=\"$VALUE\""
+}

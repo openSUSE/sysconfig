@@ -87,6 +87,7 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 /etc/sysconfig/network/ifcfg.template
 /etc/sysconfig/network/scripts/*
 /etc/sysconfig/hardware
+/etc/netconfig.d
 /etc/ppp/poll.tcpip
 /etc/NetworkManager
 /sbin/*

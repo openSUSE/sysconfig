@@ -16,12 +16,21 @@
 ## Default:	""
 ## ServiceRestart: network
 #
-# Which DHCP client should be used? 
+# Which DHCPv4 client should be used? 
 # If empty, dhcpcd is tried, then dhclient 
 # Other possible values:
 # 	dhcpcd   (DHCP client daemon)
 # 	dhclient (ISC dhclient)
 DHCLIENT_BIN=""
+
+## Type:	string
+## Default:	""
+## ServiceRestart: network
+#
+# Which DHCPv6 client should be used? 
+# Currently only the dhcp6c client is supported.
+#
+DHCLIENT6_BIN=""
 
 ## Type:	yesno
 ## Default:	no
@@ -50,65 +59,12 @@ DHCLIENT_SET_HOSTNAME="no"
 ## Type:	yesno
 ## Default:	yes
 #
-# Should the DHCP client modify /etc/resolv.conf at all? 
-# If not, set this to "no". (The default is "yes") 
-#
-# resolv.conf will also stay untouched when MODIFY_RESOLV_CONF_DYNAMICALLY 
-# in /etc/sysconfig/network/config is set to "no". 
-#
-DHCLIENT_MODIFY_RESOLV_CONF="yes"
-
-## Type:	yesno
-## Default:	yes
-#
 # Should the DHCP client set a default route (default Gateway) (yes|no)
 #
 # When multiple copies of dhcpcd run, it would make sense that only one
 # of them does it. 
 #
 DHCLIENT_SET_DEFAULT_ROUTE="yes"
-
-## Type:	yesno
-## Default:	no
-#
-# Should the DHCP client use ntp configuration data provided via DHCP?
-# (yes|no)
-#
-# If set to "yes", ntp configuration data provided by a DHCP request
-# will get loaded dynamically into a running ntp daemon. This will not
-# alter /etc/ntp.conf (any more), but will write the data received to
-# /var/run/ntp/servers[.$INTERFACE] and load it.
-#
-# If set to "no", ntp configuration data offered via DHCP will not
-# get processed.
-#
-DHCLIENT_MODIFY_NTP_CONF="no"
-
-## Type:	yesno
-## Default:	no
-#
-# Should the DHCP client modify the NIS configuration? (yes|no)
-#
-# If set to yes, /etc/yp.conf is rewritten (and restored upon exit).
-# If you don't want this, set this variable to "no". (The default is "no") 
-#
-DHCLIENT_MODIFY_NIS_CONF="yes"
-
-## Type:	yesno
-## Default:	yes
-#
-# Should the DHCP client set the NIS domainname? (yes|no)
-# (if the server supplies the nis-domain option)
-#
-DHCLIENT_SET_DOMAINNAME="yes"
-
-## Type:	yesno
-## Default:	yes
-#
-# When writing a new /etc/resolv.conf, should the DHCP client take an 
-# existing searchlist and add it to the one derived from the DHCP server? 
-#
-DHCLIENT_KEEP_SEARCHLIST="yes"
 
 ## Type:	integer
 ## Default:	""
@@ -185,24 +141,6 @@ DHCLIENT_VENDOR_CLASS_ID=""
 #
 DHCLIENT_RELEASE_BEFORE_QUIT="no"
 
-## Type:	string
-## Default:	""
-#
-# Run this script when the interface is brought up, down, or the IP address
-# changes ( -c option)
-#
-# Per default, /etc/sysconfig/network/scripts/dhcpcd-hook is run.
-# To disable this functionality altogether you can enter "/bin/true" here.
-#
-DHCLIENT_SCRIPT_EXE=""
-
-## Type:	string
-## Default:	""
-#
-# additional options, e.g. "-a"
-#
-DHCLIENT_ADDITIONAL_OPTIONS=""
-
 ## Type:	integer
 ## Default:	0
 #
@@ -223,15 +161,4 @@ DHCLIENT_SLEEP="0"
 #
 DHCLIENT_WAIT_AT_BOOT="15"
 
-## Type:        yesno
-## Default:     yes
-## ServiceRestart: yast2
-#
-# This option is read by YaST during network configuration.
-#
-# If set, then the hostname is added to /etc/hosts with IP address
-# 127.0.0.2. This allows the hostname to be resolved (and thus, the host
-# to be reached), if the real network is not reachable.
-#
-# If unset, YaST will not touch /etc/hosts.
-WRITE_HOSTNAME_TO_HOSTS="yes"
+

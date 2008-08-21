@@ -3,10 +3,11 @@
 CLEANFILES = *~
 MAINTAINERCLEANFILES = Makefile.in
 
-SUBDIRS = hardware 
+SUBDIRS = hardware netconfig.d
 
 sysconfig_network_scripts_SCRIPTS =	functions \
 					functions.common \
+					functions.netconfig \
 					oldnet2new.sh \
 					convert_for_getconfig \
 					convert_persistent_name_rules \
@@ -14,6 +15,8 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					ifup-802.1q \
 					ifup-autoip \
 					ifup-bridge \
+					ifup-bonding \
+					ifup-infiniband \
 					ifup-ppp \
 					ifup-route \
 					ifup-services \
@@ -29,7 +32,7 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 
 sbin_SCRIPTS =	ifup \
 		ifup-dhcp \
-		modify_resolvconf
+		netconfig
 
 init_d_SCRIPTS = network
 
@@ -71,6 +74,10 @@ install-data-hook:
 	ln -sf ifup-autoip		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-autoip
 	ln -sf ifup-bridge		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-bridge
 	ln -sf ifup-bridge		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-bridge
+	ln -sf ifup-bonding		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-bonding
+	ln -sf ifup-bonding		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-bonding
+	ln -sf ifup-infiniband		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-infiniband
+	ln -sf ifup-infiniband		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-infiniband
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ip-down
 
 

@@ -1,0 +1,378 @@
+
+ * Network configuration tool (netconfig)  for CODE11 *
+=======================================================
+
+Today our network tools handle configuration values from different
+services independently of each other, this is error-prone and has
+led to several defect reports or unintentded behaviour in the past.
+To get a first overall understanding please look at the picture 
+(netconfig.png) provided with this documentation.
+
+Almost every tool writes these configuration files directly and takes more or 
+less care about other tools already changing this file. Restoring the old state is
+often not possible whether the information got lost or some tools cannot be 
+used because they claim, that another tool "owns" this file. 
+
+With 11.1 (SLE11) the situation becomes even worse, because with dhcpv6 we will run
+two dhcp clients on one interface and one will overwrite the other. 
+
+To address these problems in the network configuration, we introduce a
+new tool named "netconfig".
+This new script replaces the current "/sbin/modify_resolvconf" script.
+
+The script will be modular, so it is possible (for us and also for the admin)
+to extend or change its functionality. Each module is responsible for a
+specific task.
+
+The order in which the modules are called is defined in the sysconfig variable
+NETCONFIG_MODULES_ORDER.
+
+
+Naming conventions:
+-------------------
+
+"static values":  values the user entered directly, e.g by a YaST module or
+                  by NetworkManager
+"dynamic values": values delivered by dhcp or ppp (leases file)
+
+
+
+The concept:
+------------
+
+Static configuration values are written to sysconfig/network/config by 
+the yast-modules and NetworkManager. 
+Dhcp and ppp provide dynamic values directly to netconfig in a specified 
+format.
+
+Netconfig manages (stores or removes) the dynamic values and the netconfig 
+plugins merge all these informations depending on a predefined policy
+and apply the required changes, for instance write a configuration file, 
+restart a service and similar.
+
+The prime objective her is: No process should alter the destination files 
+directly, but pass its information through netconfig.
+
+Every plugin has a policy-variable in sysconfig/network/config which tells
+the plugin how to merge single values. Which interfaces should get recognized 
+and which not or in which order and where it should use the static values.
+
+
+
+The policy-variable:
+--------------------
+
+The policy-variable, lists the interfaces which should get addressed if a 
+configuration for this interface is available. You can use "*" and/or "?"
+to match multiple interfaces. E.g. "eth* ppp?" will target first  all ethX
+interfaces and than ppp0-ppp9 interfaces.
+Additionally it has two predefined static values which indicate what should 
+happen with the static configuration values:
+
+- STATIC      is the placeholder for the values set by yast-modules processed
+		at the specific place in the order. (You can also use "auto" as
+		a short for "STATIC *")
+
+- STATIC_FALLBACK   defines, that dynamic values have priority, but if no dynamic 
+		    values are available the STATIC ones are used
+
+If the policy variable is empty, the configuration file will not be changed 
+by netconfig. This is useful if the user wants to keep the sole control of the
+configuration file.
+
+
+
+
+The netconfig tool:
+-------------------
+
+The netconfig tool knows three main commands:
+
+* "modify" requires an interface dataset passed via STDIN. If a configuration
+           already exists, it will be replaced by the new one, otherwise it creates
+           a new configuration. After this, it updates the managed files by 
+           calling the plugins.
+
+* "update" runs all the plugins again. This is useful if the policy or the 
+           static configuration changed. (this should be called most of the time
+	   by yast-modules)
+
+* "remove" removes an interface configuration defined by <service> and 
+           <interface> and runs the plugins again to bring the configuration
+           files up-to-date.
+
+The data set which needs to be provided to "netconfig modify" is specified 
+as a simple key-value list and follows the dhcpcd-leases format. The 
+keyword "INTERFACE" is mandatory. Here are examples of the currently used 
+key-value pairs:
+
+INTERFACE='eth0'
+
+The dns-resolver and dns-bind plugin recognizes the following keywords:
+DNSDOMAIN='suse.de nue.novell.com'
+DNSSERVERS='10.10.0.1 10.10.2.88'
+
+The nis plugin recognizes the following keywords:
+NISDOMAIN='novell.com'
+NISSERVERS='149.44.160.146 149.44.160.50'
+
+The ntp-runtime plugin recognizes the following keyword:
+NTPSERVERS='149.44.160.50 149.44.160.54 149.44.160.1'
+
+Additional information:
+netconfig is able to read also dhclient leases file format.
+If you specify --service "dhclient", netconfig expects this
+format on STDIN.
+
+Any other service expects the format described above, which is the
+dhcpcd leases file format.
+
+
+Additional netconfig options are:
+
+options:                       mandatory for:
+  -s|--service <service>       modify, remove   (e.g. dhcpcd, dhclient, ifup, etc.)
+  -i|--interface <interface>   remove           (e.g. eth0, ppp1, ...)
+  -f|--force_replace                            force overwriting configfile, 
+                                                even if somebody changed them manually
+  -v|--verbose                                  print debug output
+
+
+
+
+The Plugins:
+------------
+
+Initially we provide the following plugins:
+
+
+dns-resolver:
+-----------
+
+DNS configuration consists of:
+    - domain search list
+    - nameserver ip list
+
+We defined the following variables in /etc/sysconfig/network/config:
+
+    NETCONFIG_DNS_STATIC_SEARCHLIST=""
+    NETCONFIG_DNS_STATIC_SERVERS=""
+
+The policy variable is named:
+
+    NETCONFIG_DNS_POLICY=""
+
+The search list and nameservers are applied to /etc/resolv.conf.
+
+Alternatively, the nameservers only may be applied as forwarders to the
+configuration of a local nameserver. To identify such a configuration we
+defined the variable:
+
+   NETCONFIG_DNS_FORWARDER=""
+
+It can have the values:
+
+* empty or "resolv": no local DNS server, write to /etc/resolv.conf
+* "bind" : A bind nameserver is used. Do only write the searchlist 
+           in /etc/resolv.conf and 127.0.0.1 and ::1 as nameserver. 
+(maybe more later, e.g. dnsmasq)
+
+
+    Example:
+    --------
+
+    Static config in /etc/sysconfig/network/config:
+
+    NETCONFIG_DNS_POLICY="STATIC *"    # == "auto"
+    NETCONFIG_DNS_FORWARDER="resolv"
+
+    NETCONFIG_DNS_STATIC_SEARCHLIST="domain1 domain2"
+    NETCONFIG_DNS_STATIC_SERVERS="2001:cafe::1 10.0.0.1"
+
+	Resulting /etc/resolv.conf:
+	    search domain1 domain2
+	    nameserver 2001:cafe::1
+	    nameserver 10.0.0.1
+
+    If a dynamic interface comes up (e.g. DHCP) with the values
+
+        DNSDOMAIN='domain2 domain3'
+        DNSSERVERS='10.10.0.1 10.10.2.88'
+
+    The result will be:
+    
+        search domain1 domain2 domain3
+        nameserver 2001:cafe::1
+        nameserver 10.0.0.1
+        nameserver 10.10.0.1
+
+    [ 10.10.2.88 will not appear, because you can provide only 3 nameserver
+      in resolv.conf ]
+
+
+    If you change the NETCONFIG_DNS_POLICY variable to "eth* STATIC" the resulting
+    resolv.conf looks like this:
+
+        search domain2 domain3 domain1
+        nameserver 10.10.0.1
+        nameserver 10.10.2.88
+        nameserver 2001:cafe::1
+
+
+
+dns-bind:
+---------
+
+FIXME: will be delivered later
+
+
+
+nis:
+----
+
+NIS configuration consists of:
+    - A list of domains with a list of server ip's for each domain
+
+We defined the following variables in /etc/sysconfig/network/config:
+
+    NETCONFIG_NIS_STATIC_DOMAIN[_<number>]=""
+    NETCONFIG_NIS_STATIC_SERVERS[_<number>]=""
+
+The values are applied to /etc/yp.conf . If the configuration changed
+the nis plugin reload ypbind. 
+
+
+The policy variable is named:
+
+    NETCONFIG_NIS_POLICY=""
+
+A special variable for this module is:
+
+    NETCONFIG_NIS_SETDOMAINNAME=""
+
+It is a replacement for DHCLIENT_SET_DOMAINNAME in /etc/sysconfig/network/dhcp.
+Valid values are "no", "yes" or an interface name, e.g. eth0
+
+- "no":  netconfig do not set the domainname
+- "yes": netconfig set the domainname with the first first interface
+         which provide such a value.
+- "<interface>": netconfig set the domainname with the value provided
+                 by "this" interface.
+
+
+    Example:
+    --------
+
+	Static config in /etc/sysconfig/network/config:
+
+        NETCONFIG_NIS_POLICY="STATIC *"
+
+	    # first domain contains implicit _0 suffix:
+	    NETCONFIG_NIS_STATIC_DOMAIN="defaultdomain"
+	    NETCONFIG_NIS_STATIC_SERVERS="10.0.0.1 10.0.0.2"
+            # in case there is another domain:
+	    NETCONFIG_NIS_STATIC_DOMAIN_1="anotherdomain"
+	    NETCONFIG_NIS_STATIC_SERVERS_1="10.1.0.1 10.1.0.2"
+
+
+	Resulting /etc/yp.conf:
+	    domain defaultdomain server 10.0.0.1
+	    domain defaultdomain server 10.0.0.2
+	    domain anotherdomain server 10.1.0.1
+	    domain anotherdomain server 10.1.0.2
+
+    yp.conf knows other configuration values which are also possible to configure:
+
+    NETCONFIG_NIS_STATIC_DOMAIN="defaultdomain"
+    NETCONFIG_NIS_STATIC_SERVERS="broadcast"
+
+    result in:
+
+        domain defaultdomain broadcast
+
+    NETCONFIG_NIS_STATIC_DOMAIN="defaultdomain"
+    NETCONFIG_NIS_STATIC_SERVERS="slp"
+
+    result in:
+
+        domain defaultdomain slp
+
+
+    NETCONFIG_NIS_STATIC_DOMAIN=""
+    NETCONFIG_NIS_STATIC_SERVERS="10.1.0.1"
+
+    result in:
+
+        ypserver 10.1.0.1
+
+    NETCONFIG_NIS_STATIC_DOMAIN="broadcast"
+    NETCONFIG_NIS_STATIC_SERVERS=""
+
+    result in:
+
+        broadcast
+
+    The behavior if a new interface comes up is like described for DNS
+    with the difference, that no values are dropped. yp.conf has no limit.
+    
+
+
+ntp-runtime:
+------------
+
+NTP configuration consists of:
+    - A list of time server IP-addresses
+
+The ntp handling is a little bit different. This module cannot manage the
+complete ntp.conf. But ntp provides a feature which is called 
+"runtime configuration" which is used by this plugin. 
+This sets us in the convenient position that the yast2-ntp module
+can still change /etc/ntp.conf and this plugin stores additional
+timeservers at a different place. 
+
+But to be compatible to other plugins we defined also a variable in 
+/etc/sysconfig/network/config including a policy. 
+
+    NETCONFIG_NTP_STATIC_SERVERS="
+
+The values are applied to /var/run/ntp/servers-netconfig . If the configuration
+changed meanwhile, ntp will be restarted (using try-restart). 
+
+The policy variable is named:
+
+    NETCONFIG_NTP_POLICY=""
+
+
+    Example:
+    --------
+
+	Static config in /etc/sysconfig/network/config:
+	    NETCONFIG_NTP_STATIC_SERVERS="10.0.0.1 10.1.0.1"
+
+	Resulting /var/run/ntp/servers-netconfig:
+		RUNTIME_SERVERS="10.0.0.1 10.1.0.1"
+	
+	The module script executes "rcntp try-restart" to apply the actual
+	ntp configuration at runtime.
+
+	FIXME: The init script should be extended to append the list of
+	timeservers from /var/run/ntp/servers to the list of the servers
+	maybe defined by the user in /etc/ntp.conf directly when it is
+	executing the initial ntptimeset action.
+	Further, when given (e.g. by ppp) the init script should also
+	use the "iburst" option for the runtime servers.
+
+
+
+More Plugins?
+-------------
+
+The concept is prepared to be esily extended by additional plugins.
+Good candidates for additional plugins are:
+  cups, smb client, ...
+but this is currently not in the scope of the SLE11 timeframe.
+
+
+
+
+

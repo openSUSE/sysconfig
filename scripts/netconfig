@@ -1,0 +1,386 @@
+#!/bin/bash
+#
+# Copyright (c) 2008 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Michael Calmer <mc@suse.de>
+#         Marius Tomaschewski <mt@suse.de>
+#
+# $Id$
+#
+
+#
+# Exit codes
+#
+# 0  success
+# 1  error
+# 20 a plugin was not able to change the configuration
+#    because it was changed since the last run
+#
+
+
+# The environment variable ROOT indicates the root of the system to be
+# managed by SuSEconfig when that root is not '/'
+r=$ROOT
+
+. $r/etc/sysconfig/network/scripts/functions.netconfig
+
+PROGNAME=${0##*/}
+STATEDIR=$r/var/run/netconfig/
+
+PLUGINDIR=$r/etc/netconfig.d/
+
+. $r/etc/sysconfig/network/config
+
+function modify() {
+    if [ "x$SERVICE" = "x" ]; then
+        warn "No service informations available"
+        unLock "$PROGNAME"
+        exit 1
+    fi
+
+    CURRENTSTATE="SERVICE='$SERVICE'"
+    CREATETIME=`date +%s`
+
+    local _INTERFACE=""
+
+    if [ "$SERVICE" = "dhclient" ]; then
+        LEASE=""
+        while read line; do
+            LEASE="$LEASE\n$line";
+        done < <(cat ${LEASEFILE})
+                
+        while IFS== read val1 val2 ; do
+            
+            CURRENTSTATE="$CURRENTSTATE\n$val1=$val2"
+            if [ "x$val1" = "xINTERFACE" ]; then
+                _INTERFACE="$val2"
+            fi
+        done < <(convertDhclientLease "$LEASE")
+    else
+
+        while IFS== read val1 val2 ; do
+            
+            CURRENTSTATE="$CURRENTSTATE\n$val1=$val2"
+            if [ "x$val1" = "xINTERFACE" ]; then
+                _INTERFACE="$val2"
+            fi
+        done < <(cat ${LEASEFILE})
+    fi
+
+    # NetworkManager policy merged
+    if [ "x$NETWORKMANAGER" = "xyes" -a \
+	 "x$SERVICE"        = "xNetworkManager" -a \
+	 "x$INTERFACE"      = "x" ] ;
+    then
+        # NetworkManager policy merged config
+        CFGFILE="$STATEDIR/NetworkManager.netconfig"
+
+        # first get the createtime. we want to keep it.
+	get_variable "CREATETIME" $CFGFILE
+
+        # remove it also in modify.
+        # We want to create it with the same name again.
+	rm -f $CFGFILE
+
+        CURRENTSTATE="CREATETIME='$CREATETIME'\n$CURRENTSTATE"
+    else
+	# use interface name from config
+	if [ "x$INTERFACE" = "x" -a "x$_INTERFACE" != "x" ]; then
+	     INTERFACE="$_INTERFACE"
+        fi
+
+	if [ "x$INTERFACE" = "x" ]; then
+            warn "No interface informations available"
+            unLock "$PROGNAME"
+            exit 1
+	fi
+
+        if [ ! -d "$STATEDIR/$INTERFACE" ]; then
+		mkdir -p "$STATEDIR/$INTERFACE" || {
+			warn "Can not create interface state dir"
+			unLock "$PROGNAME"
+			exit 1
+		}
+	fi
+
+        local CFGFILE=`find_cfgfile "$INTERFACE" "$SERVICE"`
+        if [ "x$CFGFILE" != "x" ]; then
+            # first get the createtime. we want to keep it.
+            get_variable "CREATETIME" $CFGFILE
+
+            # remove it also in modify. 
+            # We want to create it with the same name again.
+            rm -f $CFGFILE
+        fi
+    
+        CURRENTSTATE="$CURRENTSTATE\nCREATETIME='$CREATETIME'"
+
+        if [ "x$CFGFILE" = "x" ]; then
+            local CFGNAME=`get_new_cfgname`
+            CFGFILE="$STATEDIR/$INTERFACE/$CFGNAME"
+        fi
+   fi
+
+   debug "write new STATE file $CFGFILE"
+   echo -e "$CURRENTSTATE" > "$CFGFILE"
+   return 0
+}
+
+function remove() {
+    if [ "x$SERVICE" = "x" ]; then
+        warn "No service informations available"
+        unLock "$PROGNAME"
+        exit 1
+    fi
+
+    # NetworkManager policy merged
+    if [ "x$NETWORKMANAGER" = "xyes" -a \
+	 "x$SERVICE"        = "xNetworkManager" -a \
+	 "x$INTERFACE"      = "x" ] ;
+    then
+        # NetworkManager policy merged config
+        CFGFILE="$STATEDIR/NetworkManager.netconfig"
+
+    else
+	if [ "x$INTERFACE" = "x" ]; then
+            warn "No interface informations available"
+            unLock "$PROGNAME"
+            exit 1
+        fi
+
+        CFGFILE=`find_cfgfile "$INTERFACE" "$SERVICE"`
+    fi
+
+    if [ "x$CFGFILE" != "x" ]; then
+        debug "remove STATE file $CFGFILE"
+        rm -f "$CFGFILE"
+    fi
+
+    return 0
+}
+
+#
+# find_cfgfile <interface> <service>
+#
+function find_cfgfile() {
+
+    test -z "$1" && return 1
+    test -z "$2" && return 1
+
+    local INTERFACE=$1
+    local CUR_SERVICE=$2
+
+    for CFG in `ls -X $STATEDIR/$INTERFACE/`; do
+        get_variable "SERVICE" $STATEDIR/$INTERFACE/$CFG
+            
+        if [ "$CUR_SERVICE" = "$SERVICE" ]; then
+                CFGNAME=$CFG
+                echo "$STATEDIR/$INTERFACE/$CFG"
+                return;
+        fi
+    done
+    return 0;
+}
+
+function get_new_cfgname() {
+    local CFGNAME=""
+
+    for CFG in `ls -X -r $STATEDIR/$INTERFACE/`; do
+        CNT=`echo "$CFG" | sed 's/netconfig//'`
+        ((CNT++))
+        CFGNAME="netconfig$CNT"
+        break
+    done
+    
+    if [ "x$CFGNAME" = "x" ]; then
+        CFGNAME="netconfig0"
+    fi
+    echo $CFGNAME;
+}
+
+function run_plugins() {
+    local errors=""
+    local msg=""
+    local ret=0
+
+    if [ -n "$FORCE_REPLACE" ]; then
+        export FORCE_REPLACE=$FORCE_REPLACE
+    fi
+    if [ -n "$r" ]; then
+        export ROOT=$r
+    fi
+
+    debug "Module order: $NETCONFIG_MODULES_ORDER"
+    for plg in $NETCONFIG_MODULES_ORDER; do
+        if [ ! -x $PLUGINDIR/$plg ]; then
+            continue
+        fi
+        msg=`$PLUGINDIR/$plg`
+        if [ -n "$msg" ]; then
+            errors="$errors\n$msg"
+        fi
+        if [ "$?" != "0" ]; then
+            ret=$?
+        fi
+    done
+    
+    if [ -n "$errors" ]; then
+        echo -e "$errors"
+    fi
+    return $ret
+}
+
+
+function usage () 
+{
+    cat << EOT >&2
+  usage:   $PROGNAME <action> <options>
+  action:  modify, update, remove
+  options:                               mandatory for:
+    -s|--service <service>               modify, remove
+    -i|--interface <interface>           remove
+    -l|--lease-file <path>
+    #-I|--input-file <path>              TODO
+    #-F|--input-format                   TODO
+    -f|--force-replace
+    -v|--verbose
+    -h|--help                            (does not need an action)
+
+
+  --force_replace tell the modules to do file changes even if the user
+                  touched them.
+
+  modify requires an interface data set via STDIN or as file using the option --leasefile .
+         If this configuration exists, it will be replaced with the new one, otherwise 
+         it creates a new configuration. After this it updates the managed files.
+
+  update updates the managed files with the current configuration.
+
+  remove removes an interface configuration defined by <service> and <interface>
+ 
+EOT
+  if [ -n "$1" ] ; then
+     echo >&2
+     ERROR="  ERROR:   "
+     echo -e "$*\n" | while read line; do
+       echo "${ERROR}${line}" >&2
+       ERROR="           "
+     done
+  fi
+  exit 1
+}
+
+
+COMMANDLINE="$@"
+ACTION=""
+VARIABLE=""
+while true ; do
+    case "$1" in
+        -s|--service) VARIABLE=SERVICE;;
+        -f|--force-replace) FORCE_REPLACE="true";;
+        -v|--verbose) VERBOSE="yes";;
+        -i|--interface) VARIABLE=INTERFACE;;
+        -l|--lease-file) VARIABLE=LEASEFILE;;
+        -h|--help) usage;;
+        "") break ;;
+        --)
+            shift
+            test -n "$ACTION" -o $# -gt 1 \
+            && usage "Exactly one action may be given.\n"\
+                "Currently given actions: $ACTION $*"
+            ACTION="$1"
+            shift
+            break
+            ;;
+        *)
+        test -n "$ACTION" && usage "Exactly one action may be given.\n"\
+            "Currently given actions: $ACTION $1"
+        ACTION="$1"
+        ;;
+        -*) usage Unknown option $1;;
+    esac
+    if [ -n "$VARIABLE" ] ; then
+        test -z "$2" && usage Option $1 needs an argument
+        eval $VARIABLE=\$2
+        shift
+        VARIABLE=""
+    fi
+    shift
+done
+
+test -z "$ACTION" && usage No action was given
+
+if [ "$VERBOSE" = "yes" ]; then
+    export VERBOSE=$VERBOSE
+fi
+
+#
+# before we start, check for root
+#
+if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
+    echo "You must be root to start $0." >&2
+    exit 1
+fi
+
+# FIXME: nfsroot support, don't abort when somebody just calls with "-h"
+if ! touch $r/tmp &>/dev/null; then
+    echo "Filesystem read only: Cannot modify anything" >&2
+    exit 1
+fi
+
+if ! mkdir -p "$STATEDIR" ; then
+    echo "Unable to create netconfig state directory '$STATEDIR'" >&2
+    exit 1
+fi
+
+#
+# try to get the lock
+#
+openLockWait "$PROGNAME" 5
+if [ "$?" != 0 ]; then
+    log "open lock for $PROGNAME failed. Abort."
+    exit 1;
+fi
+
+EXITVAL=0
+
+case "$ACTION" in
+    modify)
+           modify
+           if [ "$?" != "0" ]; then EXITVAL=$?; fi
+           run_plugins
+           if [ "$?" != "0" ]; then EXITVAL=$?; fi
+           ;;
+    update)
+           run_plugins
+           if [ "$?" != "0" ]; then EXITVAL=$?; fi
+           ;;
+    remove)
+           remove
+           if [ "$?" != "0" ]; then EXITVAL=$?; fi
+           run_plugins
+           if [ "$?" != "0" ]; then EXITVAL=$?; fi
+           ;;
+    *)
+    usage "Invalid action given.\n"
+    ;;
+esac
+    
+unLock "$PROGNAME"
+
+exit $EXITVAL
+
+

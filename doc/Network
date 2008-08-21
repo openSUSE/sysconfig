@@ -107,9 +107,6 @@ REMOTE_IPADDR	"1.2.3.9"
 IP_OPTIONS	""
 - additional ip options
 
-DHCLIENT_OPTIONS
-- additional dhcpcd(8) or dhclient(8) options
-
 MTU		""
 - set the maximum transfer unit (MTU)
 

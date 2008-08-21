@@ -45,48 +45,41 @@ parse_ipparam()
 	export ifcfg provider
 }
 
-# Automatic configuration of your resolv.conf for peer supplied DNS addresses
-# when using the 'usepeerdns' option ('ms-get-dns' for ipppd). Original
-# resolv.conf is restored when ip-down is called by pppd when the link goes
-# down.
+# Automatic configuration of your nameserver config for peer supplied DNS
+# and WINS servers when using the 'usepeerdns' option ('ms-get-dns' for
+# ipppd) according to the modify policy in netconfig.
+# The modifications are restored by netconfig when ip-down is called by
+# pppd when the link goes down.
 add_nameservers()
 {
-	[ -z "$USEPEERDNS" ] && return
-
-	if [ -z "$isdn" ]; then
-		[ ! -f /etc/ppp/resolv.conf ] && return
-		/sbin/modify_resolvconf modify -s pppd -p pppd -e "$INTERFACE" \
-		    -f /etc/ppp/ip-up -n "$DNS1 $DNS2" -t - <<-EOT
-		    If you do not want the pppd to change your nameserver settings
-		    set MODIFYDNS=no in the config file for this provider in
-		    /etc/sysconfig/network/providers/ and ensure that the option
-		    usepeerdns is not set in /etc/ppp/options.
-		EOT
-	else
-		[ -z "$MS_DNS1" ] && return
-		/sbin/modify_resolvconf modify -s ipppd -p ipppd -e "$INTERFACE" \
-		    -f /etc/ppp/ip-up -n "$MS_DNS1 $MS_DNS2" -t - <<-EOT
-		    If you do not like the ipppd to change your nameserver
-		    settings remove the option MODIFYDNS for this provider
-		EOT
-	fi
-
+	# TODO: do we have to consider MODIFYDNS and USEPEERDNS? test it!
+	NETCONFIG_VERBOSE="-v"
+	{
+		echo "INTERFACE='$INTERFACE'"
+		echo "IPADDR='$LOCALIP'"
+		echo "PTPADDR='$REMOTEIP'"
+		#if [ "x$MODIFYDNS" = xyes ] ; then
+			dnsservers=()
+			if   [ "x$DNS1" != x -o "x$DNS2" != x ] ; then
+				dnsservers=($DNS1 $DNS2)
+			elif [ "x$MS_DNS1" != x -o "x$MS_DNS2" != x ] ; then
+				dnsservers=($MS_DNS1 $MS_DNS2)
+			fi
+			echo "DNSSERVERS='${dnsservers[@]}'"
+		#fi
+		#if [ -n "x$MODIFYWINS" = xyes ] ; then
+			winsservers=()
+			if [ "x$MS_WINS1" != x -o "x$MS_WINS2" != x ] ; then
+				winsservers=($MS_WINS1 $MS_WINS2)
+			fi
+			echo "NETBIOSNAMESERVER='${winsservers[@]}'"
+		#fi
+	} | /sbin/netconfig modify -s pppd -i "$INTERFACE" $NETCONFIG_VERBOSE
 }
-
-# restore the original resolv.conf saved when ip-up was called by the
-# pppd which uses the `usepeerdns' option and resolv.conf was modified
-# for the supplied dns server adresses.
 restore_nameservers()
 {
-	[ -z "$USEPEERDNS" ] && return
-
-	if [ -z "$isdn" ]; then
-		[ ! -f /etc/ppp/resolv.conf ] && return
-		/sbin/modify_resolvconf restore -s pppd -e "$INTERFACE"
-	else
-		[ -z "$MS_DNS1" ] && return
-		/sbin/modify_resolvconf restore -s ipppd -e "$INTERFACE"
-	fi
+	NETCONFIG_VERBOSE="-v"
+	/sbin/netconfig remove -s pppd -i "$INTERFACE" $NETCONFIG_VERBOSE
 }
 
 # using this function currently breaks Dial On Demand setups, because

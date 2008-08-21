@@ -1,0 +1,290 @@
+.\" Process this file with
+.\" groff -man -Tascii foo.1
+.\"
+.TH NETCONFIG 8 "Juli 2008" "sysconfig" "Network configuration"
+.SH NAME
+netconfig \- modular tool to modify network configuration
+.SH SYNOPSIS
+
+.B netconfig modify
+.RS
+.PD 0
+.P
+.RB " < " \-s " | " \-\-service " <service name> > "
+.P
+.RB " [ " \-i " | " \-\-interface " <interface name> ] "
+.P
+.RB " [ " \-l " | " \-\-lease\-file " <file name> ] "
+.P
+.RB " [ " \-f " | " \-\-force\-replace " ] "
+.P
+.RB " [ " \-v " | " \-\-verbose " ] "
+.PD
+.RE
+
+.B netconfig remove
+.RS
+.PD 0
+.P
+.RB " < " \-i " | " \-\-interface " <interface name> > "
+.P
+.RB " < " \-s " | " \-\-service " <service name> > "
+.P
+.RB " [ " \-l " | " \-\-lease\-file " <file name> ] "
+.P
+.RB " [ " \-f " | " \-\-force\-replace " ] "
+.P
+.RB " [ " \-v " | " \-\-verbose " ] "
+.PD
+.RE
+
+.B netconfig update
+.RS
+.PD 0
+.P
+.RB " [ " \-f " | " \-\-force\-replace " ] "
+.P
+.RB " [ " \-v " | " \-\-verbose " ] "
+.PD
+.RE
+
+.B netconfig
+.RB "< " \-h " | " \-\-help " > "
+
+.SH DESCRIPTION
+Netconfig is a modular tool to manage additional network configuration settings.
+It merges statically defined settings with settings provided by autoconfiguration
+mechanisms as dhcp or ppp according to a predefined policy and applies the
+required changes to the system by calling netconfig modules.
+
+Each netconfig module is responsible to apply a set of changes for instance by
+writing of a configuration file and restarting a service or similar.
+
+The netconfig tool knows three main actions:
+.TP
+.B modify
+Modify the current \fIinterface\fR and \fIservice\fR specific dynamic settings
+and update the network configuration.
+
+Netconfig reads these settings on its standard input or from the file specified
+by the \fI\-\-lease\-file\fR option and stores them internally until a system
+reboot or the next modify or remove action. Already existing settings for the
+same interface and service combination will be overwritten.
+See the \fIMODIFY INPUT FORMAT\fR section for input format description.
+
+.TP
+.B remove
+Removes the dynamic settings provided by a
+.B modify
+action for the specified
+.I interface
+and
+.I service
+combination and update the network configuration.
+
+.TP
+.B update
+Update the network configuration using current settings. This is useful when
+the policy or the static configuration changed.
+
+.PP
+The netconfig policy and the static configuration settings are defined in
+.I /etc/sysconfig/network/config
+variables by the administrator using YaST2, NetworkManager or manually as
+defined in
+.I NETCONFIG VARIABLES section.
+
+The dynamic configuration settings provided by autoconfiguration tools as dhcp
+or ppp are delivered to netconfig directly by these tools with the
+.B modify
+and
+.B remove
+netconfig actions.
+
+.SH NETCONFIG VARIABLES
+.TP
+.B NETCONFIG_MODULES_ORDER
+Defines the start order of the netconfig modules to use.
+
+.TP
+.B NETCONFIG_*_POLICY
+Netconfig defines a merge policy variable for each set of network settings.
+An empty policy variable disables any modifications in netconfig.
+
+This variable lists the network interfaces, that netconfig has to consider
+as a valid source for this set of settings and in which order.
+
+Except of complete interface names, also basic wildcards to match multiple
+interfaces are allowed. For example, \fI"eth* ppp?"\fR will target first
+all \fIeth\fR and then all \fIppp0\fR-\FIppp9\fR interfaces.
+
+There are two special predefined policy values which indicate how to apply
+the static settings defined in the \fBNETCONFIG_STATIC_*\fR variables:
+.RS
+.PD 0
+.TP
+.IR STATIC
+the static settings have to be merged together with the dynamic settings.
+.TP
+.IR STATIC_FALLBACK
+the static settings have to be used only, when no dynamic are avaliable.
+.PD
+.RE
+.RS
+Further, there is also a special and default policy "auto". When the
+\fINetworkManager\fR is enabled, that is the \fBNETWORK_MANAGER\fR variable
+is set to \fByes\fR, netconfig makes use of NetworkManager internal policy
+and just uses the settings NetworkManager provides. When NetworkManager is
+disabled, the "auto" policy is resolved as "STATIC *".
+.RE
+
+.SS DNS
+.TP
+.B NETCONFIG_DNS_POLICY
+Defines the DNS merge policy.
+.TP
+.B NETCONFIG_DNS_FORWARDER
+The type of the forwarder type to configure. Default value is "resolver"
+activating the "dns-resolver" module.
+.TP
+.B NETCONFIG_STATIC_DNS_SEARCHLIST
+List of DNS domain names used for host-name lookup.
+.TP
+.B NETCONFIG_STATIC_DNS_SERVERS
+List of namserver IP addresses used for host-name lookup.
+
+.SS NTP
+.TP
+.B NETCONFIG_NTP_POLICY
+Defines the NTP merge policy.
+.TP
+.B NETCONFIG_STATIC_NTP_SERVERS
+List of NTP server IP addresses.
+
+.SS NIS
+.B NETCONFIG_NIS_POLICY
+Defines the NIS / YP merge policy.
+.TP
+.BR NETCONFIG_STATIC_NIS_DOMAIN " [ " _ "<number> ]"
+A NIS domain name.
+.TP
+.BR NETCONFIG_STATIC_NIS_SERVERS " [ " _ "<number> ]"
+A list of NIS servers for the domain with same suffix number.
+.TP
+.BR NETCONFIG_SET_DOMAINNAME
+Defines whether to set the NIS domain using a setdomainname(2)
+call. Valid values are:
+.RS
+.PD 0
+.TP
+.IR no
+netconfig do not set the domainname
+.TP
+.IR yes
+netconfig sets the domainname with the first first interface
+and service which provide the NIS domainname.
+.TP
+.RI "<" interface ">"
+netconfig sets the domainname with the value provided in the
+settings of the specified interface.
+.PD
+.RE
+
+.SH NETCONFIG MODULES
+.TP
+.B dns-resolver
+This module writes the DNS settings into the \fI/etc/resolv.conf\fR file.
+
+When the \fBNETCONFIG_DNS_FORWARDER\fR variable is empty or set to "resolver",
+both, the domain search list and the nameserver list is written.
+
+Otherwise, only the domain search list is written - the nameservers has to
+be handled by the forwarder specific module, e.g. bind.
+.TP
+.B dns-bind
+This module writes the DNS nameservers as forwarders for the bind nameserver
+into the \fI/etc/named.d/forwarders.conf\fR file. Please verify that this
+file is included in the \fIoptions section\fR of \fI/etc/named.conf\fR, like:
+.nf
+options {
+	#forward                first;
+	include                 "/etc/named.d/forwarders.conf";
+# [...]
+.fi
+.TP
+.B ntp-runtime
+The netconfig ntp-runtime module does not alter the \fI/etc/ntp.conf\fR file,
+but makes use of NTP "runtime configuration".
+
+The list of the NTP servers is written to the \fI/var/run/ntp/servers-netconfig\fR
+file and if the configuration changed meanwhile, the ntp service will be restarted
+using "rcntp try-restart". The ntp init script provides the functionality to apply
+the runtime server list at runtime using the \fBntpdc\fR(1) program.
+.TP
+.B nis
+This module writes the NIS configuration into the \fI/etc/ypconf\fR file and
+reloads the "ypbind" service when the configuration changed.
+
+.SH MODIFY INPUT FORMAT
+.nf
+FIXME: Add an [ -F | --input-format ] option allowing to specify the input
+format explicitely or we may run into problems later.
+.fi
+Netconfig supports two input formats. When the service is set to \fIdhclient\fR,
+the netconfig expects that the input is in the format of a \fIdhclient.leases\fR
+file. Otherwise, the \fBnetconfig modify\fR command expects a simple, single
+quoted, key-value parameter list in a dhcpcd info compatible format. The keyword
+\fBINTERFACE\fR is mandatory. The currently considered key-value pairs are:
+.RS
+.PD 0
+.P
+.BR INTERFACE "='<interface name>'"
+.P
+.BR IPADDR "='<IP address> [/<prefix length>]'"
+.P
+.BR NETMASK "='<network mask>'"
+.P
+.BR NETWORK "='<network address>'"
+.P
+.BR BROADCAST "='<broadcast address>'"
+.P
+.BR ROUTES "='<FIXME: list of classless routes>'"
+.P
+.BR GATEWAYS "='<list of gateway IP addresses>'"
+.P
+.BR DNSSEARCH "='<list of DNS domain names>'"
+.P
+.BR DNSDOMAIN "='<DNS domain name>'"
+.P
+.BR DNSSERVERS "='<list of DNS nameserver addresses>'"
+.P
+.BR NTPSERVERS "='<list of ntp servers>'"
+.P
+.BR NETBIOSNAMESERVER "='<list of netbios nameservers>'"
+.PD
+.RE
+
+.SH EXAMPLES
+.SS DNS
+FIXME
+.SS NTP
+FIXME
+.SS NIS
+FIXME
+
+.SH BUGS
+Please report bugs at <http://www.suse.de/feedback>
+
+.SH AUTHOR
+.nf
+Michael Calmer <mc@suse.de> -- netconfig script
+Marius Tomaschewski <mc@suse.de> -- \fBnetconfig\fR(8) manual page
+.fi
+
+.SH "SEE ALSO"
+.BR ifcfg (5),
+.br
+.BR /etc/sysconfig/network/config ,
+.br
+.BR /usr/share/doc/packages/sysconfig/netconfig/README .
+

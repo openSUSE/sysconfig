@@ -200,7 +200,7 @@ case "$ACTION" in
 			exit 1
 		fi
 		lock_firewall
-		DHCP_INTERFACES=$(dhcp-interfaces)
+		DHCP_INTERFACES=$(dhcp_interfaces)
 		for IFACE in $DHCP_INTERFACES; do
 			$0 stop $IFACE ${OPTIONS:+-o $OPTIONS}
 		done
@@ -214,7 +214,7 @@ case "$ACTION" in
 			exit 1
 		fi
 		lock_firewall
-		DHCP_INTERFACES=$(dhcp-interfaces)
+		DHCP_INTERFACES=$(dhcp_interfaces)
 		for IFACE in $DHCP_INTERFACES; do
 			$0 stop  $IFACE ${OPTIONS:+-o $OPTIONS}
 		done
@@ -749,7 +749,7 @@ case "$ACTION" in
 			$FAKE ifup-route noiface -o rc $MODE
 			rc_status
 			test $FAILED -gt 0 && rc_failed 7
-			echo -n "Setting up service network  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
+			echo -n "Setting up service network  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
 			rc_status -v
 		fi
 
@@ -800,7 +800,7 @@ case "$ACTION" in
 			rm -f $RUN_FILES_BASE/config-*
 #			rm -f $STAMPFILE_STUB*
 			rm -f $NETWORK_RUNFILE
-			echo -n "Shutting down service network  .  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
+			echo -n "Shutting down service network  .  .  .  .  .  .  .  .  .  .  .  .  ."
 			rc_status -v
 		fi
 
@@ -893,7 +893,7 @@ case "$ACTION" in
 			rc_failed 3 # unused
 		fi
 
-		echo -n "Checking service network .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
+		echo -n "Checking service network .  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
 		rc_status -v
 
 		;;

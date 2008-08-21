@@ -69,10 +69,17 @@ fi
 leaseinfo="$1"
 state="$2"
 debug="$3"
+action=""
 
-if [ -n "$debug" ]; then
-	$log_dbg "State: $state. Leaseinfo: ${leaseinfo:-<none given>}"
+if [ -r /etc/sysconfig/network/config ] ; then
+	. /etc/sysconfig/network/config
+fi
+if [ -r /etc/sysconfig/network/dhcp ] ; then
+	. /etc/sysconfig/network/dhcp
+fi
+if [ "x$debug" != "x" -o "$DHCLIENT_DEBUG" = yes ] ; then
 	debug=true
+	$log_dbg "State: $state. Leaseinfo: ${leaseinfo:-<none given>}"
 else
 	debug=false
 fi
@@ -84,12 +91,14 @@ fi
 # there's nothing to do about it.
 # (in the 'leaseinfo does not exist case' the interface can still be 
 # guessed from the name, but I doubt it's useful to run ifdown then)
-if test -z $leaseinfo; then
-	$log_dbg "Skipping 'ifdown $INTERFACE -o dhcp' call"
+if test -z "$leaseinfo" ; then
+	test "$state" == "new" && state=renew
+	$log_dbg "Skipping 'if$state $INTERFACE -o dhcp' call"
 	exit 0
 fi
-if ! test -e $leaseinfo; then
-	$log_dbg "$leaseinfo does not exist. Skipping 'ifdown $INTERFACE -o dhcp' call"
+if ! test -r "$leaseinfo" ; then
+	test "$state" == "new" && state=renew
+	$log_dbg "$leaseinfo does not exist. Skipping 'if$state $INTERFACE -o dhcp' call"
 	exit 0
 fi
 
@@ -107,6 +116,11 @@ up)
 	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
 	ifup $INTERFACE -o dhcp
 
+	$debug && NC_OPTIONS="-v"
+	/sbin/netconfig modify -s "dhcpcd" \
+		-i $INTERFACE $NC_OPTIONS  \
+		< $leaseinfo 2>&1 | $log_dbg
+
 	# reload syslog so it knows the new hostname
 	/etc/init.d/syslog reload
 	;;
@@ -115,9 +129,19 @@ down)
 	# POST from here (after IP address was removed). Thus we don't need this
 	# $debug && $log_dbg "Running ifdown $INTERFACE -o dhcp"
 	# ifdown $INTERFACE -o dhcp
+
+	$debug && NC_OPTIONS="-v"
+	/sbin/netconfig remove -s "dhcpcd" \
+		-i $INTERFACE $NC_OPTIONS  \
+		2>&1 | $log_dbg
 	;;
 new)
 	$debug && $log_dbg "new IP address: $IPADDR"
+
+	$debug && NC_OPTIONS="-v"
+	/sbin/netconfig modify -s "dhcpcd" \
+		-i $INTERFACE $NC_OPTIONS  \
+		< $leaseinfo 2>&1 | $log_dbg
 
 	# reload syslog so it knows the new hostname
 	/etc/init.d/syslog reload
