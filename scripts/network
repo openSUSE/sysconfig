@@ -3,6 +3,8 @@
 # Network interface configuration
 #
 # Copyright (c) 2001-2002 SuSE Linux AG, Nuernberg, Germany.
+# Copyright (c) 2003-2008 SUSE LINUX Products GmbH, Nuernberg, Germany.
+#
 # This program is free software; you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation; either version 2 of the License, or (at your option) any later
@@ -26,15 +28,15 @@
 # /etc/init.d/network
 #
 ### BEGIN INIT INFO
-# Provides:       network
-# Required-Start: $local_fs dbus haldaemon
-# Should-Start: isdn SuSEfirewall2_init
-# Required-Stop:
-# Should-Stop:
-# Default-Start:  2 3 5
-# Default-Stop:
-# Short-Description: Configure the network
-# Description:    Configure the network interfaces and set up routing
+# Provides:		network
+# Required-Start:	$local_fs dbus haldaemon
+# Should-Start:		isdn SuSEfirewall2_init
+# Required-Stop:	$local_fs dbus haldaemon
+# Should-Stop:		isdn SuSEfirewall2_init
+# Default-Start:	2 3 5
+# Default-Stop:		2 3 5
+# Short-Description:	Configure the network
+# Description:		Configure the network interfaces and set up routing
 ### END INIT INFO
 
 . /etc/rc.status
