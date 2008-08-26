@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Aug 26 14:42:51 CEST 2008 - mt@suse.de
+
+- new version 0.71.3
+- netconfig input format cleanup
+
+-------------------------------------------------------------------
 Mon Aug 25 01:35:46 CEST 2008 - ro@suse.de
 
 - initscript: copy *-Start to *-Stop to fix build
