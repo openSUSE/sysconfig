@@ -44,6 +44,8 @@ PLUGINDIR=$r/etc/netconfig.d/
 
 . $r/etc/sysconfig/network/config
 
+INPUTFORMAT=dhcpcd
+
 function modify() {
     if [ "x$SERVICE" = "x" ]; then
         warn "No service informations available"
@@ -56,28 +58,17 @@ function modify() {
 
     local _INTERFACE=""
 
-    if [ "$SERVICE" = "dhclient" ]; then
-        LEASE=""
-        while read line; do
-            LEASE="$LEASE\n$line";
-        done < <(cat ${LEASEFILE})
-                
+    if [ "$INPUTFORMAT" == "dhcpcd" ]; then
         while IFS== read val1 val2 ; do
             
             CURRENTSTATE="$CURRENTSTATE\n$val1=$val2"
             if [ "x$val1" = "xINTERFACE" ]; then
                 _INTERFACE="$val2"
             fi
-        done < <(convertDhclientLease "$LEASE")
+        done < <(cat ${LEASEFILE})
     else
-
-        while IFS== read val1 val2 ; do
-            
-            CURRENTSTATE="$CURRENTSTATE\n$val1=$val2"
-            if [ "x$val1" = "xINTERFACE" ]; then
-                _INTERFACE="$val2"
-            fi
-        done < <(cat ${LEASEFILE})
+    	echo "Unsupported lease file / input format '$INPUTFORMAT'" >&2
+        exit 1
     fi
 
     # NetworkManager policy merged
@@ -253,8 +244,7 @@ function usage ()
     -s|--service <service>               modify, remove
     -i|--interface <interface>           remove
     -l|--lease-file <path>
-    #-I|--input-file <path>              TODO
-    #-F|--input-format                   TODO
+    -F|--input-format <format>
     -f|--force-replace
     -v|--verbose
     -h|--help                            (does not need an action)
@@ -262,14 +252,18 @@ function usage ()
 
   --force_replace tell the modules to do file changes even if the user
                   touched them.
+  --input-format  specifies the modify lease / input format; currently
+                  only dhcpcd compatible input format is supported.
 
-  modify requires an interface data set via STDIN or as file using the option --leasefile .
-         If this configuration exists, it will be replaced with the new one, otherwise 
-         it creates a new configuration. After this it updates the managed files.
+  modify requires an interface and service specific settings via STDIN
+         or as file using the --lease-file option.
+         Already existing settings for this interface and service will
+	 be replaced with the new one, otherwise netconfig creates a
+ 	 new state file. Finaly, netconfig updates the managed files.
 
-  update updates the managed files with the current configuration.
+  update updates the managed files with the current set of settings.
 
-  remove removes an interface configuration defined by <service> and <interface>
+  remove removes the interface and service specific settings.
  
 EOT
   if [ -n "$1" ] ; then
@@ -294,6 +288,7 @@ while true ; do
         -v|--verbose) VERBOSE="yes";;
         -i|--interface) VARIABLE=INTERFACE;;
         -l|--lease-file) VARIABLE=LEASEFILE;;
+        -F|--input-format) VARIABLE=INPUTFORMAT;;
         -h|--help) usage;;
         "") break ;;
         --)
