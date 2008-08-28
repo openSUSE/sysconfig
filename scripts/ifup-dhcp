@@ -268,7 +268,7 @@ start_dhcp4_dhcpcd() {
 	#
 	args="--netconfig"
 	test "$DHCLIENT_DEBUG"               = "yes" && args="$args -d"
-	test "$DHCLIENT_SET_HOSTNAME"        = "yes" && args="$args -H"
+	test "$DHCLIENT_SET_HOSTNAME"        = "yes" && args="$args -HHH"
 	test "$DHCLIENT_SET_DEFAULT_ROUTE"  != "yes" && args="$args -G"
 
 	test -n "$DHCLIENT_TIMEOUT"                  && args="$args -t $DHCLIENT_TIMEOUT"
