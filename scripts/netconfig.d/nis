@@ -40,10 +40,10 @@ debug "$PROGNAME Plugin called"
 . $r/etc/sysconfig/network/config
 . $r/etc/sysconfig/network/dhcp
 
-NIS_YPSRV_ENTRIES=""
-NIS_DOMAIN_ENTRIES=""
-NIS_DOMAIN_BROADCAST=""
-NIS_DOMAIN_SLP=""
+NIS_YPSRV_ENTRIES=()
+NIS_DOMAIN_ENTRIES=()
+NIS_DOMAIN_BROADCAST=()
+NIS_DOMAIN_SLP=()
 NIS_GLOGAL_BROADCAST="no"
 
 DESTFILE=$r/etc/yp.conf
@@ -72,19 +72,16 @@ function format_yp_conf()
 
     if [ -z "$domain" -a -n "$server" ]; then
 
-        for SRV in $server; do 
+        for SRV in $server; do
+            SRV="ypserver $SRV" 
+            # skip duplicates
+            for od in "${NIS_YPSRV_ENTRIES[@]}" ; do
+                 [ "x$SRV" == "x$od" ] && continue 2
+            done
 
-            if echo -e "$NIS_YPSRV_ENTRIES" | grep -F "ypserver $SRV" >/dev/null; then
-                debug "already found. Skipped"
-                continue
-            fi
+            debug "configure ${SRV}"
 
-            debug "configure ypserver"
-            if [ -n "$NIS_YPSRV_ENTRIES" ]; then
-                NIS_YPSRV_ENTRIES="$NIS_YPSRV_ENTRIES\nypserver $SRV"
-            else
-                NIS_YPSRV_ENTRIES="ypserver $SRV"
-            fi
+            NIS_YPSRV_ENTRIES=("${NIS_YPSRV_ENTRIES[@]}" "${SRV}") 
         done
         return 0
     fi
@@ -95,35 +92,35 @@ function format_yp_conf()
 
     for SRV in $server; do 
         if [ "$SRV" = "broadcast" ]; then
-            if echo -e "$NIS_DOMAIN_BROADCAST" | grep -F "$domain $SRV" >/dev/null; then
-                debug "already found. Skipped"
-                continue
-            fi
-            if [ -n "$NIS_DOMAIN_BROADCAST" ]; then
-                NIS_DOMAIN_BROADCAST="$NIS_DOMAIN_BROADCAST\ndomain $domain $SRV"
-            else
-                NIS_DOMAIN_BROADCAST="domain $domain $SRV"
-            fi
+            SRV="domain $domain $SRV"
+            # skip duplicates
+            for od in "${NIS_DOMAIN_BROADCAST[@]}" ; do
+                 [ "x$SRV" == "x$od" ] && continue 2
+            done
+
+            debug "configure ${SRV}"
+
+            NIS_DOMAIN_BROADCAST=("${NIS_DOMAIN_BROADCAST[@]}" "${SRV}")
         elif [ "$SRV" = "slp" ]; then
-            if echo -e "$NIS_DOMAIN_SLP" | grep -F "$domain $SRV" >/dev/null; then
-                debug "already found. Skipped"
-                continue
-            fi
-            if [ -n "$NIS_DOMAIN_SLP" ]; then
-                NIS_DOMAIN_SLP="$NIS_DOMAIN_SLP\ndomain $domain $SRV"
-            else
-                NIS_DOMAIN_SLP="domain $domain $SRV"
-            fi
+            SRV="domain $domain $SRV"
+            # skip duplicates
+            for od in "${NIS_DOMAIN_SLP[@]}" ; do
+                 [ "x$SRV" == "x$od" ] && continue 2
+            done
+
+            debug "configure ${SRV}"
+
+            NIS_DOMAIN_SLP=("${NIS_DOMAIN_SLP[@]}" "${SRV}")
         else
-            if echo -e "$NIS_DOMAIN_ENTRIES" | grep -F "$domain server $SRV" >/dev/null; then
-                debug "already found. Skipped"
-                continue
-            fi
-            if [ -n "$NIS_DOMAIN_ENTRIES" ]; then
-                NIS_DOMAIN_ENTRIES="$NIS_DOMAIN_ENTRIES\ndomain $domain server $SRV"
-            else
-                NIS_DOMAIN_ENTRIES="domain $domain server $SRV"
-            fi
+            SRV="domain $domain server $SRV"
+            # skip duplicates
+            for od in "${NIS_DOMAIN_ENTRIES[@]}" ; do
+                 [ "x$SRV" == "x$od" ] && continue 2
+            done
+
+            debug "configure ${SRV}"
+
+            NIS_DOMAIN_ENTRIES=("${NIS_DOMAIN_ENTRIES[@]}" "${SRV}")
         fi
     done
     return 0
@@ -158,17 +155,21 @@ function write_yp_conf()
 #
 EOT
 
-    test -n "$NIS_YPSRV_ENTRIES" && \
-    echo -e "$NIS_YPSRV_ENTRIES" >> $TMP_FILE
+    for srv in "${NIS_YPSRV_ENTRIES[@]}"; do
+        echo $srv >> $TMP_FILE
+    done
 
-    test -n "$NIS_DOMAIN_ENTRIES" && \
-    echo -e "$NIS_DOMAIN_ENTRIES" >> $TMP_FILE
+    for srv in "${NIS_DOMAIN_ENTRIES[@]}"; do
+        echo $srv >> $TMP_FILE
+    done
 
-    test -n "$NIS_DOMAIN_BROADCAST" && \
-    echo -e "$NIS_DOMAIN_BROADCAST" >> $TMP_FILE
+    for srv in "${NIS_DOMAIN_BROADCAST[@]}"; do
+        echo $srv >> $TMP_FILE
+    done
 
-    test -n "$NIS_DOMAIN_SLP" && \
-    echo -e "$NIS_DOMAIN_SLP" >> $TMP_FILE
+     for srv in "${NIS_DOMAIN_SLP[@]}"; do
+        echo $srv >> $TMP_FILE
+    done
 
     if [ "$NIS_GLOGAL_BROADCAST" = "yes" ]; then
         echo -e "broadcast" >> $TMP_FILE
