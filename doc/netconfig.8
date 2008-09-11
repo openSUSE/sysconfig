@@ -211,6 +211,12 @@ options {
 	include                 "/etc/named.d/forwarders.conf";
 # [...]
 .fi
+You can use the yast2 dns-server module to configure bind as forwarder.
+.TP
+.B dns-dnsmasq
+This module writes the DNS nameservers as forwarders for the dnsmasq nameserver
+into the \fI/var/run/dnsmasq-forwarders.conf\fR file. Please verify, that this
+file is set in the \fBresolv-file\fR keyword in the \fI/etc/dnsmasq.conf\fR.
 .TP
 .B ntp-runtime
 The netconfig ntp-runtime module does not alter the \fI/etc/ntp.conf\fR file,
@@ -286,5 +292,5 @@ Marius Tomaschewski <mc@suse.de> -- \fBnetconfig\fR(8) manual page
 .br
 .BR /etc/sysconfig/network/config ,
 .br
-.BR /usr/share/doc/packages/sysconfig/netconfig/README .
+.BR /usr/share/doc/packages/sysconfig/README.netconfig .
 

@@ -3,7 +3,7 @@
 CLEANFILES = *~
 MAINTAINERCLEANFILES = Makefile.in
 
-netconfig_d_scripts_SCRIPTS = dns-bind dns-resolver nis ntp-runtime
+netconfig_d_scripts_SCRIPTS = dns-bind dns-resolver dns-dnsmasq nis ntp-runtime 
 
 EXTRA_DIST = 	$(netconfig_d_scripts_SCRIPTS)
 

@@ -173,9 +173,12 @@ defined the variable:
 It can have the values:
 
 * empty or "resolv": no local DNS server, write to /etc/resolv.conf
-* "bind" : A bind nameserver is used. Do only write the searchlist 
-           in /etc/resolv.conf and 127.0.0.1 and ::1 as nameserver. 
-(maybe more later, e.g. dnsmasq)
+* "bind"   : A bind nameserver is used as forwarder. Only the searchlist is
+             written to the /etc/resolv.conf; the nameserver are written to
+	     the /etc/named.d/forwarders.conf.
+* "dnsmasq": A dnsmasq nameserver is used as forwarder. Only the searchlist
+             is written to the /etc/resolv.conf; the nameserver are written
+	     to the /var/run/dnsmasq-forwarders.conf.
 
 
     Example:
@@ -223,7 +226,7 @@ It can have the values:
 dns-bind:
 ---------
 
-FIXME: will be delivered later
+FIXME: 
 
 
 

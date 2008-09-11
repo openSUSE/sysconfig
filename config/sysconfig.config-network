@@ -219,7 +219,7 @@ WRITE_HOSTNAME_TO_HOSTS="yes"
 #
 # Defines the start order of netconfig modules (/etc/netconfig.d/).
 #
-NETCONFIG_MODULES_ORDER="dns-resolver dns-bind ntp-runtime nis"
+NETCONFIG_MODULES_ORDER="dns-resolver dns-bind dns-dnsmasq ntp-runtime nis"
 
 ## Type:        string
 ## Default:     "auto"
