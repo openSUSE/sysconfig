@@ -55,12 +55,12 @@ function get_variable()
 
 function read_symlink()
 {
-	local name="$1"
-	if test "x$name" != x -a -x /bin/readlink ; then
-		/bin/readlink -f "$name" 2>/dev/null
-	else
-		echo "$name"
-	fi
+    local name="$1"
+    if test "x$name" != x -a -x /bin/readlink ; then
+        /bin/readlink -f "$name" 2>/dev/null
+    else
+        echo "$name"
+    fi
 }
 
 #
@@ -98,7 +98,7 @@ check_md5_and_move()
     local NEWMD5SUM USERMD5SUM OLDMD5SUM DATE BAKFILE
 
     # create new md5sum
-    NEWMD5SUM="`cat "$SRCFILE" 2>/dev/null | grep -Ev "^#|^[[:space:]]*$" | md5sum`"
+    NEWMD5SUM="`cat "$SRCFILE" | grep -Ev '^#|^[[:space:]]*$' | md5sum`"
     if test ! -s "$OUTFILE" ; then
         touch "$OUTFILE" || return 3
         rm -f "$MD5FILE"
@@ -106,7 +106,7 @@ check_md5_and_move()
 
     if test "$FORCE_REPLACE" = true ; then
 
-        USERMD5SUM="`cat "$DSTFILE" | grep -v "^#" | grep -v "^[[:space:]]*$" | md5sum`"
+        USERMD5SUM="`cat "$DSTFILE" | grep -Ev '^#|^[[:space:]]*$' | md5sum`"
         test -e "$MD5FILE" || echo "$USERMD5SUM" > "$MD5FILE"
         OLDMD5SUM=`cat "$MD5FILE"`
 
@@ -125,25 +125,26 @@ check_md5_and_move()
         cp -p "$SRCFILE" "$OUTFILE"
     fi
 
-    USERMD5SUM="`cat "$DSTFILE" | grep -Ev "^#|^[[:space:]]*$" | md5sum`"
+    USERMD5SUM="`cat "$DSTFILE" | grep -Ev '^#|^[[:space:]]*$' | md5sum`"
     test -e "$MD5FILE" || echo "$USERMD5SUM" > "$MD5FILE"
     OLDMD5SUM=`cat "$MD5FILE"`
     if test "$USERMD5SUM" != "$OLDMD5SUM" -a \
             "$USERMD5SUM" != "$NEWMD5SUM" ; then
 
-        log "ATTENTION: You have modified $DSTFILE.  Leaving it untouched..."
+        log "ATTENTION: You have modified $DSTFILE. Leaving it untouched..."
         if test "x$OSUFFIX" != x -a \
                 "x$SRCFILE" != "${OUTFILE}${OSUFFIX}" && \
            mv -f "$SRCFILE" "${OUTFILE}${OSUFFIX}" &>/dev/null ; then
             log "You can find my version in ${OUTFILE}${OSUFFIX}"
-	    test "x$ERR_VAR" != x && eval "$ERR_VAR='${OUTFILE}${OSUFFIX}'"
+            test "x$ERR_VAR" != x && eval "$ERR_VAR='${OUTFILE}${OSUFFIX}'"
         else
             log "You can find my version in $SRCFILE ..."
-	    test "x$ERR_VAR" != x && eval "$ERR_VAR='${SRCFILE}'"
+            test "x$ERR_VAR" != x && eval "$ERR_VAR='${SRCFILE}'"
         fi
         RET=2
     else
-        if test "$USERMD5SUM" != "$NEWMD5SUM" -o "$FORCE_REPLACE" = "true" ; then
+        if test "$USERMD5SUM" != "$NEWMD5SUM" -o \
+                "$FORCE_REPLACE" = "true" ; then
             debug "Installing new $DSTFILE"
             cp -p "$SRCFILE" "$OUTFILE"
         else
