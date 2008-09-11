@@ -24,7 +24,6 @@ r=$ROOT
 
 test -z "$MD5DIR" && {
     MD5DIR=$r/var/adm/netconfig/md5
-    #echo "Warning! MD5DIR is not set: you probably called this script outside SuSEconfig...!"
     #echo "Using MD5DIR=\"$MD5DIR\"..."
 }
 
@@ -54,8 +53,18 @@ function get_variable()
     done < <(grep "^[[:space:]]*$1" $2 2>/dev/null)
 }
 
+function read_symlink()
+{
+	local name="$1"
+	if test "x$name" != x -a -x /bin/readlink ; then
+		/bin/readlink -f "$name" 2>/dev/null
+	else
+		echo "$name"
+	fi
+}
+
 #
-# Usage: check_md5_and_move $srcfile $destfile
+# Usage: check_md5_and_move <srcfile> <destfile> [suffix] [err_var]
 #
 # This function checks the existence of a file and a corresponding 
 # md5 checksum and tests whether the checksum of the file has changed.
@@ -66,72 +75,85 @@ function get_variable()
 # RET=0 : file successfuly copied
 # RET=1 : nothing changed ($srcfile == $destfile)
 # RET=2 : ERROR: somebody has changed the file. The file was not copied
-#         it still exists as $srcfile
-check_md5_and_move() 
+#         it still exists as $srcfile or in `readline $destfile`.$suffix;
+#         the err_var variable is set to the name.
+# RET=3 : ERROR: another error occured, e.g. some file operation failed
+check_md5_and_move()
 {
-    SRCFILE=$1
-    DSTFILE=$2
-    MD5FILE=$MD5DIR/$DSTFILE
+    local SRCFILE="$1"
+    local DSTFILE="$2"
+    local OSUFFIX="$3"
+    local ERR_VAR="$4"
+    local MD5FILE="$MD5DIR/$DSTFILE"
+    # DSTFILE may be a symlink on a read only /-fs
+    local OUTFILE=`read_symlink "${DSTFILE}"`
 
-    RET=0
-    #
+    # make sure that the source file exists
+    test -f "$SRCFILE" || return 3
+
     # make sure that the directory exists
-    mkdir -p `dirname $MD5FILE`
-    NEWMD5SUM="`cat $SRCFILE | grep -v "^#" | grep -v "^[[:space:]]*$" | md5sum`"
-    if test ! -s $DSTFILE ; then
-        touch $DSTFILE
-        rm -f $MD5FILE
+    mkdir -p "${MD5FILE%/*}" || return 3
+
+    local RET=0
+    local NEWMD5SUM USERMD5SUM OLDMD5SUM DATE BAKFILE
+
+    # create new md5sum
+    NEWMD5SUM="`cat "$SRCFILE" 2>/dev/null | grep -Ev "^#|^[[:space:]]*$" | md5sum`"
+    if test ! -s "$OUTFILE" ; then
+        touch "$OUTFILE" || return 3
+        rm -f "$MD5FILE"
     fi
 
     if test "$FORCE_REPLACE" = true ; then
 
-        USERMD5SUM="`cat $DSTFILE | grep -v "^#" | grep -v "^[[:space:]]*$" | md5sum`"
-        test -e $MD5FILE || echo "$USERMD5SUM" > $MD5FILE
-        OLDMD5SUM="`cat $MD5FILE`"
+        USERMD5SUM="`cat "$DSTFILE" | grep -v "^#" | grep -v "^[[:space:]]*$" | md5sum`"
+        test -e "$MD5FILE" || echo "$USERMD5SUM" > "$MD5FILE"
+        OLDMD5SUM=`cat "$MD5FILE"`
 
         # backup DSTFILE only if it exist with some content and
-        # was really changed by the user and the new generated file 
-        # has a different content
-        if [ -s $DSTFILE -a \
+        # was really changed by the user and the new generated
+        # file has a different content
+        if [ -s "$OUTFILE" -a \
             "$USERMD5SUM" != "$OLDMD5SUM" -a \
             "$USERMD5SUM" != "$NEWMD5SUM" ]; then
 
             DATE=$(date +%Y%m%d-%H%M%S)
-            BAKFILE="$DSTFILE.$DATE"
-            #
-            # FIXME: what should happen if the backup file exists?
-            #        better to put the backup to /var/adm/backup?
-            #
-            #if [ ! -e $BAKFILE ]; then
-            cp -p $DSTFILE $BAKFILE
+            BAKFILE="${OUTFILE}.${DATE}"
+            cp -p --backup=existing "$OUTFILE" "$BAKFILE"
             log "force replace set: backup created as $BAKFILE"
-            #fi
         fi
-        cp -p $SRCFILE $DSTFILE
+        cp -p "$SRCFILE" "$OUTFILE"
     fi
 
-    USERMD5SUM="`cat $DSTFILE | grep -v "^#" | grep -v "^[[:space:]]*$" | md5sum`"
-    test -e $MD5FILE || echo "$USERMD5SUM" > $MD5FILE
-    OLDMD5SUM="`cat $MD5FILE`"
+    USERMD5SUM="`cat "$DSTFILE" | grep -Ev "^#|^[[:space:]]*$" | md5sum`"
+    test -e "$MD5FILE" || echo "$USERMD5SUM" > "$MD5FILE"
+    OLDMD5SUM=`cat "$MD5FILE"`
     if test "$USERMD5SUM" != "$OLDMD5SUM" -a \
             "$USERMD5SUM" != "$NEWMD5SUM" ; then
 
         log "ATTENTION: You have modified $DSTFILE.  Leaving it untouched..."
-        log "You can find my version in $SRCFILE ..."
-        
+        if test "x$OSUFFIX" != x -a \
+                "x$SRCFILE" != "${OUTFILE}${OSUFFIX}" && \
+           mv -f "$SRCFILE" "${OUTFILE}${OSUFFIX}" &>/dev/null ; then
+            log "You can find my version in ${OUTFILE}${OSUFFIX}"
+	    test "x$ERR_VAR" != x && eval "$ERR_VAR='${OUTFILE}${OSUFFIX}'"
+        else
+            log "You can find my version in $SRCFILE ..."
+	    test "x$ERR_VAR" != x && eval "$ERR_VAR='${SRCFILE}'"
+        fi
         RET=2
     else
         if test "$USERMD5SUM" != "$NEWMD5SUM" -o "$FORCE_REPLACE" = "true" ; then
             debug "Installing new $DSTFILE"
-            cp -p $SRCFILE $DSTFILE
+            cp -p "$SRCFILE" "$OUTFILE"
         else
             debug "No changes for $DSTFILE"
             RET=1
         fi
-        rm -f $SRCFILE
+        rm -f "$SRCFILE"
     fi
-    rm -f $MD5FILE
-    echo "$NEWMD5SUM" > $MD5FILE
+    rm -f "$MD5FILE"
+    echo "$NEWMD5SUM" > "$MD5FILE"
 
     return $RET
 }
