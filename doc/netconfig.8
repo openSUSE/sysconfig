@@ -104,8 +104,11 @@ netconfig actions.
 .SH NETCONFIG VARIABLES
 .TP
 .B NETCONFIG_MODULES_ORDER
-Defines the start order of the netconfig modules to use.
+This variable defines the start order of netconfig modules installed
+in the \fB/etc/netconfig.d/\fR directory.
 
+To disable the execution of a module, don't remove it from the list
+but prepend it with a minus sign, \fI-ntp-runtime\fR.
 .TP
 .B NETCONFIG_*_POLICY
 Netconfig defines a merge policy variable for each set of network settings.

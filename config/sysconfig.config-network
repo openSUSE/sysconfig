@@ -217,7 +217,11 @@ WRITE_HOSTNAME_TO_HOSTS="yes"
 ## Type:        string
 ## Default:     "dns-resolver dns-bind ntp-runtime nis"
 #
-# Defines the start order of netconfig modules (/etc/netconfig.d/).
+# This variable defines the start order of netconfig modules installed
+# in the /etc/netconfig.d/ directory.
+#
+# To disable the execution of a module, don't remove it from the list
+# but prepend it with a minus sign, "-ntp-runtime".
 #
 NETCONFIG_MODULES_ORDER="dns-resolver dns-bind dns-dnsmasq ntp-runtime nis"
 

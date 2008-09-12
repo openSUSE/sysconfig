@@ -216,6 +216,9 @@ function run_plugins() {
 
     debug "Module order: $NETCONFIG_MODULES_ORDER"
     for plg in $NETCONFIG_MODULES_ORDER; do
+	case $plg in
+	  -*) continue ;;
+	esac
         if [ ! -x $PLUGINDIR/$plg ]; then
             continue
         fi
