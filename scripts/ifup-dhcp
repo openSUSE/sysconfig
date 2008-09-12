@@ -916,7 +916,7 @@ case "$ACTION" in
 
 				# double check & set status
 				for i in $dhcpcd_on_device; do
-					kill -0 $i 2>/dev/null || STATUS=$R_ERROR
+					kill -0 $i 2>/dev/null && STATUS=$R_ERROR
 				done
 			fi
 
