@@ -165,13 +165,6 @@ do
 	fi
 done
 
-# FIXME: move to the stop section?
-#if [ "$INTERFACE" = all ]; then
-#	# 'rcnetwork stop' also calls us with "ifdown-dhcp all" in the end to make
-#	# sure that all DHCP clients are stopped. But if there is none installed,
-#	# there is nothing to do and we can silently quit
-#	exit $R_SUCCESS
-#fi
 
 print_mesg() {
 	func=$1 ; shift
@@ -295,7 +288,7 @@ start_dhcp4_dhcpcd() {
 
 	# avoid deconfiguration of the interface at startup in nfsroot case (bnc#397484)
 	# TODO: make sure, it (the dhcpcd binary) deconfigures ipv4 addresses only...
-	test "$STARTMODE" == "nfsroot" && args="-p $args"
+	test "$STARTMODE" = "nfsroot" && args="-p $args"
 
 	DHCLIENT_ARGS="$args"
 
@@ -442,7 +435,7 @@ case "$ACTION" in
 				commit_cached_config_data $INTERFACE
 			else
 				# primary interface already up -> DHCLIENT_PRIMARY_DEVICE='no'
-				if [ "${PRIMARY_FROM_CACHE% }" == $INTERFACE ]; then
+				if [ "${PRIMARY_FROM_CACHE% }" = $INTERFACE ]; then
 					# special case for ifrenew:
 					# we are the primary interface which is up 
 					DHCLIENT_PRIMARY_DEVICE='yes'
@@ -757,124 +750,195 @@ case "$ACTION" in
 
 	;;
 	stop)
-		debug "Shutting down dhcp clients on $INTERFACE"
+		ALL_INTERFACES=()
+		STOPPED_IFACES=()
 
-		#if [ "$INTERFACE" = all ]; then 
-		#	# 'rcnetwork stop' also calls us with "ifdown-dhcp all" in the end to make
-		#	# sure that all DHCP clients are stopped.  But if there is none installed,
-		#	# there is nothing to do and we can silently quit
-		#	exit $R_SUCCESS
-		#else
-		#	logerror "Neither a DHCPv4 nor a DHCPv6 client is available."
-		#	logerror "Please install the 'dhcpcd' or 'dhcp-client' and 'dhcpv6' packages"
-		#	exit $R_ERROR
-		#fi
+		if [ "$INTERFACE" != all ]; then
+			ALL_INTERFACES=($INTERFACE)
 
-		# TODO: consider config modifications / stop whatever dhcp client !!
-		for BOOTPROTO in ${BOOTPROTOS[@]} ; do
-			case "$BOOTPROTO" in
-			(dhcp4)
-				case $DHCLIENT in 
-				(dhcpcd) 
-					# let's first test if any dhcpcd processes are running on this
-					# interface.  Unfortunately, the pid file is not there when it starts
-					# up, so we can't rely on that.  Normally, only one process is running
-					# per interface. but we have made bad experiences with ...hotplug 
+			debug "Shutting down dhcp clients on $INTERFACE"
+
+			# first try the configured way
+			for BOOTPROTO in ${BOOTPROTOS[@]} ; do
+				case "$BOOTPROTO" in
+				(dhcp4)
 					dhcpcd_on_device="`dhcpc4_on_iface`"
+					USE_SIGNAL="-TERM"
 
-					test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" \
-					  && USE_SIGNAL="-HUP" || USE_SIGNAL="-TERM"
+					case $DHCLIENT in
+					(dhcpcd)
+						if test "$STARTMODE" = "nfsroot" ;
+						then
+							USE_SIGNAL="-KILL"
+						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" ;
+						then
+							USE_SIGNAL="-HUP"
+						fi
+					;;
+					(dhclient)
+						DHCPIFLEASE="/var/lib/dhcp/dhclient.${INTERFACE}.lease"
+						DHCPIFPID="/var/run/dhclient.${INTERFACE}.pid"
+
+						if test "$STARTMODE" = "nfsroot" ;
+						then
+							USE_SIGNAL="-KILL"
+						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" ;
+						#          -a -f "${DHCPIFLEASE}" ?!
+						then
+							$DHCLIENT_BIN -r \
+								-cf /dev/null \
+								-lf "$DHCPIFLEASE" \
+								-pf "$DHCPIFPID" \
+								$INTERFACE </dev/null &>/dev/null
+						fi
+					;;
+					esac
 
 					# send termination signal
 					for i in $dhcpcd_on_device; do
 						kill $USE_SIGNAL $i &>/dev/null
 					done
 
-		                        # wait until the processes are gone
+					# wait until the processes are gone
 					for i in $dhcpcd_on_device; do
-						for ((wait=0; wait<30; wait++)); do
-							if test -d /proc/$i; then usleep 300000
-							else continue 2
+						for ((wait=0; wait<=20; wait++)); do
+							if test -d /proc/$i ; then
+								usleep 300000
+							else
+								continue 2
 							fi
-							if [ $wait = 20 ]; then
+							if [ $wait -eq 20 ]; then
 								#message "process $i still not dead, sending SIGKILL"
 								kill -KILL $i &>/dev/null
 							fi
 						done
 					done
-
-					if [ -z "$dhcpcd_on_device" ]; then 
-						# dhcpcd may not be running (it quits if it gets an 
-						# infinite lease)
-						info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
-						if test -s $info && grep -q LEASETIME=4294967295 $info; then
-							debug "dhcpcd is no longer running on $INTERFACE, since it got"
-							debug "an infinite lease. Manually shutting down the interface."
-							# Calling 'ip' if there is no interface (ifdown called from udev
-							# for remove event) would trigger automatic module loading
-							# (Bug 199456)
-							if [ -d /sys/class/net/$INTERFACE ] ; then
-								ip -o inet addr flush dev $INTERFACE &>/dev/null
-							fi
-						fi
-					fi
 				;;
-				(dhclient)
-					# If ISC dhclient is used for more than one interfaces, we have to stop
-					# it and restart it without this interface when removing one interface,
-					# or we have to use the OMAPI interface
-					# !!! Currently, we do not provide that.
-					killproc $DHCLIENT_BIN &>/dev/null 
+				(dhcp6)
+					dhcpcd_on_device="`dhcpc6_on_iface`"
+					USE_SIGNAL="-TERM"
+
+					case $DHCLIENT6 in
+					(dhcp6c)
+						DHCP6IFCONF="/var/lib/dhcpv6/dhcp6c.${INTERFACE}.conf"
+						DHCP6IFPID="/var/run/dhcp6c.${INTERFACE}.pid"
+						if test "$STARTMODE" = "nfsroot" ;
+						then
+							USE_SIGNAL="-9"
+						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" ;
+						then
+							$DHCLIENT6_BIN -r all \
+								-c /dev/null \
+								$INTERFACE </dev/null &>/dev/null
+						fi
+					;;
+					(dhclient6)
+						DHCP6IFLEASE="/var/lib/dhcp/dhclient6.${INTERFACE}.lease"
+						DHCP6IFPID="/var/run/dhclient6.${INTERFACE}.pid"
+
+						if test "$STARTMODE" = "nfsroot" ;
+						then
+							USE_SIGNAL="-9"
+						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" \
+						          -a -f "${DHCPIFLEASE}" ;
+						then
+							$DHCLIENT_BIN6 -6 -r \
+								-cf /dev/null \
+								-lf "$DHCPIFLEASE" \
+								-pf "$DHCPIFPID" \
+								$INTERFACE
+						fi
+					;;
+					esac
+
+					# send termination signal
+					for i in $dhcpcd_on_device; do
+						kill $USE_SIGNAL $i &>/dev/null
+					done
+
+					# wait until the processes are gone
+					for i in $dhcpcd_on_device; do
+						for ((wait=0; wait<=20; wait++)); do
+							if test -d /proc/$i ; then
+								usleep 300000
+							else
+								continue 2
+							fi
+							if [ $wait -eq 20 ]; then
+								#message "process $i still not dead, sending SIGKILL"
+								kill -KILL $i &>/dev/null
+							fi
+						done
+					done
 				;;
 				esac
+			done
+		else
+			debug "Shutting down dhcp clients on all interfaces"
+			for i in `ls -1 /sys/class/net 2>/dev/null` ; do
+				test -d "/sys/class/net/$i" || continue
+				ALL_INTERFACES=(${ALL_INTERFACES[@]} $i)
+			done
+		fi
 
-				# We send -9 because interfaces have to stay up for STARTMODE==nfsroot
-				test "$INTERFACE" = all && killall -9 $DHCLIENT_BIN &>/dev/null
-			;;
-			(dhcp6)
-				dhcpcd_on_device="`dhcpc6_on_iface`"
+		STATUS=$R_SUCCESS
+		# now verify it & "kill them all"
+		# catching also INTERFACE=all case
+		for INTERFACE in ${ALL_INTERFACES[@]} ; do
 
-				# TODO:
-				#test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes"
-				
+			# try to catch also config changes
+			dhcpcd_on_device=`any_dhcpc_on_iface`
+
+			if test -n "$dhcpcd_on_device" ; then
 				# send termination signal
+				test "$STARTMODE" = "nfsroot" && \
+					USE_SIGNAL="-KILL" || \
+					USE_SIGNAL="-TERM"
+
 				for i in $dhcpcd_on_device; do
-					kill -TERM $i &>/dev/null
+					kill $USE_SIGNAL $i &>/dev/null
 				done
 
 				# wait until the processes are gone
 				for i in $dhcpcd_on_device; do
-					for ((wait=0; wait<30; wait++)); do
-						if test -d /proc/$i; then usleep 300000
-						else continue 2
+					for ((wait=0; wait<=10; wait++)); do
+						if test -d /proc/$i ; then
+							usleep 300000
+						else
+							continue 2
 						fi
-						if [ $wait = 20 ]; then
-							echo process $i still not dead, sending SIGKILL
+						if [ $wait -eq 10 ]; then
+							#message "process $i still not dead, sending SIGKILL"
 							kill -KILL $i &>/dev/null
 						fi
 					done
 				done
 
-				# We send -9 because interfaces have to stay up for STARTMODE==nfsroot
-				test "$INTERFACE" = all && killall -9 $DHCLIENT6_BIN &>/dev/null
-			;;
-			esac
+				# double check & set status
+				for i in $dhcpcd_on_device; do
+					kill -0 $i 2>/dev/null || STATUS=$R_ERROR
+				done
+			fi
+
+			# Hmm...:
+			#if [ $STATUS -eq $R_SUCCESS ] ; then
+
+			# delete primary flag from cache file if needed
+			delete_from_cached_config_data primary yes $INTERFACE
+			commit_cached_config_data $INTERFACE
+
+			# This is useful for pcmcia interfaces... before the modules can be
+			# unloaded, the device must be unused.
+			if [ "$STARTMODE" != "nfsroot" -a "$DHCLIENT_SET_DOWN_LINK" = yes ] ; then
+				if [ -d /sys/class/net/$INTERFACE ] ; then
+					ip link set down dev $INTERFACE
+				fi
+			fi
+
+			#fi
 		done
 
-		# delete primary flag from cache file
-		delete_from_cached_config_data primary yes $INTERFACE
-		commit_cached_config_data $INTERFACE
-
-		# This is useful for pcmcia interfaces... before the modules can be
-		# unloaded, the device must be unused.
-		if [ "$DHCLIENT_SET_DOWN_LINK" = yes ] ; then
-			if [ -d /sys/class/net/$INTERFACE ] ; then
-				ip link set down dev $INTERFACE
-			fi
-		fi
-
-		# Hmm...:
-		exit 0
+		exit $STATUS
 	;;
 	status)
 		if ifup_on_iface ; then
