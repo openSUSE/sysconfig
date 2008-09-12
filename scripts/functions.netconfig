@@ -56,11 +56,11 @@ function get_variable()
 function read_symlink()
 {
     local name="$1"
+    local dest=""
     if test "x$name" != x ; then
-        readlink -f "$name" 2>/dev/null
-    else
-        echo "$name"
+        dest=`readlink -f "$name" 2>/dev/null`
     fi
+    test "x$dest" != x && echo "$dest" || echo "$name"
 }
 
 #
