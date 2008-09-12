@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Fri Sep 12 16:19:29 CEST 2008 - mt@suse.de
+
+- new version 0.71.4
+- Improved ifdown-dhcp script and some dhcp related functions.
+- Fixed to allow to disable netconfig modules using -module in
+  NETCONFIG_MODULES_ORDER variable; updated documentation.
+- Fixed to follow a /etc/resolv.conf symlink to support a read
+  only root-fs in netconfig modules; needs (/bin/)readline.
+- Implemented netconfig.d/dns-dnsmasq module (bnc#401648).
+- Fixed duplicate matching in netconfig.d/nis (bnc#423177).
+- Fixed DHCLIENT_SET_HOSTNAME handling for dhcpcd (bnc#418168).
+
+-------------------------------------------------------------------
 Tue Aug 26 14:42:51 CEST 2008 - mt@suse.de
 
 - new version 0.71.3
