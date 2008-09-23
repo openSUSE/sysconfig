@@ -264,11 +264,6 @@ start_dhcp4_dhcpcd() {
 	test "$DHCLIENT_SET_HOSTNAME"        = "yes" && args="$args -HHH"
 	test "$DHCLIENT_SET_DEFAULT_ROUTE"  != "yes" && args="$args -G"
 
-	test -n "$DHCLIENT_TIMEOUT"                  && args="$args -t $DHCLIENT_TIMEOUT"
-	test -n "$DHCLIENT_CLIENT_ID"                && args="$args -I $DHCLIENT_CLIENT_ID"
-	test -n "$DHCLIENT_VENDOR_CLASS_ID"          && args="$args -i $DHCLIENT_VENDOR_CLASS_ID"
-	test -n "$DHCLIENT_LEASE_TIME"               && args="$args -l $DHCLIENT_LEASE_TIME"
-
 	# send hostname for DDNS?
 	case "$DHCLIENT_HOSTNAME_OPTION" in
 		AUTO|auto)
@@ -279,15 +274,11 @@ start_dhcp4_dhcpcd() {
 			DHCLIENT_HOSTNAME_OPTION="$FQHOSTNAME"
 		;;
 	esac
-	test -n "$DHCLIENT_HOSTNAME_OPTION"          && args="$args -h $DHCLIENT_HOSTNAME_OPTION"
 
-	# this used to be hardcoded in the dhcpcd binary, but we have reverted it in order 
-	# to allow innocent commandline users to use dhcpcd without calling the 
-	# dhcpcd-hook/ifup machinery [#85849]
+	# hardcoded in the dhcpcd binary when --netconfig is in use, but ...
 	args="$args -c /etc/sysconfig/network/scripts/dhcpcd-hook"
 
 	# avoid deconfiguration of the interface at startup in nfsroot case (bnc#397484)
-	# TODO: make sure, it (the dhcpcd binary) deconfigures ipv4 addresses only...
 	test "$STARTMODE" = "nfsroot" && args="-p $args"
 
 	DHCLIENT_ARGS="$args"
@@ -296,9 +287,22 @@ start_dhcp4_dhcpcd() {
 	test -d /var/lib/dhcpcd || mkdir -p /var/lib/dhcpcd && \
 	touch /var/lib/dhcpcd/dhcpcd-$INTERFACE.timestamp || return 1
 
+	# collect args that may contain spaces and write debug...
+	args="$args${DHCLIENT_TIMEOUT:+ -t \"$DHCLIENT_TIMEOUT\"}"
+	args="$args${DHCLIENT_CLIENT_ID:+ -I \"$DHCLIENT_CLIENT_ID\"}"
+	args="$args${DHCLIENT_VENDOR_CLASS_ID:+ -i \"$DHCLIENT_VENDOR_CLASS_ID\"}"
+	args="$args${DHCLIENT_LEASE_TIME:+ -l \"$DHCLIENT_LEASE_TIME\"}"
+	args="$args${DHCLIENT_HOSTNAME_OPTION:+ -h \"$DHCLIENT_HOSTNAME_OPTION\"}"
+	debug "Starting dhcp client: $DHCLIENT_BIN $args $INTERFACE"
+
 	# now start dhcpcd
-	debug "Starting dhcp client: $DHCLIENT_BIN $DHCLIENT_ARGS $INTERFACE"
-	$DHCLIENT_BIN $DHCLIENT_ARGS $INTERFACE </dev/null &>/dev/null &
+	$DHCLIENT_BIN $DHCLIENT_ARGS \
+		${DHCLIENT_TIMEOUT:+-t "$DHCLIENT_TIMEOUT"}                 \
+		${DHCLIENT_CLIENT_ID:+-I "$DHCLIENT_CLIENT_ID"}             \
+		${DHCLIENT_VENDOR_CLASS_ID:+-i "$DHCLIENT_VENDOR_CLASS_ID"} \
+		${DHCLIENT_LEASE_TIME:+-l "$DHCLIENT_LEASE_TIME"}           \
+		$DHCLIENT_HOSTNAME_OPTION:+-h "$DHCLIENT_HOSTNAME_OPTION"}  \
+		$INTERFACE </dev/null &>/dev/null &
 }
 
 start_dhcp4_dhclient() {
