@@ -680,12 +680,9 @@ if [ "$DHCP" != yes ] ; then
 		                                 ${OPTIONS:+-o $OPTIONS}
 	fi
 
-	# FIXME: uff, cleanup it
-
 	if [ "$SCRIPTNAME" = ifup ] ; then
 		# before setting up interfaces we have to configure
 		# wireless NICs
-		# FIXME: really without $INTERFACETYPE check ?
 		scripts/${SCRIPTNAME}-wireless $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		test "$?" -ne 0 && exit
 
@@ -1125,7 +1122,6 @@ if [ "$DHCP" != yes ] ; then
 	if [ "$SCRIPTNAME" = ifdown ] ; then
 		# after shutting down interfaces ifup-wireless
 		# has to kill the wpa daemon
-		# FIXME: again without INTERFACETYPE check?
 		scripts/${SCRIPTNAME}-wireless $CONFIG $INTERFACE \
 		${OPTIONS:+-o $OPTIONS}
 
