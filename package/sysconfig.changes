@@ -1,4 +1,26 @@
 -------------------------------------------------------------------
+Tue Sep 23 16:55:45 CEST 2008 - mt@suse.de
+
+- version 0.71.5
+- Fixed ifup-dhcp to retain spaces DHCLIENT_VENDOR_CLASS_ID and
+  other dhcpcd option values (bnc#424356).
+- Fixed typo and improved vlan handling in is_iface_available.
+- Splitted ib interface type into ib and ibchild (e.g. ib0.8001),
+  added ib vs. ibchild handling to several functions and the
+  /etc/init.d/network script (bnc#423046).
+- Implemented a supported_on_localfs function returning whether an
+  interface is supported without a mounted remotefs (/usr on NFS)
+  and extended the resolve_iface_startorder function to support an
+  optional filter function (e.g. supported_on_localfs).
+  Changed LSB tags in /etc/init.d/network script to not to require
+  haldaemon and added localfs|remotefs filter parameter allowing to
+  split the interface handling. While boot, only localfs interfaces
+  are started now. Added network-remotefs script with separate LSB
+  tags to start the remotefs depending interfaces later (bnc#425502).
+- Corrected netconfig configuration hint comments that are written
+  to the destination files like /etc/resolv.conf (bnc#428201).
+
+-------------------------------------------------------------------
 Fri Sep 12 16:19:29 CEST 2008 - mt@suse.de
 
 - new version 0.71.4
