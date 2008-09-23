@@ -34,7 +34,7 @@ sbin_SCRIPTS =	ifup \
 		ifup-dhcp \
 		netconfig
 
-init_d_SCRIPTS = network
+init_d_SCRIPTS = network network-remotefs
 
 ppp_SCRIPTS = 	ip-up \
 		poll.tcpip
@@ -56,7 +56,7 @@ install-data-hook:
 	ln -sf ifup-dhcp 		$(DESTDIR)/$(sbindir)/ifdown-dhcp
 	ln -sf ifup-dhcp		$(DESTDIR)/$(sbindir)/ifstatus-dhcp
 	ln -sf ifup-dhcp		$(DESTDIR)/$(sbindir)/ifrenew-dhcp
-	ln -sf ../etc/init.d/network 	$(DESTDIR)/$(sbindir)/rcnetwork
+	ln -sf /etc/init.d/network 	$(DESTDIR)/$(sbindir)/rcnetwork
 	ln -sf ifup-route 		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-route
 	ln -sf ifup-route 		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-route
 	ln -sf ifdown-connection	$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-connection

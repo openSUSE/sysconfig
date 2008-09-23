@@ -1,0 +1,87 @@
+#!/bin/bash
+#
+# RemoteFS depending network interface configuration
+#
+# Copyright (c) 2008 SUSE LINUX Products GmbH, Nuernberg, Germany.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: Marius Tomaschewski <mt@suse.de>
+#
+# $Id$
+#
+# /etc/init.d/network-remotefs
+#
+### BEGIN INIT INFO
+# Provides:		network-remotefs
+# Required-Start:	$network $remote_fs haldaemon
+# Should-Start:		
+# Required-Stop:	$network $remote_fs haldaemon
+# Should-Stop:		
+# Default-Start:	2 3 5
+# Default-Stop:		
+# Short-Description:	Configure the remote-fs depending network interfaces
+# Description:		Configure the remote-fs depending network interfaces
+#                       and set up routing
+### END INIT INFO
+
+. /etc/rc.status
+rc_reset
+
+cd /etc/sysconfig/network
+test -f ./config && . ./config
+if ! . scripts/functions 2>/dev/null; then
+	echo -n "Network: file /etc/sysconfig/network/scripts/functions is missing."
+	rc_failed
+	rc_status -v
+	rc_exit
+fi
+
+test "$DEBUG" = "EXTRA" && . scripts/extradebug
+
+# Only use ifup option 'onboot' if booting or changing runlevel
+# Therefore we check if we were called from init
+MODE=""
+if [ -n "$INIT_VERSION" ] ; then
+	MODE=onboot
+fi
+
+######################################################################
+# Commandline parsing
+#
+SCRIPTNAME=${0##*/}
+debug $*
+declare -a ARGS=()
+while [ $# -gt 0 ]; do
+	: $1
+	case $1 in
+	(-o) shift ; break          ;;
+	(*)  ARGS=(${ARGS[@]} "$1") ;;
+	esac
+	shift
+done
+declare -a OPTS=(remotefs)
+while [ $# -gt 0 ]; do
+	echo "OPT: '$1'"
+	case $1 in
+	(boot|onboot)   MODE=onboot ;;
+	(localfs|remotefs) : ignore ;;
+	(*)  OPTS=(${OPTS[@]} "$1") ;;
+	esac
+	shift
+done
+
+exec /etc/init.d/network ${ARGS[@]} -o ${OPTS[@]}
+

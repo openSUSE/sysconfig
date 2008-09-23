@@ -214,6 +214,7 @@ done
 popd > /dev/null
 #
 %{fillup_and_insserv -fY network}
+%{fillup_and_insserv -fY network-remotefs}
 %{fillup_only -dns dhcp network network}
 %{fillup_only -dns config network network}
 /sbin/ldconfig
