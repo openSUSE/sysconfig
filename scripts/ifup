@@ -908,11 +908,10 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 		retcode=$?
 	;;
 	none)
-		# FIXME: not even ifdown? what when config is modified?
 		:
 	;;
 	*)
-		# FIXME: move this to ifup-static script
+		# TODO: move this to ifup-static script ?
 		case $SCRIPTNAME in
 			ifup)
 				retcode=$R_SUCCESS

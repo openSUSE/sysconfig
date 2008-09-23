@@ -248,6 +248,10 @@ up)
 		BONDING_SLAVE=${!BSVAR}
 		[ "x$BONDING_SLAVE" = x ] && continue
 
+		# slave has to be down while it gets added
+		if is_iface_up $BONDING_SLAVE ; then
+			ip link set down dev $BONDING_SLAVE
+		fi
 		echo "+$BONDING_SLAVE" > "$sysfs_iface/bonding/slaves"
 		if [ "$?" -gt 0 ]; then
 			logerror "Could not enslave interface '$BONDING_SLAVE'"
