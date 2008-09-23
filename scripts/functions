@@ -21,6 +21,7 @@
 #
 # Authors: Michal Svec <msvec@suse.cz>
 #          Mads Martin Joergensen <mmj@suse.de>
+#          Marius Tomaschewski <mt@suse.de>
 #
 # $Id$
 #
@@ -78,13 +79,27 @@ pfxlen2mask() {
 	echo ${octet[1]}.${octet[2]}.${octet[3]}.${octet[4]}
 }
 
+add_to_wordlist() {
+	local v="${1}"
+	local l=(${!v}) ; shift
+	local a w
+	for a in ${@} ; do
+		for w in ${l[@]} ; do
+			[ "x$w" = "x$a" ] && \
+			continue 2
+		done
+		l=(${l[@]} $a)
+	done
+	eval "$v='${l[@]}'"
+}
+
 is_iface_available () {
 	test -z "$1"              && 		return 1
 	test -d /sys/class/net/$1 && 		return 0
 	case $1 in
 		ippp*|isdn*|modem*|dsl*|ppp*)	return 0 ;;
 		ipip*|sit*|gre*|tun*|tap*)	return 0 ;;
-		ib.*|vlan)			return 0 ;;
+		ib.*|vlan*)			return 0 ;;
 	esac
 	test "${SCRIPTNAME%%-*}" = ifdown -a \
 	     "$MODE" = hotplug               &&	return 0
@@ -141,7 +156,11 @@ get_iface_type () {
 			}
 			;;
 		   24)	TYPE=eth ;; # firewire ;; # IEEE 1394 IPv4 - RFC 2734
-		   32)	TYPE=ib ;; # InfiniBand
+		   32)	# InfiniBand
+		      	case $IF in
+		      	*.*) TYPE=ibchild ;; *) TYPE=ib ;;
+		      	esac
+		      	;;
 		  512)	TYPE=ppp ;;
 		  768)	TYPE=ipip ;; # IPIP tunnel
 		  769)	TYPE= ;; # IP6IP6 tunnel
@@ -182,7 +201,7 @@ get_iface_type_from_config () {
 			test "${!VARIABLE}" == "$VALUE" && break
 		fi
 	done <<- EOL
-		INTERFACETYPE _not_empty_ 
+		INTERFACETYPE _not_empty_
 		WIRELESS yes wlan
 		WIRELESS_MODE _not_empty_ wlan
 		BONDING_MASTER yes bond
@@ -201,6 +220,10 @@ get_iface_type_from_config () {
 		ENCAP syncppp isdn
 		ENCAP rawip isdn
 	EOL
+	case "$IF" in
+		ib*.*) INTERFACETYPE=ibchild ;;
+		ib*)   INTERFACETYPE=ib      ;;
+	esac
 	test -n "$INTERFACETYPE" && echo $INTERFACETYPE && return
 	if [ -z "$TYPE" ] ; then
 		case $IF in
@@ -212,6 +235,41 @@ get_iface_type_from_config () {
 	fi
 	# There is a config file, but it has no special type: This must be ethernet
 	test -n "$TYPE" && echo $TYPE || echo eth
+}
+
+#
+# supported_on_localfs($INTERFACE [, $INTERFACETYPE])
+#
+# Returns 0 (true) when we support to start the interface
+# (configuration) on local-fs only, or 1 (false) when
+# also remote-fs is required (e.g. because of utilities
+# in /usr that may be on NFS) or 2 (false) on errors.
+#
+supported_on_localfs() {
+	local IFNAME=$1
+	local IFTYPE=${2:-$INTERFACETYPE}
+
+	test "x$IFNAME" = x && return 2
+	case $IFNAME in
+		eth1)	return 0 ;;
+		eth0)	return 1 ;;
+	esac
+	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type             $IFNAME)
+	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type_from_config $IFNAME)
+
+	# Currently it is sufficient to check the type only.
+	local result=1	# remote-fs requirement as default
+	case $IFTYPE in
+		"")                     result=2 ;;
+		lo)                     result=0 ;;
+		eth|tr)                 result=0 ;;
+		ib|ibchild)             result=0 ;;
+		vlan|bridge|bond)       result=0 ;;
+	esac
+	# tunnels in principle too, but it may be not possible
+	# to resolve the base / slave interface correctly ...
+	#tun|tap|sit|gre|ipip)   result=0 ;;
+	return $result
 }
 
 get_hwaddress () {
@@ -264,6 +322,10 @@ get_startmode () {
 
 get_slaves () {
 	local ret=1
+	local v vv
+	case $1 in
+		ib*.*) echo -n "${1%%\.*} " ; ret=0 ;;
+	esac
 	for v in BONDING_SLAVE ETHERDEVICE TUNNEL_DEVICE \
 	         TUNNEL_LOCAL_INTERFACE BRIDGE_PORTS; do
 		get_variable $v $1
@@ -478,7 +540,7 @@ has_link () {
 # Currently it checks only for vlan and bonding interfaces.
 # FIXME: Add other types of interfaces that depend on others.
 get_depending_ifaces() {
-	local VLAN_PATH BOND_PATH DEP_IFACES DEP_VLANS DEP_BONDS BASE_IFACE
+	local VLAN_PATH BOND_PATH DEP_IFACES DEP_VLANS DEP_BONDS BASE_IFACE i
 	VLAN_PATH="/proc/net/vlan"
 	BOND_PATH="/proc/net/bonding"
 	BASE_IFACE="$1"
@@ -501,6 +563,19 @@ get_depending_ifaces() {
 		DEP_IFACES="$DEP_IFACES${DEP_BONDS:+ $DEP_BONDS}"
 	fi
 
+	case $BASE_IFACE in
+		(ib*.*)	;;
+		(ib*)	# the infiniband children -- is there a better way?
+			for i in `ls -1 /sys/class/net/ 2>/dev/null` ; do
+				test -d /sys/class/net/$i || continue
+				case $i in (${BASE_IFACE}.*)
+					DEP_IFACES="${DEP_IFACES}${i:+ $i}"
+				;;
+				esac
+		     	done
+		;;
+	esac
+
 	if [ -z "$DEP_IFACES" ]; then
 		return 1
 	else
@@ -512,62 +587,102 @@ get_depending_ifaces() {
 resolve_iface_startorder()
 {
     #
+    # resolve_iface_startorder <name of the result variable>
+    #                          <list of interfaces to resolve>
+    #                          [ <skip list> [filter fuction] ]
     #
     # This function creates a start ordered list of virtual interfaces
     # as bondings, vlans and bridges known by the get_slaves() function.
     # It reads the base or "slave" interfaces of each virtual interface
     # recursively and inserts the slaves into the result list before the
     # virtual interface itself. Further it detects interface usage loops
-    # like: interface a needs b that needs a.
+    # like: interface "a" needs "b" and "b" needs "a" and skips them.
+    #
     # The optional skip list allows to stop the recursion insertion at
     # e.g. already started / existing physical slave interfaces.
+    # Addding interfaces to resolve to this skip list causes resolving
+    # of the recursive list of slave interfaces without the requested
+    # interfaces themself (resolve_iface_startorder slaves "br0" "br0").
+    #
+    # The optional filter function allows to filter out interfaces as
+    # well as all depending interfaces. For example a vlan interface
+    # will be filtered out, when the underlying interface gets filtered
+    # out. This happens also, when the function does not cause to filter
+    # out the vlan interface directly. Main purpose is to filter out
+    # interfaces, that are not supported without a mounted remotefs.
     #
     # $1:  the name of the result start ordered list variable to set
     # $2:  list of virtual interfaces to resolve the start order for
-    # $3:  list of (physical) slave interfaces to skip/stop reading
+    # $3:  optional list of interfaces to skip/stop reading
+    # $4:  optional (white list) filter function returning true for
+    #      acceptable interfaces and false to filter out an interface.
     #
     # returns 0 on success,
     #         1 on empty result list name,
-    #         2 on interface usage loop error
+    #         [2 on interface usage loop error; disabled]
     #
     local NAME="$1"
     local TODO="$2"
     local SKIP="$3"
-    local LIST=''
+    local FUNC="$4"
+    local LIST=()
 
     _resolve_iface_startorder() {
-	local GUARD="$1"
-	local TODO="$2"
-	local SKIP="$3"
-	local slaves iface i
-	for iface in $TODO ; do
-		for i in $GUARD ; do
-			[ "x$i" = "x$iface" ] && {
+	local  todo="$1"
+	local  skip="$2"
+	local  func="$3"
+	local guard="$4"
+	local level="$5"
+	local slaves iface i ret
+	local result=0
+	for iface in ${todo} ; do
+		for i in ${guard} ; do
+			if [ "x${i}" = "x${iface}" ] ; then
 				err_mesg "Interface dependency loop " \
-				         "detected: $GUARD $iface"
+				         "detected: ${guard} ${iface}"
+				# guard non-empty in level > 0
 				return 2
-			}
+			fi
 		done
-		for i in $LIST $SKIP ; do
+
+		if [ "x$func" != x ] && ! $func "$iface" &>/dev/null ; then
+			[ $level -eq 0 ] && continue || return 3
+		fi
+
+		slaves=(`get_slaves $iface 2>/dev/null`)
+		if [ $? = 0 -a ${#slaves[@]} -gt 0 ] ; then
+			ret=0
+			_resolve_iface_startorder \
+				"${slaves[@]}"    \
+				"${skip}"         \
+				"${func}"         \
+				"${guard} $iface" \
+                                $(($level+1))     \
+				|| ret=$?
+			if [ $ret -ne 0 ] ; then
+				if [ $level -eq 0 ] ; then
+					#result=$ret
+					continue
+				else
+					return $ret
+				fi
+			fi
+		fi
+
+		for i in ${LIST[@]} ${skip} ; do
 			[ "x$i" = "x$iface" ] && continue 2
 		done
 
-		slaves="`get_slaves $iface`"
-		[ $? = 0 ] || continue 2
-
-		_resolve_iface_startorder "$GUARD $iface" \
-			"$slaves" "$SKIP" || return $?
-
-		[ "x$LIST" = x ] && LIST="$iface" || LIST="$LIST $iface"
+		LIST=(${LIST[@]} $iface)
 	done
-	return 0
+	return $result
     }
 
     [ "x$NAME" = x ] && return 1
 
-    _resolve_iface_startorder "" "$TODO" "$SKIP" || return $?
+    _resolve_iface_startorder "$TODO" "$SKIP" "$FUNC" "" 0 || return $?
 
-    eval "$NAME='$LIST'"
+    eval "$NAME='${LIST[@]}'"
 }
 
 nm_running () {
