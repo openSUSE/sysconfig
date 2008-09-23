@@ -94,20 +94,22 @@ add_to_wordlist() {
 }
 
 is_iface_available () {
-	test -z "$1"              && 		return 1
-	test -d /sys/class/net/$1 && 		return 0
-	case $1 in
-		ippp*|isdn*|modem*|dsl*|ppp*)	return 0 ;;
-		ipip*|sit*|gre*|tun*|tap*)	return 0 ;;
-		ib.*|vlan*)			return 0 ;;
+	local IFNAME=${1}
+	local IFTYPE=${2:-$INTERFACETYPE}
+	test -z "$IFNAME"              &&       return 1
+	test -d /sys/class/net/$IFNAME &&       return 0
+	case $IFNAME in
+		ippp*|isdn*|modem*|dsl*|ppp*)   return 0 ;;
+		ipip*|sit*|gre*|tun*|tap*)      return 0 ;;
+		ib*.*|vlan*)                    return 0 ;;
 	esac
 	test "${SCRIPTNAME%%-*}" = ifdown -a \
-	     "$MODE" = hotplug               &&	return 0
+	     "$MODE" = hotplug               && return 0
 	test "${SCRIPTNAME%%-*}" = ifup      && \
-	case $INTERFACETYPE in
-		bond|bridge)			return 0 ;;
+	case ${IFTYPE:-$(get_iface_type $IFNAME)} in
+		bond|bridge|vlan|ibchild)       return 0 ;;
 	esac
-	test -d /sys/class/net/$1
+	test -d /sys/class/net/$IFNAME
 }
 
 is_iface_up () {
@@ -450,7 +452,7 @@ delete_from_cached_config_data () {
 	MODFILE=$RUN_FILES_BASE/tmp/$PFX$NAME.$$          # MODFILE
 	TMPFILE=$RUN_FILES_BASE/tmp/$PFX$NAME.$$.tmp      # MODFILE
 	test -f $MODFILE || cp $FILE $MODFILE 2>/dev/null
-   FILE=$MODFILE                                       # MODFILE
+	FILE=$MODFILE                                       # MODFILE
 	touch $FILE
 		if [ -s "$FILE" ] ; then
 			while IFS== read a b; do
