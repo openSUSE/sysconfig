@@ -252,10 +252,6 @@ supported_on_localfs() {
 	local IFTYPE=${2:-$INTERFACETYPE}
 
 	test "x$IFNAME" = x && return 2
-	case $IFNAME in
-		eth1)	return 0 ;;
-		eth0)	return 1 ;;
-	esac
 	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type             $IFNAME)
 	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type_from_config $IFNAME)
 

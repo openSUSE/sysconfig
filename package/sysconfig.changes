@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Sep 24 15:03:21 CEST 2008 - mt@suse.de
+
+- Removed test hack from supported_on_localfs function...
+
+-------------------------------------------------------------------
 Tue Sep 23 16:55:45 CEST 2008 - mt@suse.de
 
 - version 0.71.5
