@@ -63,6 +63,7 @@ fi
 #
 SCRIPTNAME=${0##*/}
 debug $*
+ACTION=$1 ; shift
 declare -a ARGS=()
 while [ $# -gt 0 ]; do
 	: $1
@@ -83,5 +84,9 @@ while [ $# -gt 0 ]; do
 	shift
 done
 
-exec /etc/init.d/network ${ARGS[@]} -o ${OPTS[@]}
-
+case $ACTION in
+	# avoid rpmlint warnings adding common actions + *
+	start|stop|reload|force-reload|try-restart|restart|status|probe|*)
+		exec /etc/init.d/network $ACTION ${ARGS[@]} -o ${OPTS[@]}
+	;;
+esac
