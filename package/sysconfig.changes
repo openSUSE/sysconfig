@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Thu Sep 25 10:32:08 CEST 2008 - mt@suse.de
+
+- version 0.71.6
+- Fixed /etc/init.d/network script to exit in localfs flow when
+  the networkmanager is active (bnc#425502, bnc#285472).
+- Avoid rpmlint warnings about missed lsb reload action in the
+  /etc/init.d/network-remotefs script (bnc#425502).
+
+-------------------------------------------------------------------
 Wed Sep 24 15:03:21 CEST 2008 - mt@suse.de
 
 - Removed test hack from supported_on_localfs function...
