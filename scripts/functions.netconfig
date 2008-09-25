@@ -172,7 +172,7 @@ function openLockWait() {
     test -z "$1" && return 1
     test -z "$2" && return 1
 
-    for i in `seq 0 3`; do
+    for i in {0..3}; do
 
         openLock "$1"
         if [ "$?" = "0" ]; then

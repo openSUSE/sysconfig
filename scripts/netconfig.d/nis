@@ -201,7 +201,7 @@ function format_static() {
                        "$NETCONFIG_NIS_STATIC_SERVERS"
     fi
 
-    for i in `seq 0 99`; do
+    for i in {0..99} ; do
         nis_dom="NETCONFIG_NIS_STATIC_DOMAIN_$i"
         nis_srv="NETCONFIG_NIS_STATIC_SERVERS_$i"
 
