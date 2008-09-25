@@ -333,12 +333,16 @@ if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
     exit 1
 fi
 
-# FIXME: nfsroot support, don't abort when somebody just calls with "-h"
+# Check if we can write in /tmp
 if ! touch $r/tmp &>/dev/null; then
     echo "Filesystem read only: Cannot modify anything" >&2
     exit 1
 fi
 
+# Set usefull default umask
+umask 0022
+
+# Create state directory
 if ! mkdir -p "$STATEDIR" ; then
     echo "Unable to create netconfig state directory '$STATEDIR'" >&2
     exit 1
