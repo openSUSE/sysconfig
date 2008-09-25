@@ -111,8 +111,14 @@ test -f scripts/functions.common \
 #
 if [ "$NETWORKMANAGER" = yes ] ; then
 	if [ "$FS_FILTER" = "localfs" ] ; then
-		# skip, remote-fs required
-		NETWORKMANAGER=no
+		# NetworkManager is not supported without remotefs
+		# and will be started later via network-remotefs.
+		case $ACTION in
+			(status) exit 3 ;;
+			(start)  exit 0 ;;
+			(stop)          ;;
+			(*)      exit 6 ;;
+		esac
 	elif [ ! -x "$NETWORKMANAGER_BIN" ] ; then
 		NETWORKMANAGER=no
 		err_mesg "NetworkManager is not installed, thus using NetControl." \
@@ -558,8 +564,7 @@ bw_fs_filter()
 	return 0
 }	
 
-filter_first=0
-if test $filter_first -eq 0 -a "x$FS_FILTER" != x ; then
+if test "x$FS_FILTER" != x ; then
 	#
 	# Filter interfaces into a localfs and remotefs sets
 	#
@@ -714,7 +719,7 @@ fi
 
 case "$ACTION" in
 	start)
-		echo "Setting up${FS_FILTER:+ (${FS_FILTER})} network interfaces:"
+		echo "Setting up ${FS_FILTER:+(${FS_FILTER}) }network interfaces:"
 		lock_firewall
 		/sbin/ifstatus $LO &>/dev/null && unset $LO;
 		for IFACE in ${INTERFACE:- $LO
@@ -886,7 +891,7 @@ case "$ACTION" in
 			$FAKE ifup-route noiface -o rc $MODE
 			rc_status
 			test $FAILED -gt 0 && rc_failed 7
-			echo -n "Setting up service network  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
+			echo -n "Setting up service ${FS_FILTER:+(${FS_FILTER}) }network  .  .  .  .  .  .  .  .  .  ."
 			rc_status -v
 		fi
 
@@ -896,7 +901,7 @@ case "$ACTION" in
 
 	stop)
 
-		echo Shutting down${FS_FILTER:+ (${FS_FILTER})} network interfaces:
+		echo Shutting down ${FS_FILTER:+(${FS_FILTER}) }network interfaces:
 
 		if [ -z "$INTERFACE" ] ; then
 			$FAKE ifdown-route noiface -o rc $MODE
@@ -938,7 +943,7 @@ case "$ACTION" in
 			rm -f $RUN_FILES_BASE/config-*
 #			rm -f $STAMPFILE_STUB*
 			rm -f $NETWORK_RUNFILE
-			echo -n "Shutting down service network  .  .  .  .  .  .  .  .  .  .  .  .  ."
+			echo -n "Shutting down service ${FS_FILTER:+(${FS_FILTER}) }network  .  .  .  .  .  .  .  .  ."
 			rc_status -v
 		fi
 
@@ -1031,7 +1036,7 @@ case "$ACTION" in
 			rc_failed 3 # unused
 		fi
 
-		echo -n "Checking service network .  .  .  .  .  .  .  .  .  .  .  .  .  .  ."
+		echo -n "Checking service ${FS_FILTER:+(${FS_FILTER}) }network .  .  .  .  .  .  .  .  .  .  ."
 		rc_status -v
 
 		;;
