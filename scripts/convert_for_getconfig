@@ -376,7 +376,7 @@ fi
 #
 # first, process everything but aliases
 #
-for i in `seq 1 $n`; do
+for i in `eval "echo {0..$n}"`; do
 	file=${old_names_array[$i]}
 
 	# skip aliases 
