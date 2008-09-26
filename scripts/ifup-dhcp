@@ -368,10 +368,6 @@ start_dhcp6_dhcp6c() {
 
 case "$ACTION" in
 	start|renew)
-		# avoid that the temporary resolv.conf will persist after the client stops
-		# just because there hasn't been any resolv.conf to back up
-		test -e /etc/resolv.conf || touch /etc/resolv.conf
-
 		# Create the ntp runtime cache dir before the dhcp client is started.
 		# Netconfig writes the /var/run/ntp/servers-netconfig file containing
 		# the ntp server list that is picked up by the ntp init script to apply
