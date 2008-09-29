@@ -65,12 +65,18 @@ function read_symlink()
 }
 
 #
-# Usage: check_md5_and_move <srcfile> <destfile> [suffix] [err_var]
+# Usage: netconfig_check_md5_and_move <srcfile> <destfile>
+#                                     [suffix] [err_var]
+#                                     [additional match regex]
 #
 # This function checks the existence of a file and a corresponding 
 # md5 checksum and tests whether the checksum of the file has changed.
 # If it has, nothing further will happen. If not, the "$srcfile"
 # will be moved to "$destfile".
+# The additional match regex parameter (default "^###") additionally
+# matches special comments in the generated config file an should avoid,
+# that the user created/modified config gets overwritten when netconfig
+# generates one with exactly same data inside (and modify it later).
 #
 # The return values of this function:
 # RET=0 : file successfuly copied
@@ -79,12 +85,13 @@ function read_symlink()
 #         it still exists as $srcfile or in `readline $destfile`.$suffix;
 #         the err_var variable is set to the name.
 # RET=3 : ERROR: another error occured, e.g. some file operation failed
-check_md5_and_move()
+netconfig_check_md5_and_move()
 {
-    local SRCFILE="$1"
-    local DSTFILE="$2"
-    local OSUFFIX="$3"
-    local ERR_VAR="$4"
+    local SRCFILE=${1}
+    local DSTFILE=${2}
+    local OSUFFIX=${3}
+    local ERR_VAR=${4}
+    local NEW_ERX=${5:-"^###"}
     local MD5FILE="$MD5DIR/$DSTFILE"
     # DSTFILE may be a symlink on a read only /-fs
     local OUTFILE=`read_symlink "${DSTFILE}"`
@@ -96,42 +103,61 @@ check_md5_and_move()
     mkdir -p "${MD5FILE%/*}" || return 3
 
     local RET=0
-    local NEWMD5SUM USERMD5SUM OLDMD5SUM DATE BAKFILE
+    local NEWMD5SUM SRCMD5SUM DSTMD5SUM OLDMD5SUM DATE BAKFILE OLD_ERX
 
-    # create new md5sum
-    NEWMD5SUM="`cat "$SRCFILE" | grep -Ev '^#|^[[:space:]]*$' | md5sum`"
+    _read_erx_data()
+    {
+        test "x${1}" = x && return 1
+        awk -v erx="${2}" '
+            { if(length(erx) && match($0, erx) > 0) { print $0; next; } }
+            !/^#|^[[:space:]]*$/     { print $0; }
+            ' "$1"
+    }
+
+    # use old erx if set
+    OLD_ERX="${NEW_ERX}"
+    if test -s "$MD5FILE" ; then
+        OLD_ERX=`awk -- '/^#/ { if(NR==1) print substr($0,2); }' \
+            "$MD5FILE" 2>/dev/null`
+    fi
+    SRCMD5SUM=`_read_erx_data "$SRCFILE" "$OLD_ERX" | md5sum`
+    test "x${OLD_ERX}" = "x${NEW_ERX}" && NEWMD5SUM="$SRCMD5SUM" || \
+    NEWMD5SUM=`_read_erx_data "$SRCFILE" "$NEW_ERX" | md5sum`
+
+    # create empty DSTFILE (via OUTFILE) and reset md5
+    # when the DSTFILE is empty or does not exists ...
     if test ! -s "$OUTFILE" ; then
-        touch "$OUTFILE" || return 3
+        touch "$OUTFILE"   || return 3
+        # check if it exists (via link)
+        test -e "$DSTFILE" || return 3
+        DSTMD5SUM=`echo "" |  md5sum`
+        OLDMD5SUM="$DSTMD5SUM"
         rm -f "$MD5FILE"
+        { echo "#$OLD_ERX"; echo "$DSTMD5SUM"; } > "$MD5FILE"
+    else
+        DSTMD5SUM=`_read_erx_data "$DSTFILE" "$OLD_ERX" | md5sum`
+        OLDMD5SUM=`grep -Ev "^#" "$MD5FILE" 2>/dev/null`
     fi
 
     if test "$FORCE_REPLACE" = true ; then
-
-        USERMD5SUM="`cat "$DSTFILE" | grep -Ev '^#|^[[:space:]]*$' | md5sum`"
-        test -e "$MD5FILE" || echo "$USERMD5SUM" > "$MD5FILE"
-        OLDMD5SUM=`cat "$MD5FILE"`
-
         # backup DSTFILE only if it exist with some content and
         # was really changed by the user and the new generated
         # file has a different content
         if [ -s "$OUTFILE" -a \
-            "$USERMD5SUM" != "$OLDMD5SUM" -a \
-            "$USERMD5SUM" != "$NEWMD5SUM" ]; then
-
+                "$DSTMD5SUM" != "$OLDMD5SUM" -a \
+                "$DSTMD5SUM" != "$SRCMD5SUM" ]; then
             DATE=$(date +%Y%m%d-%H%M%S)
             BAKFILE="${OUTFILE}.${DATE}"
             cp -p --backup=existing "$OUTFILE" "$BAKFILE"
             log "force replace set: backup created as $BAKFILE"
         fi
-        cp -p "$SRCFILE" "$OUTFILE"
+        cp -p "$SRCFILE" "$OUTFILE" # redundant, but...
+        DSTMD5SUM="$SRCMD5SUM"
+        OLDMD5SUM="$SRCMD5SUM"
     fi
 
-    USERMD5SUM="`cat "$DSTFILE" | grep -Ev '^#|^[[:space:]]*$' | md5sum`"
-    test -e "$MD5FILE" || echo "$USERMD5SUM" > "$MD5FILE"
-    OLDMD5SUM=`cat "$MD5FILE"`
-    if test "$USERMD5SUM" != "$OLDMD5SUM" -a \
-            "$USERMD5SUM" != "$NEWMD5SUM" ; then
-
+    if test "$DSTMD5SUM" != "$OLDMD5SUM" -a \
+            "$DSTMD5SUM" != "$SRCMD5SUM" ; then
         log "ATTENTION: You have modified $DSTFILE. Leaving it untouched..."
         if test "x$OSUFFIX" != x -a \
                 "x$SRCFILE" != "${OUTFILE}${OSUFFIX}" && \
@@ -144,7 +170,7 @@ check_md5_and_move()
         fi
         RET=2
     else
-        if test "$USERMD5SUM" != "$NEWMD5SUM" -o \
+        if test "$DSTMD5SUM" != "$SRCMD5SUM" -o \
                 "$FORCE_REPLACE" = "true" ; then
             debug "Installing new $DSTFILE"
             cp -p "$SRCFILE" "$OUTFILE"
@@ -155,7 +181,11 @@ check_md5_and_move()
         rm -f "$SRCFILE"
     fi
     rm -f "$MD5FILE"
-    echo "$NEWMD5SUM" > "$MD5FILE"
+    {
+        test "x${NEW_ERX}" != x && \
+            echo "#${NEW_ERX}"
+        echo "$NEWMD5SUM"
+    } > "$MD5FILE"
 
     return $RET
 }
