@@ -171,6 +171,7 @@ netconfig_check_md5_and_move()
         RET=2
     else
         if test "$DSTMD5SUM" != "$SRCMD5SUM" -o \
+                "$SRCMD5SUM" != "$NEWMD5SUM" -o \
                 "$FORCE_REPLACE" = "true" ; then
             debug "Installing new $DSTFILE"
             cp -p "$SRCFILE" "$OUTFILE"
