@@ -1,7 +1,22 @@
 -------------------------------------------------------------------
-Thu Sep 25 16:04:12 CEST 2008 - mt@suse.de
+Mon Sep 29 17:17:29 CEST 2008 - mt@suse.de
+
+- Set explicit permisions for netconfig generated files instead
+  of prereserveing [wrong] permissions from original (bnc#428458).
+- Improved netconfig check_md5_and_move function to match special
+  comments additionally to the data to improve detection of user
+  modifications, added matching comments to configuration hints
+  and renamed it to netconfig_check_md5_and_move (bnc#428201).
+- Removed incorrect check for empty dns search list skipping the
+  generation of the /etc/resolv.conf file (bnc#429132).
+
+-------------------------------------------------------------------
+Thu Sep 25 17:54:01 CEST 2008 - mt@suse.de
 
 - Fixed netconfig scripts to avoid seq usage (bnc#285472).
+- Set umask explicitly to 0022 in netconfig to avoid that e.g.
+  /etc/resolv.conf gets created with unusual permissions, when
+  it didn't existed before.
 
 -------------------------------------------------------------------
 Thu Sep 25 10:32:08 CEST 2008 - mt@suse.de
