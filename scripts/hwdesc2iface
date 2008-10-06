@@ -169,6 +169,9 @@ get_iface_from_hwdesc() {
 	case $H in
 		*id-*)  get_iface_from_lladdr ${H#*id-} ;;
 		*bus-*) get_iface_from_businfo `(IFS=-; echo ${H#*bus-})` ;;
+		*interface-*) echo ${H#*interface-} ;;
+		*devpath-*|*vpid-*|*type-*) ;;
+		*) echo $H ;;
 	esac
 }
 
