@@ -86,6 +86,8 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %config(noreplace) /etc/sysconfig/network/ifroute-lo
 %config(noreplace) /etc/ppp/ip-up
 %config(noreplace) /etc/ppp/ip-down
+%config(noreplace) /etc/ppp/ipv6-up
+%config(noreplace) /etc/ppp/ipv6-down
 %dir /etc/udev
 %dir /etc/udev/rules.d
 %config /etc/udev/rules.d/77-network.rules
