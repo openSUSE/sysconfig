@@ -53,22 +53,50 @@ function modify() {
         exit 1
     fi
 
-    CURRENTSTATE="SERVICE='$SERVICE'"
-    CREATETIME=`date +%s`
+    if test "x${LEASEFILE}" != x -a ! -r "${LEASEFILE}" ; then
+        echo "Unable to read specified input file '${LEASEFILE}'" >&2
+        exit 1
+    fi
 
-    local _INTERFACE=""
+    local a b
+    IFS=. read a b < /proc/uptime
+    local CREATETIME=$a
+    local _INTERFACE='' _SERVICE=''
+    local -a KEYS VALS
 
     if [ "$INPUTFORMAT" == "dhcpcd" ]; then
-        while IFS== read val1 val2 ; do
-            
-            CURRENTSTATE="$CURRENTSTATE\n$val1=$val2"
-            if [ "x$val1" = "xINTERFACE" ]; then
-                _INTERFACE="$val2"
-            fi
-        done < <(cat ${LEASEFILE})
+        local key val err=0
+        # add CREATETIME at index 0 !!
+        KEYS=('CREATETIME'  'SERVICE')
+        VALS=("$CREATETIME" "$SERVICE")
+        while IFS== read -sr key val ; do
+            test -n "$key" || {
+                test -n "$val" || continue
+                err=$val ; break
+            }
+            case $key in
+                (CREATETIME) continue ;;
+                (SERVICE|INTERFACE)
+                    eval "_$key='$val'"
+                    if test "x${!key}" != x -a "x${!key}" != "x$val" ; then
+                        echo "Input value $key conflicts with command line argument" >&1
+                        exit 1
+                    fi
+                ;;
+            esac
+            for k in ${KEYS[@]} ; do
+                test "x$k" = "x$key" && continue 2
+            done
+            KEYS[${#KEYS[@]}]=$key
+            VALS[${#VALS[@]}]=$val
+        done < <(netconfig_kv_filter ${LEASEFILE:+"$LEASEFILE"})
+        if test $err -ne 0 ; then
+            echo "Invalid syntax in ${LEASEFILE:+${LEASEFILE}, }line $err" >&2
+            exit 1
+        fi
     else
-    	echo "Unsupported lease file / input format '$INPUTFORMAT'" >&2
-        exit 1
+	echo "Unsupported lease file / input format '$INPUTFORMAT'" >&2
+	exit 1
     fi
 
     # NetworkManager policy merged
@@ -80,15 +108,15 @@ function modify() {
         CFGFILE="$STATEDIR/NetworkManager.netconfig"
 
         # first get the createtime. we want to keep it.
-	get_variable "CREATETIME" $CFGFILE
+	get_variable "CREATETIME" "$CFGFILE"
+        KEYS[0]='CREATETIME'
+        VALS[0]="$CREATETIME"
 
         # remove it also in modify.
         # We want to create it with the same name again.
-	rm -f $CFGFILE
-
-        CURRENTSTATE="CREATETIME='$CREATETIME'\n$CURRENTSTATE"
+	rm -f "$CFGFILE"
     else
-	# use interface name from config
+	# use interface name from config if provided
 	if [ "x$INTERFACE" = "x" -a "x$_INTERFACE" != "x" ]; then
 	     INTERFACE="$_INTERFACE"
         fi
@@ -110,15 +138,13 @@ function modify() {
         local CFGFILE=`find_cfgfile "$INTERFACE" "$SERVICE"`
         if [ "x$CFGFILE" != "x" ]; then
             # first get the createtime. we want to keep it.
-            get_variable "CREATETIME" $CFGFILE
+            get_variable CREATETIME "$CFGFILE"
 
             # remove it also in modify. 
             # We want to create it with the same name again.
-            rm -f $CFGFILE
+            rm -f "$CFGFILE"
         fi
     
-        CURRENTSTATE="$CURRENTSTATE\nCREATETIME='$CREATETIME'"
-
         if [ "x$CFGFILE" = "x" ]; then
             local CFGNAME=`get_new_cfgname`
             CFGFILE="$STATEDIR/$INTERFACE/$CFGNAME"
@@ -126,7 +152,10 @@ function modify() {
    fi
 
    debug "write new STATE file $CFGFILE"
-   echo -e "$CURRENTSTATE" > "$CFGFILE"
+   for((i=0; i<${#KEYS[@]} && i<${#VALS[@]}; i++)) ; do
+       printf "%s='%s'\n" "${KEYS[$i]}" "${VALS[$i]}"
+   done > "$CFGFILE"
+
    return 0
 }
 
@@ -203,7 +232,7 @@ function get_new_cfgname() {
 }
 
 function run_plugins() {
-    local errors=""
+    local errors=()
     local msg=""
     local ret=0
 
@@ -222,17 +251,19 @@ function run_plugins() {
         if [ ! -x $PLUGINDIR/$plg ]; then
             continue
         fi
-        msg=`$PLUGINDIR/$plg`
-        if [ -n "$msg" ]; then
-            errors="$errors\n$msg"
+        msg=`$PLUGINDIR/$plg 2>&1`
+        if [ "x$msg" != x ]; then
+            errors[${#errors[@]}]="$msg"
         fi
         if [ "$?" != "0" ]; then
             ret=$?
         fi
     done
-    
-    if [ -n "$errors" ]; then
-        echo -e "$errors"
+
+    if [ ${#errors[@]} -gt 0 ]; then
+        for msg in ${errors[@]} ; do
+            echo "$msg"
+        done
     fi
     return $ret
 }
@@ -270,7 +301,7 @@ function usage ()
  
 EOT
   if [ -n "$1" ] ; then
-     echo >&2
+     echo "" >&2
      ERROR="  ERROR:   "
      echo -e "$*\n" | while read line; do
        echo "${ERROR}${line}" >&2
@@ -280,18 +311,24 @@ EOT
   exit 1
 }
 
-
 COMMANDLINE="$@"
 ACTION=""
+SERVICE=""
+INTERFACE=""
 VARIABLE=""
 while true ; do
+    # Interface is checked against sysfs before the data is used;
+    # reject just the most the ugliest characters...
+    REGEX=''
     case "$1" in
-        -s|--service) VARIABLE=SERVICE;;
-        -f|--force-replace) FORCE_REPLACE="true";;
-        -v|--verbose) VERBOSE="yes";;
-        -i|--interface) VARIABLE=INTERFACE;;
+        -s|--service)   VARIABLE=SERVICE ;
+                        REGEX='^[a-zA-Z0-9_-]+$' ;;
+        -i|--interface) VARIABLE=INTERFACE ;
+                        REGEX='^[^'"'"'`"\\/[:space:][:cntrl:]]+$' ;;
         -l|--lease-file) VARIABLE=LEASEFILE;;
         -F|--input-format) VARIABLE=INPUTFORMAT;;
+        -f|--force-replace) FORCE_REPLACE="true";;
+        -v|--verbose) VERBOSE="yes";;
         -h|--help) usage;;
         "") break ;;
         --)
@@ -311,7 +348,14 @@ while true ; do
         -*) usage Unknown option $1;;
     esac
     if [ -n "$VARIABLE" ] ; then
-        test -z "$2" && usage Option $1 needs an argument
+        case $2 in
+        (""|-*) usage "Option $1 needs an argument" ;;
+        esac
+        if [ -n "$REGEX" ] ; then
+            if ! [[ ${1} =~ ${REGEX} ]] ; then
+                usage "Invalid character in value for option $VARIABLE"
+            fi
+        fi
         eval $VARIABLE=\$2
         shift
         VARIABLE=""
@@ -385,4 +429,4 @@ unLock "$PROGNAME"
 
 exit $EXITVAL
 
-
+# vim: set ts=8 sts=4 sw=4 ai et:

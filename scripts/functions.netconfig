@@ -51,7 +51,7 @@ function get_variable()
     local line
     while read line; do
         eval $line
-    done < <(grep "^[[:space:]]*$1" $2 2>/dev/null)
+    done < <(grep "^[[:space:]]*$1=" $2 2>/dev/null)
 }
 
 function read_symlink()
@@ -189,6 +189,22 @@ netconfig_check_md5_and_move()
     } > "$MD5FILE"
 
     return $RET
+}
+
+netconfig_kv_filter()
+{
+	awk -- '/^[[:space:]]*$/ { next; }
+	/^[[:space:]]*[a-z_][a-z0-9_]*='"'"'[^'"'"']*'"'"'[[:space:]]*$/ && \
+	!/^[[:space:]]*_+=/ {
+		sub("^[[:space:]]+", "", $0);
+		sub("[[:space:]]+$", "", $0);
+		equ=index($0, "=");
+		key=substr($0, 1, equ - 1);
+		val=substr($0, equ + 2, length($0) - equ - 2)
+		print key"="val;
+		next;
+	}
+	{ print "="NR; exit(NR); }' $@
 }
 
 #
