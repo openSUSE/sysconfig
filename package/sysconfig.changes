@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Sep 29 18:09:50 CEST 2008 - mt@suse.de
+
+- version 0.71.7
+
+-------------------------------------------------------------------
 Mon Sep 29 17:17:29 CEST 2008 - mt@suse.de
 
 - Set explicit permisions for netconfig generated files instead
