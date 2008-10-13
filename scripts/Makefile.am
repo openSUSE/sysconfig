@@ -79,6 +79,8 @@ install-data-hook:
 	ln -sf ifup-infiniband		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-infiniband
 	ln -sf ifup-infiniband		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-infiniband
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ip-down
+	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ipv6-up
+	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ipv6-down
 
 
 check: 

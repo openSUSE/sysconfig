@@ -118,9 +118,33 @@ start_firewall()
 # sendmail to send any queued mail
 run_poll_tcpip()
 {
-	[ "$RUN_POLL_TCPIP" = "no" ] && return
+	[ "$RUN_POLL_TCPIP" != "yes" ] && return
 
 	/etc/ppp/poll.tcpip | logger -p security.notice -t poll.tcpip > /dev/null &
+}
+
+# run ip-up/ip-down scripts
+# $1 = basename
+run_scripts()
+{
+	name="$1"
+	[ -n "$name" ] || return
+
+	if test -x /etc/ppp/$name.local ; then
+	    /etc/ppp/$name.local "$@" | logger -p security.notice -t $name.local > /dev/null &
+	fi
+
+
+	if [ -d /etc/ppp/$name.d ]; then
+		for SCRIPT in /etc/ppp/$name.d/*; do
+			[ -d $SCRIPT -o ! -x $SCRIPT ] && continue;
+			# ignore backup files and leftovers from rpm
+			case $SCRIPT in
+			    *.rpmsave|*.rpmnew|*rpmorig|*~) continue ;;
+			esac
+			$SCRIPT "$@" | logger -p security.notice -t $SCRIPT > /dev/null &
+		done
+	fi
 }
 
 isdn_restartinterface()
@@ -168,38 +192,26 @@ fi
 #########
 
 case "$BASENAME" in
-    ip-up)
+    *-up)
 	add_nameservers
 	
-	# ip_resend hook
-	test "$IP_RESEND" = "yes" -a -x /usr/sbin/ip_resend_wakeup && \
-	    /usr/sbin/ip_resend_wakeup -m $LOCALIP -o $INTERFACE
-
 	start_firewall
 
-	run_poll_tcpip
+	if [ ${BASENAME%*-} = "ip" ]; then
+		# ip_resend hook
+		test "$IP_RESEND" = "yes" -a -x /usr/sbin/ip_resend_wakeup && \
+		    /usr/sbin/ip_resend_wakeup -m $LOCALIP -o $INTERFACE
 
-	# call ip-up.local if it exists and is executable:
-	if test -x /etc/ppp/ip-up.local ; then
-	    /etc/ppp/ip-up.local "$@" | logger -p security.notice -t ip-up.local > /dev/null &
+		run_poll_tcpip
 	fi
 
-	# run additional scripts if they exist
-	if [ -d /etc/ppp/ip-up.d ]; then
-		for SCRIPT in /etc/ppp/ip-up.d/*; do
-			[ -d $SCRIPT -o ! -x $SCRIPT ] && continue;
-			# ignore backup files and leftovers from rpm
-			case $SCRIPT in
-			    *.rpmsave|*.rpmnew|*rpmorig|*~) continue ;;
-			esac
-			$SCRIPT "$@" | logger -p security.notice -t $SCRIPT > /dev/null &
-		done
-	fi
+	# run additional scripts
+	run_scripts $BASENAME
 
 	#run_ifup
 
 	;;
-    ip-down)
+    *-down)
 
 	restore_nameservers
 
@@ -207,30 +219,16 @@ case "$BASENAME" in
 	
 	start_firewall
 
-	# call ip-down.local if it exists and is executable:
-	if test -x /etc/ppp/ip-down.local ; then
-	    /etc/ppp/ip-down.local "$@" | logger -p security.notice -t ip-down.local > /dev/null &
+	if [ ${BASENAME%*-} = "ip" ]; then
+		# ip_resend hook
+		test "$IP_RESEND" = "yes" -a -x /usr/sbin/ip_resend && \
+		    /usr/sbin/ip_resend -o $INTERFACE $IP_RESEND_PARAMETER
 	fi
 
-	# ip_resend hook
-	test "$IP_RESEND" = "yes" -a -x /usr/sbin/ip_resend && \
-	    /usr/sbin/ip_resend -o $INTERFACE $IP_RESEND_PARAMETER
-
-	# run additional scripts if they exist
-	if [ -d /etc/ppp/ip-down.d ]; then
-		for SCRIPT in /etc/ppp/ip-down.d/*; do
-			[ -d $SCRIPT -o ! -x $SCRIPT ] && continue;
-			# ignore backup files and leftovers from rpm
-			case $SCRIPT in
-			    *.rpmsave|*.rpmnew|*rpmorig|*~) continue ;;
-			esac
-			$SCRIPT "$@" | logger -p security.notice -t $SCRIPT > /dev/null &
-		done
-	fi
+	# run additional scripts
+	run_scripts $BASENAME
 
 	#run_ifdown
 
-	;;
-    *)
 	;;
 esac
