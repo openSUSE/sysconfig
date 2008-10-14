@@ -1,10 +1,12 @@
 -------------------------------------------------------------------
 Mon Oct 13 21:29:47 CEST 2008 - mt@suse.de
 
+- version 0.71.8
 - Fixed netconfig argument and modify action input parsing to
   reject formated invalid input / values (bnc#428978).
 - Fixed ppp/ip-up script to handle ipv6-up/down and trigger an
-  firewall reconfiguration; thanks to Ludwig Nussel (bnc#426303).
+  firewall reconfiguration; added ipv6 links to rpm file list.
+  Thanks to Ludwig Nussel (bnc#426303).
 - Fixed rpm requires adding procps (/bin/ps used to find dhcpc).
 
 -------------------------------------------------------------------
