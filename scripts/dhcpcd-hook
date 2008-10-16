@@ -119,7 +119,7 @@ up)
 	$debug && NC_OPTIONS="-v"
 	/sbin/netconfig modify -s "dhcpcd" \
 		-i $INTERFACE $NC_OPTIONS  \
-		< $leaseinfo 2>&1 | $log_dbg
+		-l $leaseinfo 2>&1 | $log_dbg
 
 	# reload syslog so it knows the new hostname
 	/etc/init.d/syslog reload
