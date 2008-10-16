@@ -194,7 +194,7 @@ netconfig_check_md5_and_move()
 netconfig_kv_filter()
 {
 	awk -- '/^[[:space:]]*$/ { next; }
-	/^[[:space:]]*[a-z_][a-z0-9_]*='"'"'[^'"'"']*'"'"'[[:space:]]*$/ && \
+	/^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*='"'"'[^'"'"']*'"'"'[[:space:]]*$/ && \
 	!/^[[:space:]]*_+=/ {
 		sub("^[[:space:]]+", "", $0);
 		sub("[[:space:]]+$", "", $0);
