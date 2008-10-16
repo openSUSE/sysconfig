@@ -108,9 +108,9 @@ function modify() {
         CFGFILE="$STATEDIR/NetworkManager.netconfig"
 
         # first get the createtime. we want to keep it.
-	get_variable "CREATETIME" "$CFGFILE"
-        KEYS[0]='CREATETIME'
-        VALS[0]="$CREATETIME"
+	get_variable CREATETIME "$CFGFILE"
+	KEYS[0]='CREATETIME'
+	VALS[0]="$CREATETIME"
 
         # remove it also in modify.
         # We want to create it with the same name again.
@@ -139,6 +139,8 @@ function modify() {
         if [ "x$CFGFILE" != "x" ]; then
             # first get the createtime. we want to keep it.
             get_variable CREATETIME "$CFGFILE"
+            KEYS[0]='CREATETIME'
+            VALS[0]="$CREATETIME"
 
             # remove it also in modify. 
             # We want to create it with the same name again.
