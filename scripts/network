@@ -503,7 +503,7 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 				resolve_iface_startorder slaves "$b" "$b"
 				test $? = 0 || continue 2
 				for s in $slaves ; do
-					for v in $SLAVE_IFACES $VIRTUAL_IFACES ;
+					for v in $SLAVE_IFACES $VIRTUAL_IFACES
 					do
 						[ "$v" = "$s" ] && continue 2
 					done
@@ -665,7 +665,7 @@ status() {
 		shift
 	fi
 	for IFACE in $@; do
-		$FAKE ifstatus $CONFIG $IFACE -o rc $CHECK $MODE
+		$FAKE /sbin/ifstatus $CONFIG $IFACE -o rc $CHECK $MODE
 		RET=$?
 		debug && printf "    %-9s returned %s\n" $IFACE $RET
 		case $RET in
@@ -720,10 +720,11 @@ fi
 case "$ACTION" in
 	start)
 		echo "Setting up ${FS_FILTER:+(${FS_FILTER}) }network interfaces:"
+
 		lock_firewall
-		/sbin/ifstatus $LO &>/dev/null && unset $LO;
-		for IFACE in ${INTERFACE:- $LO
-		                           $PHYSICAL_IFACES   }; do
+		/sbin/ifstatus $LO &>/dev/null && unset LO
+
+		for IFACE in ${INTERFACE:-$LO $PHYSICAL_IFACES}; do
 			for SI in $SKIP; do
 				test "$IFACE" = "$SI" && continue 2
 			done
