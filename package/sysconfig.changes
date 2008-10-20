@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Mon Oct 20 14:35:19 CEST 2008 - mt@suse.de
+
+- Fixed netconfig module error printing bug added while fixing of
+  bug 435865 (bnc#436488).
+- Allow nm to modify its settings also while NETWORKMANAGER!=yes;
+  happens e.g. during network restart after the config changed.
+
+-------------------------------------------------------------------
 Thu Oct 16 21:40:42 CEST 2008 - mt@suse.de
 
 - Fixed to not to execute ifdown-route noiface and ifdown-dhcp all

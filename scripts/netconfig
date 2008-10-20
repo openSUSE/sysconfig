@@ -99,10 +99,9 @@ function modify() {
 	exit 1
     fi
 
-    # NetworkManager policy merged
-    if [ "x$NETWORKMANAGER" = "xyes" -a \
-	 "x$SERVICE"        = "xNetworkManager" -a \
-	 "x$INTERFACE"      = "x" ] ;
+    # NetworkManager policy merged settings
+    if [ "x$SERVICE"        = "xNetworkManager" -a \
+         "x$INTERFACE"      = "x" ] ;
     then
         # NetworkManager policy merged config
         CFGFILE="$STATEDIR/NetworkManager.netconfig"
@@ -168,10 +167,9 @@ function remove() {
         exit 1
     fi
 
-    # NetworkManager policy merged
-    if [ "x$NETWORKMANAGER" = "xyes" -a \
-	 "x$SERVICE"        = "xNetworkManager" -a \
-	 "x$INTERFACE"      = "x" ] ;
+    # NetworkManager policy merged settings
+    if [ "x$SERVICE"        = "xNetworkManager" -a \
+         "x$INTERFACE"      = "x" ] ;
     then
         # NetworkManager policy merged config
         CFGFILE="$STATEDIR/NetworkManager.netconfig"
@@ -263,7 +261,7 @@ function run_plugins() {
     done
 
     if [ ${#errors[@]} -gt 0 ]; then
-        for msg in ${errors[@]} ; do
+        for msg in "${errors[@]}" ; do
             echo "$msg"
         done
     fi
