@@ -75,7 +75,7 @@ while [ $# -gt 0 ]; do
 done
 declare -a OPTS=(remotefs)
 while [ $# -gt 0 ]; do
-	echo "OPT: '$1'"
+	: $1
 	case $1 in
 	(boot|onboot)   MODE=onboot ;;
 	(localfs|remotefs) : ignore ;;

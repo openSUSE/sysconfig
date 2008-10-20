@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Oct 16 21:40:42 CEST 2008 - mt@suse.de
+
+- Fixed to not to execute ifdown-route noiface and ifdown-dhcp all
+  during a network-remotefs stop run and improved previous fix to
+  skip ifup lo (bnc#433987).
+
+-------------------------------------------------------------------
 Thu Oct 16 18:57:22 CEST 2008 - werner@suse.de
 
 - Fix some syntax issues, should fix startup problem in bnc#433987

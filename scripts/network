@@ -722,7 +722,14 @@ case "$ACTION" in
 		echo "Setting up ${FS_FILTER:+(${FS_FILTER}) }network interfaces:"
 
 		lock_firewall
-		/sbin/ifstatus $LO &>/dev/null && unset LO
+		if test -n "$LO" && /sbin/ifstatus $LO &>/dev/null ; then
+			# don't check if it is up only, but also if the
+			# ifcfg-lo settings are applied by /sbin/ifup.
+			if test -e "$RUN_FILES_BASE/if-$LO" -o \
+				-e "$RUN_FILES_BASE/ifup-$LO" ; then
+				unset LO
+			fi
+		fi
 
 		for IFACE in ${INTERFACE:-$LO $PHYSICAL_IFACES}; do
 			for SI in $SKIP; do
@@ -904,7 +911,7 @@ case "$ACTION" in
 
 		echo Shutting down ${FS_FILTER:+(${FS_FILTER}) }network interfaces:
 
-		if [ -z "$INTERFACE" ] ; then
+		if [ -z "$INTERFACE" -a "$FS_FILTER" != remotefs ] ; then
 			$FAKE ifdown-route noiface -o rc $MODE
 		fi
 
@@ -936,7 +943,7 @@ case "$ACTION" in
 			rc_reset
 		done
 
-		if [ -z "$INTERFACE" -a -z "$TYPE" ] ; then
+		if [ -z "$INTERFACE" -a -z "$TYPE" -a "$FS_FILTER" != remotefs ] ; then
 			# At last stop any remaining dhcp client
 			$FAKE ifdown-dhcp all -o rc
 			rc_status
@@ -957,7 +964,8 @@ case "$ACTION" in
 			rc_status -v
 			rc_exit
 		fi
-		if [ -z "$INTERFACE" -a routes -nt $NETWORK_RUNFILE ] ; then
+		if [ -z "$INTERFACE" -a routes -nt $NETWORK_RUNFILE \
+		     -a "$FS_FILTER" != remotefs ] ; then
 			$FAKE ifdown-route noiface -o rc $MODE
 		fi
 		UP2DATE_IFACES=lo
