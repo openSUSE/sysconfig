@@ -161,4 +161,16 @@ DHCLIENT_SLEEP="0"
 #
 DHCLIENT_WAIT_AT_BOOT="15"
 
+## Type:        yesno
+## Default:     yes
+## ServiceRestart: yast2
+#
+# This option is read by YaST during network configuration.
+#
+# If set, then the hostname is added to /etc/hosts with IP address
+# 127.0.0.2. This allows the hostname to be resolved (and thus, the
+# host to be reached), if the real network is not reachable.
+#
+# If unset, YaST will not touch /etc/hosts.
+WRITE_HOSTNAME_TO_HOSTS="yes"
 

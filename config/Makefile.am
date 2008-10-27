@@ -11,8 +11,7 @@ sysconfig_network_DATA =	ifcfg.template \
 
 udevrules_DATA = 77-network.rules
 
-fillup_templates_DATA =	remove_old_netconfig \
-			sysconfig.dhcp-network \
+fillup_templates_DATA =	sysconfig.dhcp-network \
 			sysconfig.config-network
 
 omc_svcinfo_DATA = network.xml

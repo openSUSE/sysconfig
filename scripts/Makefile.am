@@ -8,9 +8,9 @@ SUBDIRS = hardware netconfig.d
 sysconfig_network_scripts_SCRIPTS =	functions \
 					functions.common \
 					functions.netconfig \
-					oldnet2new.sh \
-					convert_for_getconfig \
+					functions.rpm-utils \
 					convert_persistent_name_rules \
+					convert_dns_to_netconfig \
 					ifdown-connection \
 					ifup-802.1q \
 					ifup-autoip \

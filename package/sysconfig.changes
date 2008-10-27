@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Fri Oct 24 17:50:32 CEST 2008 - mt@suse.de
+
+- version 0.71.9 -- candidate 2
+- Fixed typo in netconfig.8 manual page (bnc#438647).
+- Implemented DNS / modify_resolvconf to netconfig and dhclient
+  NIS update hooks, cleaned up variables (bnc#434575, bnc#437725).
+- Fixed erroneous move of yast2-network WRITE_HOSTNAME_TO_HOSTS
+  variable from network/dhcp to network/config while 11.1 beta.
+- Removed commented out/obsolete rc.config related update hooks.
+
+-------------------------------------------------------------------
 Tue Oct 21 11:19:33 CEST 2008 - mt@suse.de
 
 - Fixed changes file to use bnc#433780 instead of bnc#428978

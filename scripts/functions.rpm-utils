@@ -1,0 +1,33 @@
+#!/bin/bash
+
+sysconfig_remove_and_set()
+{
+    local base=etc/sysconfig
+    local file=${1} ; shift
+    local dflt=${1} ; shift
+    local var val f
+    if test -n "$file" -a -f "${base}/${file}" -a -n "$1" ; then
+        rm -f "${base}/${file}.del.$$"
+        for var in ${1:+"$@"} ; do
+	    val=${!var}
+            echo "$var='${val:-$dflt}'"
+        done > "${base}/${file}.del.$$"
+        if test -s "${base}/${file}.del.$$" ; then
+            if bin/fillup -q -t -r -i -d "=" "${base}/${file}" \
+               "${base}/${file}.del.$$" "${base}/${file}.deleted.$$" ; then
+               :
+            fi
+            if test -f "${base}/${file}.new" ; then
+                mv -f "${base}/${file}.new" "${base}/${file}"
+            fi
+            for f in "${base}/${file}.del.$$" "${base}/${file}.deleted.$$" ; do
+                if test -f "$f" ; then
+                    . "$f"
+                    rm -f "$f"
+                fi
+            done
+        fi
+        rm -f "${base}/${file}.del.$$"
+    fi
+}
+
