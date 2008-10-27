@@ -13,6 +13,7 @@ sysconfig_remove_and_set()
             echo "$var='${val:-$dflt}'"
         done > "${base}/${file}.del.$$"
         if test -s "${base}/${file}.del.$$" ; then
+	    rm -f "${base}/${file}.new"
             if bin/fillup -q -t -r -i -d "=" "${base}/${file}" \
                "${base}/${file}.del.$$" "${base}/${file}.deleted.$$" ; then
                :
