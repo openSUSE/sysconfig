@@ -337,7 +337,9 @@ function find_first_provides() {
             debug "we are searching for a different dir ... skip"
             continue
         fi
-  
+
+	test -d "/sys/class/net/${dir}" || continue
+
         for file in `ls $STATEDIR/$dir/netconfig* 2>/dev/null`; do
             
             debug "searching in $file"
