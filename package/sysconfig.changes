@@ -1,9 +1,12 @@
 -------------------------------------------------------------------
-Fri Oct 24 17:50:32 CEST 2008 - mt@suse.de
+Mon Oct 27 16:38:30 CET 2008 - mt@suse.de
 
-- version 0.71.9 -- candidate 2
-- Fixed typo in netconfig.8 manual page (bnc#438647).
-- Implemented DNS / modify_resolvconf to netconfig and dhclient
+- version 0.71.9
+- Fixed to fallback to the static (yast2) settings in netconfig+NM
+  auto policy when NetworkManager does not provide any (bnc#434575).
+- Fixes to set the NIS domainname correctly (bnc#437725).
+- Fixed typo in netconfig.8 manual page (bnc#438647), updated it.
+- Implemented DNS / modify_resolvconf to netconfig and dhcp client
   NIS update hooks, cleaned up variables (bnc#434575, bnc#437725).
 - Fixed erroneous move of yast2-network WRITE_HOSTNAME_TO_HOSTS
   variable from network/dhcp to network/config while 11.1 beta.
