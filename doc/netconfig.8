@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii foo.1
 .\"
-.TH NETCONFIG 8 "Juli 2008" "sysconfig" "Network configuration"
+.TH NETCONFIG 8 "October 2008" "sysconfig" "Network configuration"
 .SH NAME
 netconfig \- modular tool to modify network configuration
 .SH SYNOPSIS
@@ -16,6 +16,8 @@ netconfig \- modular tool to modify network configuration
 .P
 .RB " [ " \-l " | " \-\-lease\-file " <file name> ] "
 .P
+.RB " [ " \-F " | " \-\-input\-format " <lease/input file format> ] "
+.P
 .RB " [ " \-f " | " \-\-force\-replace " ] "
 .P
 .RB " [ " \-v " | " \-\-verbose " ] "
@@ -29,8 +31,6 @@ netconfig \- modular tool to modify network configuration
 .RB " < " \-i " | " \-\-interface " <interface name> > "
 .P
 .RB " < " \-s " | " \-\-service " <service name> > "
-.P
-.RB " [ " \-l " | " \-\-lease\-file " <file name> ] "
 .P
 .RB " [ " \-f " | " \-\-force\-replace " ] "
 .P
@@ -110,7 +110,7 @@ in the \fB/etc/netconfig.d/\fR directory.
 To disable the execution of a module, don't remove it from the list
 but prepend it with a minus sign, \fI-ntp-runtime\fR.
 .TP
-.B NETCONFIG_*_POLICY
+.B NETCONFIG_\fI<set>\fB_POLICY
 Netconfig defines a merge policy variable for each set of network settings.
 An empty policy variable disables any modifications in netconfig.
 
@@ -122,7 +122,9 @@ interfaces are allowed. For example, \fI"eth* ppp?"\fR will target first
 all \fIeth\fR and then all \fIppp0\fR-\FIppp9\fR interfaces.
 
 There are two special predefined policy values which indicate how to apply
-the static settings defined in the \fBNETCONFIG_STATIC_*\fR variables:
+the static settings defined in the corresponding
+\fBNETCONFIG_\fI<set>\fB_STATIC_*\fR variables:
+
 .RS
 .PD 0
 .TP
@@ -134,11 +136,15 @@ the static settings have to be used only, when no dynamic are avaliable.
 .PD
 .RE
 .RS
-Further, there is also a special and default policy "auto". When the
-\fINetworkManager\fR is enabled, that is the \fBNETWORK_MANAGER\fR variable
-is set to \fByes\fR, netconfig makes use of NetworkManager internal policy
-and just uses the settings NetworkManager provides. When NetworkManager is
-disabled, the "auto" policy is resolved as "STATIC *".
+
+There is also a special policy setting \fBauto\fR used by default.
+
+When the \fINetworkManager\fR is enabled, that is the \fBNETWORK_MANAGER\fR
+variable is set to \fByes\fR, netconfig makes use of the NetworkManager
+internal policy and just uses the settings NetworkManager provides.
+
+Otherwise, when the NetworkManager is disabled, the "auto" policy setting
+is resolved to a policy "STATIC *".
 .RE
 
 .SS DNS
@@ -150,10 +156,10 @@ Defines the DNS merge policy.
 The type of the forwarder type to configure. Default value is "resolver"
 activating the "dns-resolver" module.
 .TP
-.B NETCONFIG_STATIC_DNS_SEARCHLIST
+.B NETCONFIG_DNS_STATIC_SEARCHLIST
 List of DNS domain names used for host-name lookup.
 .TP
-.B NETCONFIG_STATIC_DNS_SERVERS
+.B NETCONFIG_DNS_STATIC_SERVERS
 List of namserver IP addresses used for host-name lookup.
 
 .SS NTP
@@ -161,20 +167,20 @@ List of namserver IP addresses used for host-name lookup.
 .B NETCONFIG_NTP_POLICY
 Defines the NTP merge policy.
 .TP
-.B NETCONFIG_STATIC_NTP_SERVERS
+.B NETCONFIG_NTP_STATIC_SERVERS
 List of NTP server IP addresses.
 
 .SS NIS
 .B NETCONFIG_NIS_POLICY
 Defines the NIS / YP merge policy.
 .TP
-.BR NETCONFIG_STATIC_NIS_DOMAIN " [ " _ "<number> ]"
+.BR NETCONFIG_NIS_STATIC_DOMAIN " [ " _ "<number> ]"
 A NIS domain name.
 .TP
-.BR NETCONFIG_STATIC_NIS_SERVERS " [ " _ "<number> ]"
+.BR NETCONFIG_NIS_STATIC_SERVERS " [ " _ "<number> ]"
 A list of NIS servers for the domain with same suffix number.
 .TP
-.BR NETCONFIG_SET_DOMAINNAME
+.BR NETCONFIG_NIS_SETDOMAINNAME
 Defines whether to set the NIS domain using a setdomainname(2)
 call. Valid values are:
 .RS
@@ -235,15 +241,11 @@ This module writes the NIS configuration into the \fI/etc/ypconf\fR file and
 reloads the "ypbind" service when the configuration changed.
 
 .SH MODIFY INPUT FORMAT
-.nf
-FIXME: Add an [ -F | --input-format ] option allowing to specify the input
-format explicitely or we may run into problems later.
-.fi
-Netconfig supports two input formats. When the service is set to \fIdhclient\fR,
-the netconfig expects that the input is in the format of a \fIdhclient.leases\fR
-file. Otherwise, the \fBnetconfig modify\fR command expects a simple, single
-quoted, key-value parameter list in a dhcpcd info compatible format. The keyword
-\fBINTERFACE\fR is mandatory. The currently considered key-value pairs are:
+The \fBnetconfig modify\fR command expects a simple, single quoted, key-value
+parameter list in a dhcpcd info file compatible format. The keywords have to
+be usable as variable name in a shell (identifier).
+The keyword \fBINTERFACE\fR is mandatory. The currently considered key-value
+pairs are:
 .RS
 .PD 0
 .P
@@ -257,37 +259,55 @@ quoted, key-value parameter list in a dhcpcd info compatible format. The keyword
 .P
 .BR BROADCAST "='<broadcast address>'"
 .P
-.BR ROUTES "='<FIXME: list of classless routes>'"
+.BR ROUTES "='<space separated list of classless route entries>'
+.br
+Each route entry consists of "network,netmask,router" addresses.
 .P
-.BR GATEWAYS "='<list of gateway IP addresses>'"
+.BR GATEWAYS "='<space separated list of gateway IP addresses>'"
 .P
-.BR DNSSEARCH "='<list of DNS domain names>'"
+.BR DNSSEARCH "='<space separated list of DNS domain names>'"
 .P
 .BR DNSDOMAIN "='<DNS domain name>'"
 .P
-.BR DNSSERVERS "='<list of DNS nameserver addresses>'"
+.BR DNSSERVERS "='<space separated list of DNS nameserver addresses>'"
 .P
-.BR NTPSERVERS "='<list of ntp servers>'"
+.BR NTPSERVERS "='<space separated list of ntp server addresses>'"
 .P
-.BR NETBIOSNAMESERVER "='<list of netbios nameservers>'"
+.BR NISDOMAIN "='<NIS domain name>'"
+.P
+.BR NISSERVERS "='<list of server addresses for the NIS domain>'"
+.P
+.BR NETBIOSNAMESERVER "='<list of netbios nameserver addresses>'"
 .PD
 .RE
 
-.SH EXAMPLES
+.SH MODIFY VARIABLE EXAMPLES
+See also the output of the \fIdhcpcd-test <interface name>\fR command.
+.br
+Following variables are used by the current netconfig modules:
 .SS DNS
-FIXME
+.nf
+DNSSEARCH='example.net example.com'
+DNSDOMAIN='example.com'
+DNSSERVERS='192.168.0.10 192.168.0.20'
+.fi
 .SS NTP
-FIXME
+.nf
+NTPSERVERS='192.168.0.10 192.168.0.20'
+.fi
 .SS NIS
-FIXME
+.nf
+NISDOMAIN='example.com'
+NISSERVERS='192.168.0.20 192.168.0.10'
+.fi
 
 .SH BUGS
 Please report bugs at <http://www.suse.de/feedback>
 
-.SH AUTHOR
+.SH AUTHORS
 .nf
-Michael Calmer <mc@suse.de> -- netconfig script
-Marius Tomaschewski <mt@suse.de> -- \fBnetconfig\fR(8) manual page
+Michael Calmer <mc@suse.de>
+Marius Tomaschewski <mt@suse.de>
 .fi
 
 .SH "SEE ALSO"
