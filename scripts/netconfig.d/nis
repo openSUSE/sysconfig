@@ -381,8 +381,8 @@ for POL in $_NETCONFIG_NIS_POLICY; do
 done
 
 if [ $sf -eq 1 -a \
-     ${#NIS_YPSRV_ENTRIES[@]}"   -eq 0 -a \
-     ${#NIS_DOMAIN_ENTRIES[@]}"  -eq 0 -a \
+     ${#NIS_YPSRV_ENTRIES[@]}    -eq 0 -a \
+     ${#NIS_DOMAIN_ENTRIES[@]}   -eq 0 -a \
      ${#NIS_DOMAIN_BROADCAST[@]} -eq 0 -a \
      ${#NIS_DOMAIN_SLP[@]}       -eq 0 -a \
     "$NIS_GLOGAL_BROADCAST"       != yes ] ;
