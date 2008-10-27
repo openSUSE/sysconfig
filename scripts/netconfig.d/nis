@@ -288,7 +288,7 @@ function set_domainname() {
 
     if [ "x$NISDOMAIN" = "x" ]; then
         # no value, maybe no interface up
-        return 0
+        return 1
     fi
     debug "set domainname to $NISDOMAIN"
     domainname "$NISDOMAIN"
@@ -347,7 +347,7 @@ for POL in $_NETCONFIG_NIS_POLICY; do
                     NISSERVERS="broadcast"
                 fi
 
-		if [ $sd -eq 0 ] ; then set_domainname $nm ; sd=1 ; fi
+		if [ $sd -eq 0 ] ; then set_domainname $nm && sd=1 ; fi
 
                 format_yp_conf "$NISDOMAIN" "$NISSERVERS"
             fi
@@ -356,7 +356,7 @@ for POL in $_NETCONFIG_NIS_POLICY; do
     ;;
     (STATIC)
         debug "Keep Static"
-	if [ $sd -eq 0 ] ; then set_domainname $nm ; sd=1 ; fi
+	if [ $sd -eq 0 ] ; then set_domainname $nm && sd=1 ; fi
         format_static
     ;;
     (STATIC_FALLBACK)
@@ -372,7 +372,7 @@ for POL in $_NETCONFIG_NIS_POLICY; do
         for IFDIR in $STATEDIR/$POL; do
 	    test -d "$IFDIR" -a \
 	         -d "/sys/class/net/${IFDIR##*/}" || continue
-            if [ $sd -eq 0 ] ; then set_domainname $nm ; sd=1 ; fi
+            if [ $sd -eq 0 ] ; then set_domainname $nm && sd=1 ; fi
             # proceed every interface we find with this match
             manage_interfaceconfig  "$IFDIR"
         done
@@ -387,7 +387,7 @@ if [ $sf -eq 1 -a \
      ${#NIS_DOMAIN_SLP[@]}       -eq 0 -a \
     "$NIS_GLOGAL_BROADCAST"       != yes ] ;
 then
-    if [ $sd -eq 0 ] ; then set_domainname $nm ; sd=1 ; fi
+    if [ $sd -eq 0 ] ; then set_domainname $nm && sd=1 ; fi
     format_static
 fi
 
