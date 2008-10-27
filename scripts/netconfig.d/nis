@@ -327,6 +327,7 @@ fi
 _NETCONFIG_NIS_POLICY=`echo "$_NETCONFIG_NIS_POLICY" | \
         sed 's/\*/__ALL__/g' | sed 's/\?/__ONE__/g'`
 
+sd=0
 sf=0
 nm=0
 
@@ -346,6 +347,8 @@ for POL in $_NETCONFIG_NIS_POLICY; do
                     NISSERVERS="broadcast"
                 fi
 
+		if [ $sd -eq 0 ] ; then set_domainname $nm ; sd=1 ; fi
+
                 format_yp_conf "$NISDOMAIN" "$NISSERVERS"
             fi
             break
@@ -353,9 +356,10 @@ for POL in $_NETCONFIG_NIS_POLICY; do
     ;;
     (STATIC)
         debug "Keep Static"
+	if [ $sd -eq 0 ] ; then set_domainname $nm ; sd=1 ; fi
         format_static
-        ;;
-        (STATIC_FALLBACK)
+    ;;
+    (STATIC_FALLBACK)
         debug "Overwrite Static"
         sf=1
     ;;
@@ -368,6 +372,7 @@ for POL in $_NETCONFIG_NIS_POLICY; do
         for IFDIR in $STATEDIR/$POL; do
 	    test -d "$IFDIR" -a \
 	         -d "/sys/class/net/${IFDIR##*/}" || continue
+            if [ $sd -eq 0 ] ; then set_domainname $nm ; sd=1 ; fi
             # proceed every interface we find with this match
             manage_interfaceconfig  "$IFDIR"
         done
@@ -375,9 +380,14 @@ for POL in $_NETCONFIG_NIS_POLICY; do
     esac
 done
 
-if [ $sf -eq 1 -a -z "$NIS_YPSRV_ENTRIES" -a -z "$NIS_DOMAIN_ENTRIES" -a \
-    -z "$NIS_DOMAIN_BROADCAST" -a -z "$NIS_DOMAIN_SLP" -a \
-    "$NIS_GLOGAL_BROADCAST" != "yes" ]; then
+if [ $sf -eq 1 -a \
+     ${#NIS_YPSRV_ENTRIES[@]}"   -eq 0 -a \
+     ${#NIS_DOMAIN_ENTRIES[@]}"  -eq 0 -a \
+     ${#NIS_DOMAIN_BROADCAST[@]} -eq 0 -a \
+     ${#NIS_DOMAIN_SLP[@]}       -eq 0 -a \
+    "$NIS_GLOGAL_BROADCAST"       != yes ] ;
+then
+    if [ $sd -eq 0 ] ; then set_domainname $nm ; sd=1 ; fi
     format_static
 fi
 
@@ -396,9 +406,7 @@ elif [ $RET -eq 2 ]; then
 fi
 
 # here we should restart services if needed
-set_domainname $nm
-
-# reload ypbind
+# => reload ypbind
 if [ -x $r/etc/init.d/ypbind ]; then
     $r/etc/init.d/ypbind reload >/dev/null 2>&1
 fi
