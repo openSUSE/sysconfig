@@ -149,7 +149,7 @@ if [ "$_NETCONFIG_NTP_POLICY" = "auto" ]; then
         #
         # Use NetworkManager policy merged data
         #
-        _NETCONFIG_NTP_POLICY='NetworkManager'
+        _NETCONFIG_NTP_POLICY='STATIC_FALLBACK NetworkManager'
     else
         #
         # We try a static value for "auto"

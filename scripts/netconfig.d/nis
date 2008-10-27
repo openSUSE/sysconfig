@@ -305,7 +305,7 @@ if [ "$_NETCONFIG_NIS_POLICY" = "auto" ]; then
         #
         # Use NetworkManager policy merged data
         #
-        _NETCONFIG_NIS_POLICY='NetworkManager'
+        _NETCONFIG_NIS_POLICY='STATIC_FALLBACK NetworkManager'
     else
         #
         # We use static settings and extend them

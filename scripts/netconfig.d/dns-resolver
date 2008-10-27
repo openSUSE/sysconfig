@@ -201,7 +201,7 @@ if [ "$_NETCONFIG_DNS_POLICY" = "auto" ]; then
         #
         # Use NetworkManager policy merged data
         #
-        _NETCONFIG_DNS_POLICY='NetworkManager'
+        _NETCONFIG_DNS_POLICY='STATIC_FALLBACK NetworkManager'
     else
         #
         # We use static settings and extend them
