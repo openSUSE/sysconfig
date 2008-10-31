@@ -58,7 +58,7 @@ test "$DEBUG" = "EXTRA" && . scripts/extradebug
 # Only use ifup option 'onboot' if booting or changing runlevel
 # Therefore we check if we were called from init
 FS_FILTER=""
-if [ -n "$INIT_VERSION" ] ; then
+if [ -n "$INIT_VERSION" -a -z "$YAST_IS_RUNNING" ] ; then
 	MODE=onboot
 	FS_FILTER=localfs
 fi
