@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Nov  5 15:03:10 CET 2008 - mt@suse.de
+
+- Fix for rcnetwork reload problems to consider new ifcfg files
+  in ifprobe and report them as not up-to-date (bnc#438776).
+
+-------------------------------------------------------------------
 Thu Oct 30 16:45:54 CET 2008 - mt@suse.de
 
 - Added check to network init scripts to check if started by yast

@@ -160,6 +160,10 @@ case $SCRIPTNAME in
 				         $INTERFACE "$FILE" "--> restart interface!"`"
 				exit $R_NOT_UP2DATE
 			done
+		elif [ -e "ifcfg-$CONFIG" ] ; then
+			message "`printf "    %-9s config file created: %s" \
+			         $INTERFACE "--> restart interface!"`"
+			exit $R_NOT_UP2DATE
 		fi
 		exit $R_SUCCESS
 		;;
