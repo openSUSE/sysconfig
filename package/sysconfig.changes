@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Thu Nov  6 17:52:07 CET 2008 - mt@suse.de
+
+- version 0.71.10
+- Implemented converting of NIS related dhcp client variables into
+  netconfig variables inclusive ifcfg files (bnc#439870).
+- Improved DNS conversion script to handle ifcfg files (bnc#434575).
+- Fixed more issues with setting NIS domainname (bnc#437725).
+- Updated netconfig documentation and variable comments.
+
+-------------------------------------------------------------------
 Wed Nov  5 15:03:10 CET 2008 - mt@suse.de
 
 - Fix for rcnetwork reload problems to consider new ifcfg files
