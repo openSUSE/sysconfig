@@ -45,6 +45,8 @@ NIS_DOMAIN_ENTRIES=()
 NIS_DOMAIN_BROADCAST=()
 NIS_DOMAIN_SLP=()
 NIS_GLOGAL_BROADCAST="no"
+NIS_DOMAIN_DEFAULT=""
+NIS_DOMAIN_CREATED=""
 
 DESTFILE="$r/etc/yp.conf"
 TMP_FILE=""
@@ -62,12 +64,11 @@ function format_yp_conf()
         return 0
     fi
 
-    local cur_dom_name=`ypdomainname`
-    debug "current domain is $cur_dom_name ; given domain is $domain" 
-    if [ "$cur_dom_name" = "$domain" ]; then
-        domain=""
-        debug "domain matches ... set empty"
-    fi
+    #debug "current domain is $NIS_DOMAIN_DEFAULT ; given domain is $domain" 
+    #if [ "$NIS_DOMAIN_DEFAULT" = "$domain" ]; then
+    #    domain=""
+    #    debug "domain matches ... set empty"
+    #fi
 
     if [ -z "$domain" -a -n "$server" ]; then
 
@@ -198,11 +199,13 @@ EOT
 }
 
 function format_static() {
+    local force=$1
 
-    debug "format_static called"
+    debug "format_static[${force:-0}] called"
 
-    if [ "x$NETCONFIG_NIS_STATIC_DOMAIN" != "x" -o \
+    if [ "x$NETCONFIG_NIS_STATIC_DOMAIN"  != "x" -o \
          "x$NETCONFIG_NIS_STATIC_SERVERS" != "x" ]; then
+        set_nisdomainname "$NETCONFIG_NIS_STATIC_DOMAIN" "" "$force"
         format_yp_conf "$NETCONFIG_NIS_STATIC_DOMAIN" \
                        "$NETCONFIG_NIS_STATIC_SERVERS"
     fi
@@ -212,6 +215,7 @@ function format_static() {
         nis_srv="NETCONFIG_NIS_STATIC_SERVERS_$i"
 
         if [ "x${!nis_dom}" != "x" -o "x${!nis_srv}" != "x" ]; then
+            set_nisdomainname "${!nis_dom}" "" "$force"
             format_yp_conf "${!nis_dom}" "${!nis_srv}"
         fi
     done
@@ -224,9 +228,14 @@ function get_nis_settings() {
     # clear the variables first
     NISDOMAIN=""
     NISSERVERS=""
+    INTERFACE=""
+    CREATETIME=""
 
     get_variable "NISDOMAIN" "$1"
     get_variable "NISSERVERS" "$1"
+    get_variable "INTERFACE" "$1"
+    get_variable "CREATETIME" "$1"
+    [ $(($CREATETIME)) -le 0 ] && CREATETIME=""
 
     debug "exit get_nis_settings"
     return 0
@@ -255,43 +264,82 @@ function manage_interfaceconfig() {
             NISSERVERS="broadcast"
         fi
 
+        set_nisdomainname "$NISDOMAIN" "$INTERFACE" "$CREATETIME"
         format_yp_conf "$NISDOMAIN" "$NISSERVERS"
     done
 
     return 0
 }
 
-function set_domainname() {
-    local nm=$(($1))
+function get_uptime()
+{
+    { IFS=. read a b < /proc/uptime; echo "$a"; } 2>/dev/null
+}
 
-    if [ $nm -ne 1 ] ; then
-        # clear the variables first
-        NISDOMAIN=""
-        NISSERVERS=""
+function set_nisdomainname()
+{
+    debug "set_nisdomainname: $*"
+    local domain=$1
+    local iface=$2
+    local ctime=$((${3:-$(get_uptime)}))
 
-        if [ "$NETCONFIG_NIS_SETDOMAINNAME" = "no" ]; then
+    # empty is a no as well
+    if [ "x$NETCONFIG_NIS_SETDOMAINNAME" = x -o \
+         "x$NETCONFIG_NIS_SETDOMAINNAME" = xno ] ;
+    then
+        debug "set_nisdomainname: => no"
+        return 0
+    fi
 
+    debug "set_nisdomainname: => $NETCONFIG_NIS_SETDOMAINNAME"
+
+    # don't overwrite a valid domain with empty setting,
+    # except the createtime value is lower than last one.
+    if [ "$NETCONFIG_NIS_SETDOMAINNAME" = "yes" -o \
+         "$NETCONFIG_NIS_SETDOMAINNAME" = "$iface" ] ; then
+
+        if [ "x$NIS_DOMAIN_DEFAULT" = x ] ; then
+            debug "set_nisdomainname: old[$NIS_DOMAIN_CREATED]=$NIS_DOMAIN_DEFAULT, new[$ctime]=$domain"
+            NIS_DOMAIN_DEFAULT="$domain"
+            NIS_DOMAIN_CREATED=$ctime
             return 0
-
-        elif [ "$NETCONFIG_NIS_SETDOMAINNAME" = "yes" ]; then
-            # find the first interface
-
-            find_first_provides "NISDOMAIN" "$STATEDIR"
-
-        elif [ -n "$NETCONFIG_NIS_SETDOMAINNAME" ]; then
-            # the variable contains an interface
-
-            find_first_provides "NISDOMAIN" "$STATEDIR" \
-                                "$NETCONFIG_NIS_SETDOMAINNAME"
         fi
+
+        NIS_DOMAIN_CREATED=$((${NIS_DOMAIN_CREATED:-$(get_uptime)}))
+        if [ $ctime -lt $NIS_DOMAIN_CREATED ] ; then
+            debug "set_nisdomainname: old[$NIS_DOMAIN_CREATED]=$NIS_DOMAIN_DEFAULT, new=[$ctime]$domain"
+            NIS_DOMAIN_DEFAULT="$domain"
+            NIS_DOMAIN_CREATED=$ctime
+            return 0
+        fi
+        debug "set_nisdomainname: skipped [$ctime -lt $(($NIS_DOMAIN_CREATED))]"
+    else
+        debug "set_nisdomainname: skipped [no interface match]"
+    fi
+    return 1
+}
+
+function write_nisdomainname()
+{
+    # fallback to /etc/defaultdomain when empty
+    if [ "x$NIS_DOMAIN_DEFAULT" = x -a -s /etc/defaultdomain ] ; then
+        { NIS_DOMAIN_DEFAULT=`< /etc/defaultdomain`; } 2>/dev/null
     fi
 
-    if [ "x$NISDOMAIN" = "x" ]; then
-        # no value, maybe no interface up
-        return 1
-    fi
-    debug "set domainname to $NISDOMAIN"
-    domainname "$NISDOMAIN"
+    # try to use {nis,yp}domainname
+    for tool in {nis,yp,}domainname ; do
+        [ -x "/bin/$tool" ] || continue
+
+        if [ "$NIS_DOMAIN_DEFAULT" != "`/bin/$tool 2>/dev/null`" ] ; then
+            debug "set nis domainname to '$NIS_DOMAIN_DEFAULT'"
+            "/bin/$tool" "$NIS_DOMAIN_DEFAULT" && return 0 || return 2
+        else
+            debug "nis domainname '$NIS_DOMAIN_DEFAULT' is up to date"
+            return 1
+        fi
+    done
+    debug "unable to set domainname -- {nis,yp,}domainname utilities missed"
+    return 2
 }
 
 # *********************
@@ -331,7 +379,8 @@ sd=0
 sf=0
 nm=0
 
-for POL in $_NETCONFIG_NIS_POLICY; do 
+
+for POL in $_NETCONFIG_NIS_POLICY; do
     case "$POL" in
     (NetworkManager)
         if [ "x$NETWORKMANAGER" = "xyes" ] ; then
@@ -342,13 +391,11 @@ for POL in $_NETCONFIG_NIS_POLICY; do
 
                 get_nis_settings "$CFG"
 
-                if [ "x$NISDOMAIN" != "x" -a \
-                     "x$NISSERVERS" = "x" ]; then
+                if [ "x$NISDOMAIN" != "x" -a "x$NISSERVERS" = "x" ]; then
                     NISSERVERS="broadcast"
                 fi
 
-		if [ $sd -eq 0 ] ; then set_domainname $nm && sd=1 ; fi
-
+                set_nisdomainname "$NISDOMAIN" "$INTERFACE" "$CREATETIME"
                 format_yp_conf "$NISDOMAIN" "$NISSERVERS"
             fi
             break
@@ -356,8 +403,7 @@ for POL in $_NETCONFIG_NIS_POLICY; do
     ;;
     (STATIC)
         debug "Keep Static"
-	if [ $sd -eq 0 ] ; then set_domainname $nm && sd=1 ; fi
-        format_static
+        format_static $(($sf - 1))
     ;;
     (STATIC_FALLBACK)
         debug "Overwrite Static"
@@ -369,10 +415,12 @@ for POL in $_NETCONFIG_NIS_POLICY; do
         #
         POL=`echo "$POL" | sed 's/__ALL__/*/g' | sed 's/__ONE__/?/g'`
         debug "Other: $POL"
+
         for IFDIR in $STATEDIR/$POL; do
-	    test -d "$IFDIR" -a \
-	         -d "/sys/class/net/${IFDIR##*/}" || continue
-            if [ $sd -eq 0 ] ; then set_domainname $nm && sd=1 ; fi
+            IFNAME="${IFDIR##*/}"
+            test -n "$IFNAME" -a -d "$IFDIR" -a \
+                 -d "/sys/class/net/${IFNAME}" || continue
+
             # proceed every interface we find with this match
             manage_interfaceconfig  "$IFDIR"
         done
@@ -387,23 +435,27 @@ if [ $sf -eq 1 -a \
      ${#NIS_DOMAIN_SLP[@]}       -eq 0 -a \
     "$NIS_GLOGAL_BROADCAST"       != yes ] ;
 then
-    if [ $sd -eq 0 ] ; then set_domainname $nm && sd=1 ; fi
+    debug "Using static fallback"
     format_static
 fi
 
+# OK, write the config
 write_yp_conf
 RET=$?
 
-if [ $RET -eq 1 ]; then
-    # nothing changed; we are finished
-    exit 0
-elif [ $RET -eq 2 ]; then
-   # user modified the config. Copy aborted
+if   [ $RET -eq 1 ] ; then
+    # config unchanged, but maybe domain
+    # skip reload when is didn't changed
+    write_nisdomainname
+    RET=$?
+    test $RET -eq 1 && exit 0
+elif [ $RET -eq 2 ] ; then
+    # user modified the config. abort
     echo "ATTENTION: You have modified $DESTFILE.  Leaving it untouched..."
     echo "You can find my version in $TMP_FILE ..."
-
     exit 20
 fi
+write_nisdomainname
 
 # here we should restart services if needed
 # => reload ypbind
@@ -413,4 +465,4 @@ fi
 
 exit 0;
 
-
+# vim: set ts=8 sts=4 sw=4 ai et:
