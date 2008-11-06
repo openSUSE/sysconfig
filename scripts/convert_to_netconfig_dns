@@ -147,7 +147,7 @@ create_backup()
 
 	test -s "${root_dir}${filename}" && \
 	cp -p --backup=t "${root_dir}${filename}" "${root_dir}${filename}${b_suffix}" && \
-	message "Created ${filename}${b_suffix} backup"
+	message "Created ${filename}${b_suffix}"
 }
 create_backup_once()
 {
@@ -330,7 +330,6 @@ if test -n "$original" -a -r "${r}$original" ; then
 			create_backup_once "$resolver_conf" "$backup_suffix" "$r" && \
 			fake_netconfig_md5 "$resolver_conf" "$netconfig_md5" "$r" && {
 				message "Enabled $resolver_conf for use with netconfig"
-				verbose "(MODIFY_RESOLV_CONF_DYNAMICALLY=yes)"
 			}
 		fi
 	fi
@@ -423,7 +422,6 @@ if test -n "$original" -a -r "$original" ; then
 							create_backup_once "$resolver_conf" "$backup_suffix" "$r" && \
 							fake_netconfig_md5 "$resolver_conf" "$netconfig_md5" "$r" && {
 								message "Enabled $resolver_conf for use with netconfig"
-								verbose "(MODIFY_NAMED_CONF_DYNAMICALLY=yes)"
 							}
 						}
 						touch      "${r}${resolver_conf}"
@@ -445,7 +443,6 @@ if test -n "$original" -a -r "$original" ; then
 				create_backup_once "$forwarder_conf" "$backup_suffix" "$r" && \
 				fake_netconfig_md5 "$forwarder_conf" "$netconfig_md5" "$r" && {
 					message "Enabling $forwarder_conf for use with netconfig"
-					verbose "(MODIFY_NAMED_CONF_DYNAMICALLY=yes)"
 				}
 				touch      "${r}$forwarder_conf"
 				chmod 0644 "${r}$forwarder_conf"

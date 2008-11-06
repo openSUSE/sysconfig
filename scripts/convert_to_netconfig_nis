@@ -71,7 +71,7 @@ create_backup()
 
 	test -s "${root_dir}${filename}" && \
 	cp -p --backup=t "${root_dir}${filename}" "${root_dir}${filename}${b_suffix}" && \
-	message "Created ${filename}${b_suffix} backup"
+	message "Created ${filename}${b_suffix}"
 }
 
 create_backup_once()
@@ -112,7 +112,7 @@ parse_ypconf()
 
 	set_indexed()
 	{
-		test -n "${!1}" -a -n "$2" || return 1
+		test -n "${1}" -a -n "$2" || return 1
 		if test $(( ${!1} )) -gt ${4:-0} ; then
 			eval "$2_$(( ${!1} ))='$3'"
 		else
@@ -300,12 +300,12 @@ done
 
 verbose "dhcp  DHCLIENT_MODIFY_NIS_CONF = $_DHCLIENT_MODIFY_NIS_CONF"
 verbose "dhcp  DHCLIENT_SET_DOMAINNAME  = $_DHCLIENT_SET_DOMAINNAME"
-verbose "ifcfg DHCLIENT_MODIFY_NIS_CONF = yes in : ${mnc_y_ifaces[@]}"
-verbose "ifcfg DHCLIENT_MODIFY_NIS_CONF = no  in : ${mnc_n_ifaces[@]}"
-verbose "ifcfg DHCLIENT_SET_DOMAINNAME  = yes in : ${snd_y_ifaces[@]}"
-verbose "ifcfg DHCLIENT_SET_DOMAINNAME  = no  in : ${snd_n_ifaces[@]}"
-verbose "ifcfg files with bootproto dhcp         : ${dhcp_ifaces[@]}"
-verbose "ifcfg files to cleanup                  : ${clear_ifaces[@]}"
+verbose "ifcfg DHCLIENT_MODIFY_NIS_CONF = yes in <${mnc_y_ifaces[@]}>"
+verbose "ifcfg DHCLIENT_MODIFY_NIS_CONF = no  in <${mnc_n_ifaces[@]}>"
+verbose "ifcfg DHCLIENT_SET_DOMAINNAME  = yes in <${snd_y_ifaces[@]}>"
+verbose "ifcfg DHCLIENT_SET_DOMAINNAME  = no  in <${snd_n_ifaces[@]}>"
+verbose "ifcfg files with bootproto dhcp         <${dhcp_ifaces[@]}>"
+verbose "ifcfg files to cleanup                  <${clear_ifaces[@]}>"
 
 if test -r "${r}${ypbind_config}" ; then
 	if has_netconfig_info "${r}${ypbind_config}" ; then
