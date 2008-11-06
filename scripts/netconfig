@@ -26,7 +26,7 @@
 #
 # 0  success
 # 1  error
-# 20 a plugin was not able to change the configuration
+# 20 a module was not able to change the configuration
 #    because it was changed since the last run
 #
 
@@ -40,7 +40,7 @@ r=$ROOT
 PROGNAME=${0##*/}
 STATEDIR=$r/var/run/netconfig/
 
-PLUGINDIR=$r/etc/netconfig.d/
+MODULEDIR=$r/etc/netconfig.d/
 
 . $r/etc/sysconfig/network/config
 
@@ -231,7 +231,7 @@ function get_new_cfgname() {
     echo $CFGNAME;
 }
 
-function run_plugins() {
+function run_modules() {
     local errors=()
     local msg=""
     local ret=0
@@ -248,10 +248,10 @@ function run_plugins() {
 	case $plg in
 	  -*) continue ;;
 	esac
-        if [ ! -x $PLUGINDIR/$plg ]; then
+        if [ ! -x $MODULEDIR/$plg ]; then
             continue
         fi
-        msg=`$PLUGINDIR/$plg 2>&1`
+        msg=`$MODULEDIR/$plg 2>&1`
         if [ "x$msg" != x ]; then
             errors[${#errors[@]}]="$msg"
         fi
@@ -407,17 +407,17 @@ case "$ACTION" in
     modify)
            modify
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
-           run_plugins
+           run_modules
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
            ;;
     update)
-           run_plugins
+           run_modules
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
            ;;
     remove)
            remove
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
-           run_plugins
+           run_modules
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
            ;;
     *)

@@ -34,7 +34,7 @@ r="$ROOT"
 
 PROGNAME="${0##*/}"
 STATEDIR="$r/var/run/netconfig/"
-debug "$PROGNAME Plugin called"
+debug "$PROGNAME Module called"
 
 . "$r/etc/sysconfig/network/config"
 
