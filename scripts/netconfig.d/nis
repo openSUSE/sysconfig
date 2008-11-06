@@ -321,6 +321,13 @@ function set_nisdomainname()
 
 function write_nisdomainname()
 {
+    # don't set anything if it is disabled
+    if [ "x$NETCONFIG_NIS_SETDOMAINNAME" = x -o \
+         "x$NETCONFIG_NIS_SETDOMAINNAME" = xno ] ;
+    then
+        return 0
+    fi
+
     # fallback to /etc/defaultdomain when empty
     if [ "x$NIS_DOMAIN_DEFAULT" = x -a -s /etc/defaultdomain ] ; then
         { NIS_DOMAIN_DEFAULT=`< /etc/defaultdomain`; } 2>/dev/null
