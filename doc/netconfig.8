@@ -139,7 +139,7 @@ the static settings have to be used only, when no dynamic are avaliable.
 .RS
 
 By default, the policy is set to the special value \fBauto\fR. This special
-policy value is resolved by netconfig depending on the \fBNETWORK_MANAGER\fR
+policy value is resolved by netconfig depending on the \fBNETWORKMANAGER\fR
 ("yes"/"no") variable:
 .RS
 .PD 0
@@ -199,21 +199,25 @@ A NIS domain name.
 A list of NIS servers for the domain with same suffix number.
 .TP
 .BR NETCONFIG_NIS_SETDOMAINNAME
-Defines whether to set the NIS domain using a setdomainname(2)
-call. Valid values are:
+Defines whether to set the NIS domain using a setdomainname(2) call.
+When enabled and the NIS domain is not provided dynamically or defined
+in the static netconfig variables, the domain from /etc/defaultdomain
+is used as fallback. Valid values are:
 .RS
 .PD 0
 .TP
 .IR no
-netconfig do not set the domainname
+netconfig does not set the domainname at all
 .TP
 .IR yes
-netconfig sets the domainname with the first first interface
-and service which provide the NIS domainname.
+netconfig sets the domainname according to the NIS policy using the
+settings of the first interface and service which provided the NIS
+domainname.
 .TP
 .RI "<" interface ">"
-netconfig sets the domainname with the value provided in the
-settings of the specified interface.
+netconfig sets the domainname according to the NIS policy using the
+settings of the first service which provided the NIS domainname on
+the specified interface.
 .PD
 .RE
 
