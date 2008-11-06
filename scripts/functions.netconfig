@@ -350,7 +350,7 @@ function find_first_provides() {
 
             debug "got CREATETIME=$CREATETIME and $REQVAR=${!REQVAR}"
 
-            if [ "x$VALUE" = "x" -a "x$REQVAR" != "" ]; then
+            if [ "x$VALUE" = "x" -a "x${!REQVAR}" != "x" ]; then
                 CFG_TIME=$CREATETIME
                 VALUE=${!REQVAR}
             elif [ -n "$CREATETIME" -a $CREATETIME -ne 0 -a \
