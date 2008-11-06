@@ -1,34 +1,46 @@
 #!/bin/bash
 
+# similar to remove_and_set rpm suse macro,
+# but more flexible and able to handle files
+# in subdirs of the etc/sysconfig directory.
 sysconfig_remove_and_set()
 {
-    local base=etc/sysconfig
+    local root=''
+    local base='etc/sysconfig'
+    local fill='bin/fillup'
+    local dflt=''
+    while [ $# -gt 0 ]; do
+        case $1 in
+            (-r) shift ; root="${1%/}/" ; shift ;;
+            (-b) shift ; base="$1"      ; shift ;;
+	    (-d) shift ; dflt="$1"      ; shift ;;
+	    (-f) shift ; flup="$1"      ; shift ;;
+            (*)                           break ;;
+        esac
+    done
     local file=${1} ; shift
-    local dflt=${1} ; shift
     local var val f
-    if test -n "$file" -a -f "${base}/${file}" -a -n "$1" ; then
-        rm -f "${base}/${file}.del.$$"
+    if test -n "$1" -a -n "$file" -a -f "${root}${base}/${file}" -a -x "${root}${fill}" ; then
+        rm -f "${root}${base}/${file}.del.$$"
         for var in ${1:+"$@"} ; do
-	    val=${!var}
+	    val="${!var}"
             echo "$var='${val:-$dflt}'"
-        done > "${base}/${file}.del.$$"
-        if test -s "${base}/${file}.del.$$" ; then
-	    rm -f "${base}/${file}.new"
-            if bin/fillup -q -t -r -i -d "=" "${base}/${file}" \
-               "${base}/${file}.del.$$" "${base}/${file}.deleted.$$" ; then
-               :
+        done > "${root}${base}/${file}.del.$$"
+        if test -s "${root}${base}/${file}.del.$$" ; then
+	    rm -f "${root}${base}/${file}.new"
+            "${root}${fill}" -q -t -r -i -d "=" "${root}${base}/${file}" \
+            "${root}${base}/${file}.del.$$" "${root}${base}/${file}.deleted.$$"
+            if test -f "${root}${base}/${file}.new" ; then
+                mv -f "${root}${base}/${file}.new" "${root}${base}/${file}"
             fi
-            if test -f "${base}/${file}.new" ; then
-                mv -f "${base}/${file}.new" "${base}/${file}"
-            fi
-            for f in "${base}/${file}.del.$$" "${base}/${file}.deleted.$$" ; do
+            for f in "${root}${base}/${file}.del.$$" "${root}${base}/${file}.deleted.$$" ; do
                 if test -f "$f" ; then
                     . "$f"
                     rm -f "$f"
                 fi
             done
         fi
-        rm -f "${base}/${file}.del.$$"
+        rm -f "${root}${base}/${file}.del.$$"
     fi
 }
 

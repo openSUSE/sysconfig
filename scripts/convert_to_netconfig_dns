@@ -1,23 +1,5 @@
 #!/bin/bash
 #
-###
-# What this script does:
-# - Restore /etc/resolv.conf or /etc/named.d/forwarders.conf from backup
-#   files created by /sbin/modify_resolvconf (.saved.by.* suffix).
-# - Remove /sbin/modify_resolvconf backup files.
-# - Convert the MODIFY_{RESOLV,NAMED}_CONF_DYNAMICALLY and ...STATIC_DNS
-#   variables and settings found in the destination file (the resolv.conf
-#   or the forwarders.conf) into NETCONFIG_DNS_* variables, backup it and
-#   enable for use with netconfig.
-# - Create backup of sysconfig/network/config and write the new/converted
-#   netconfig settings.
-#
-# What this script does not provide/convert:
-# - The DHCLIENT_MODIFY_RESOLV_CONF are not considered/converted, because
-#   dhcp cliens was using modify_resolvconf & MODIFY vars as global policy.
-# - Removal of the old MODIFY_*_CONF_DYNAMICALLY/...STATIC_DNS variables
-#   (this is done in the RPM spec file).
-#
 # Exit codes:
 # - 0 success
 # - 1 on failure
@@ -105,6 +87,17 @@ fake_netconfig_md5()
 	grep -Ev '^#|^[[:space:]]*$' "${pfx}${src}" | md5sum > "${md5}" 2>/dev/null
 }
 
+contains_old_variables()
+{
+	test -n "$1" && \
+	grep -qs "^[[:space:]]*\(\
+MODIFY_NAMED_CONF_DYNAMICALLY\|\
+MODIFY_RESOLV_CONF_DYNAMICALLY\|\
+MODIFY_RESOLV_CONF_STATIC_DNS\|\
+DHCLIENT_MODIFY_RESOLV_CONF\|\
+DHCLIENT_KEEP_SEARCHLIST\)=" "${1}" 2>/dev/null
+}
+
 has_modify_resolvconf_info()
 {
 	test -n "$1" -a -f "$1" && grep -qs '^### BEGIN INFO' "$1" 2>/dev/null
@@ -156,6 +149,10 @@ create_backup()
 	cp -p --backup=t "${root_dir}${filename}" "${root_dir}${filename}${b_suffix}" && \
 	message "Created ${filename}${b_suffix} backup"
 }
+create_backup_once()
+{
+	test -f "${3}${1}${2}" || create_backup "$1" "$2" "$3"
+}
 
 is_localhost_ip()
 {
@@ -172,15 +169,21 @@ SCRIPTNAME=${0##*/}
 test "${ROOT}" = "/" && unset ROOT
 r=${ROOT}
 
+# source sysconfig_remove_and_set()
+test -f "$ROOT/etc/sysconfig/network/scripts/functions.rpm-utils" && \
+      . "$ROOT/etc/sysconfig/network/scripts/functions.rpm-utils" || exit 1
+
 # the files modified by modify_resolvconf
 network_config="/etc/sysconfig/network/config"
+network_ifcfgs="/etc/sysconfig/network/ifcfg"
+network_dhcp="/etc/sysconfig/network/dhcp"
 resolver_conf="/etc/resolv.conf"
 forwarder_dir="/etc/named.d"
 forwarder_conf="${forwarder_dir}/forwarders.conf"
 forwarder_script="/etc/init.d/named"
 
 # backup files we create
-backup_suffix=".backup.by.${SCRIPTNAME:-convert_dns_to_netconfig}"
+backup_suffix=".backup.by.convert_to_netconfig"
 netconfig_md5="/var/adm/netconfig/md5"
 
 # internal flags
@@ -202,7 +205,8 @@ MODIFY_RESOLV_CONF_STATIC_DNS=''
 #
 # check if there is netconfig and its variables
 #
-test -x "${r}/sbin/netconfig" -a $((`grep -c "^[[:space:]]*\(\
+test -x "${r}/sbin/netconfig" -a \
+$((`grep -c "^[[:space:]]*\(\
 NETCONFIG_DNS_POLICY\|\
 NETCONFIG_DNS_FORWARDER\|\
 NETCONFIG_DNS_STATIC_SERVERS\|\
@@ -214,21 +218,17 @@ NETCONFIG_DNS_STATIC_SEARCHLIST\)=" \
 #
 # check if there are conversion backups
 #
-test -f "${r}${network_config}${backup_suffix}" -o \
-     -f "${r}${resolver_conf}${backup_suffix}"  -o \
+test -f "${r}${resolver_conf}${backup_suffix}"  -o \
      -f "${r}${forwarder_conf}${backup_suffix}" && {
 	verbose "$SCRIPTNAME backup files exists - done"
 	exit 0
 }
 
 #
-# check if there is modify_resolvconf or its variables
+# check if there are modify_resolvconf variables
 #
-test -x "${r}/sbin/modify_resolvconf" || grep -qs "^[[:space:]]*\(\
-MODIFY_NAMED_CONF_DYNAMICALLY\|\
-MODIFY_RESOLV_CONF_DYNAMICALLY\|\
-MODIFY_RESOLV_CONF_STATIC_DNS\)=" \
-"${r}${network_config}" 2>/dev/null || {
+contains_old_variables "${r}${network_config}" || \
+contains_old_variables "${r}${network_dhcp}"   || {
 	verbose "Unable to find modify_resolvconf or its sysconfig variables"
 	verbose "Disabled conversion to netconfig (cleanup backups only)"
 	update_netconfig_settings=no
@@ -326,8 +326,8 @@ if test -n "$original" -a -r "${r}$original" ; then
 			add_to_wordlist NETCONFIG_DNS_STATIC_SEARCHLIST \
 					${dns_domains[@]}
 
-			# create backup and delete it (will be recreated)
-			create_backup "$resolver_conf" "$backup_suffix" "$r" && \
+			# create backup and fake as a netconfig file
+			create_backup_once "$resolver_conf" "$backup_suffix" "$r" && \
 			fake_netconfig_md5 "$resolver_conf" "$netconfig_md5" "$r" && {
 				message "Enabled $resolver_conf for use with netconfig"
 				verbose "(MODIFY_RESOLV_CONF_DYNAMICALLY=yes)"
@@ -420,7 +420,7 @@ if test -n "$original" -a -r "$original" ; then
 					if test "$resolver_conf_otherhost_ns" != yes ; then
 						has_netconfig_info "${r}${resolver_conf}" || {
 							# reset resolv.conf -- it contains no or local ns only
-							create_backup "$resolver_conf" "$backup_suffix" "$r" && \
+							create_backup_once "$resolver_conf" "$backup_suffix" "$r" && \
 							fake_netconfig_md5 "$resolver_conf" "$netconfig_md5" "$r" && {
 								message "Enabled $resolver_conf for use with netconfig"
 								verbose "(MODIFY_NAMED_CONF_DYNAMICALLY=yes)"
@@ -442,7 +442,7 @@ if test -n "$original" -a -r "$original" ; then
 				fi
 
 				# create backup and reset the forwarders.conf
-				create_backup "$forwarder_conf" "$backup_suffix" "$r" && \
+				create_backup_once "$forwarder_conf" "$backup_suffix" "$r" && \
 				fake_netconfig_md5 "$forwarder_conf" "$netconfig_md5" "$r" && {
 					message "Enabling $forwarder_conf for use with netconfig"
 					verbose "(MODIFY_NAMED_CONF_DYNAMICALLY=yes)"
@@ -457,41 +457,83 @@ fi
 
 if test "$update_netconfig_settings" = yes ; then
 	# ok, test if we have some changes, create backup and change it
-	if test "x$NETCONFIG_DNS_POLICY" != xauto        -o \
-	        "x$NETCONFIG_DNS_FORWARDER" != xresolver -o \
-	        "x$NETCONFIG_DNS_STATIC_SERVERS" != x    -o \
-	        "x$NETCONFIG_DNS_STATIC_SEARCHLIST" != x ;
+	if test "x$NETCONFIG_DNS_POLICY"            = xauto     -a \
+	        "x$NETCONFIG_DNS_FORWARDER"         = xresolver -a \
+	        "x$NETCONFIG_DNS_STATIC_SERVERS"    = x         -a \
+	        "x$NETCONFIG_DNS_STATIC_SEARCHLIST" = x ;
 	then
-		create_backup "$network_config" "$backup_suffix" "$r" && {
-			msg="Converting modify_resolvconf settings to netconfig..."
-			allfine=0
+		verbose "No changes to netconfig settings necessary"
+	else
+		create_backup_once "$network_config" "$backup_suffix" "$r" && {
+			verbose "Converting DNS settings to netconfig:"
 			for v in NETCONFIG_DNS_POLICY \
 				 NETCONFIG_DNS_FORWARDER \
 				 NETCONFIG_DNS_STATIC_SERVERS \
 				 NETCONFIG_DNS_STATIC_SEARCHLIST ;
 			do
-			  	sed -e "s/^[[:space:]]*\(${v}\)=.*/\1='${!v}'/g" \
-				    -i "${r}${network_config}" || allfine=1
-		  		verbose "${v}='${!v}'"
+				verbose "${v}='${!v}'"
+			 	sed -e "s/^[[:space:]]*\(${v}\)=.*/\1='${!v}'/g" \
+				    -i "${r}${network_config}" || break
 			done
-			if test $allfine -eq 0 ; then
-				message "$msg done"
-			else
-				warning "$msg failed"
-
-				msg="Trying to restore ${network_config} from backup..."
-				cp -p "${r}${network_config}${backup_suffix}" "${r}${network_config}" && {
-					warning "$msg done"
-				} || {
-					failure "$msg failed"
-					failure "A backup is in ${network_config}${backup_suffix}"
-					exit 1
-				}
-			fi
+			message "DNS settings to netconfig conversion... done"
 		}
-	else
-		verbose "No changes to netconfig settings necessary"
 	fi
 fi
+
+# collect a list of interface with old variables
+clear_ifaces=()
+for ifcfg in "${r}${network_ifcfgs}-"* ; do
+	ifname="${ifcfg##*\/ifcfg-}"
+	case $ifname in
+	(lo|""|*" "*|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup) continue ;;
+	esac
+	# remember where to remove the variables later...
+	contains_old_variables "${r}${network_ifcfgs}-${ifname}" && \
+	clear_ifaces=("${clear_ifaces[@]}" "${ifname}")
+done
+
+msg="Removing obsolete DNS variables (config, dhcp, ifcfg-<${clear_ifaces[@]}> files)"
+contains_old_variables "${r}${network_config}" && {
+	test -n "$msg" && message "$msg" ; msg=""
+	create_backup_once "$network_config" "$backup_suffix" "$r" && {
+		# remove also misrouted dhcp variables from config
+		sysconfig_remove_and_set -b ""	\
+		"${r}${network_config}"		\
+		MODIFY_NAMED_CONF_DYNAMICALLY	\
+		MODIFY_RESOLV_CONF_DYNAMICALLY	\
+		MODIFY_RESOLV_CONF_STATIC_DNS	\
+		DHCLIENT_MODIFY_RESOLV_CONF     \
+		DHCLIENT_KEEP_SEARCHLIST
+	}
+}
+contains_old_variables "${r}${network_dhcp}"   && {
+	test -n "$msg" && message "$msg" ; msg=""
+	create_backup_once "$network_dhcp" "$backup_suffix" "$r" && {
+		# remove also misrouted config variables from dhcp
+		sysconfig_remove_and_set -b ""	\
+		"${r}${network_dhcp}"		\
+		MODIFY_NAMED_CONF_DYNAMICALLY	\
+		MODIFY_RESOLV_CONF_DYNAMICALLY	\
+		MODIFY_RESOLV_CONF_STATIC_DNS	\
+		DHCLIENT_MODIFY_RESOLV_CONF     \
+		DHCLIENT_KEEP_SEARCHLIST
+	}
+}
+for ifname in "${clear_ifaces[@]}" ; do
+	test -n "$msg" && message "$msg" ; msg=""
+	if test -f "${r}${network_ifcfgs}-${ifname}" ; then
+		test -f "${r}${network_ifcfgs}.${ifname}${backup_suffix}" || {
+			cp -p --backup=t "${r}${network_ifcfgs}-${ifname}" \
+			"${r}${network_ifcfgs}.${ifname}${backup_suffix}" || continue
+		}
+		sed -e '/^[[:space:]]*MODIFY_NAMED_CONF_DYNAMICALLY=/d'	\
+		    -e '/^[[:space:]]*MODIFY_RESOLV_CONF_DYNAMICALLY=/d'\
+		    -e '/^[[:space:]]*MODIFY_RESOLV_CONF_STATIC_DNS=/d'	\
+		    -e '/^[[:space:]]*DHCLIENT_MODIFY_RESOLV_CONF=/d'	\
+		    -e '/^[[:space:]]*DHCLIENT_KEEP_SEARCHLIST=/d'	\
+		    -i "${r}${network_ifcfgs}-${ifname}"
+	fi
+done
+
 exit 0
 

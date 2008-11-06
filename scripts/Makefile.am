@@ -10,7 +10,8 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					functions.netconfig \
 					functions.rpm-utils \
 					convert_persistent_name_rules \
-					convert_dns_to_netconfig \
+					convert_to_netconfig_dns \
+					convert_to_netconfig_nis \
 					ifdown-connection \
 					ifup-802.1q \
 					ifup-autoip \

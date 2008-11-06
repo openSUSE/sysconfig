@@ -1,0 +1,518 @@
+#!/bin/bash
+#
+# Exit codes:
+# - 0 success
+# - 1 on failure
+###
+
+test "${DEBUG}" = yes && set -x
+
+# helper functions
+failure()
+{
+	test -n "$*" && echo 1>&2 "FAILURE: $*"
+}
+warning()
+{
+	test -n "$*" && echo 1>&2 "WARNING: $*"
+}
+message()
+{
+	test -n "$*" && echo 1>&2 "$*"
+}
+verbose()
+{
+	test "${VERBOSE}" = yes -a -n "$*" && echo 1>&2 "$*"
+}
+
+add_to_wordlist() {
+	local v="${1}"
+	local l=(${!v}) ; shift
+	local a w
+	for a in ${@} ; do
+		for w in ${l[@]} ; do
+			[ "x$w" = "x$a" ] && \
+			continue 2
+		done
+		l=(${l[@]} $a)
+	done
+	eval "$v='${l[@]}'"
+}
+
+has_netconfig_info()
+{
+	test -n "$1" -a -f "$1" && grep -qs '^### .* netconfig' "$1" 2>/dev/null
+}
+
+fake_netconfig_md5()
+{
+	src=$1
+	dir=$2
+	pfx=$3
+	md5="${pfx}${dir}${src}"
+	test -n "$dir" -a -n "$src" -a -r "${pfx}${src}" || return 1
+	mkdir -p "${md5%/*}" 2>/dev/null                 || return 2
+	rm -f "${md5}"       2>/dev/null                 || return 3
+	grep -Ev '^#|^[[:space:]]*$' "${pfx}${src}" | md5sum > "${md5}" 2>/dev/null
+}
+
+contains_old_variables()
+{
+	test -n "$1" && \
+	grep -qs "^[[:space:]]*\(DHCLIENT_MODIFY_NIS_CONF\|DHCLIENT_SET_DOMAINNAME\)=" \
+		 "${1}" 2>/dev/null
+}
+
+create_backup()
+{
+	filename=$1
+	b_suffix=$2
+	root_dir=$3
+
+	test -s "${root_dir}${filename}" && \
+	cp -p --backup=t "${root_dir}${filename}" "${root_dir}${filename}${b_suffix}" && \
+	message "Created ${filename}${b_suffix} backup"
+}
+
+create_backup_once()
+{
+	        test -f "${3}${1}${2}" || create_backup "$1" "$2" "$3"
+}
+
+parse_ypconf()
+{
+	#
+	# usage: <yp.conf> <ypdomain variable> <ypserver variable>
+	#        [first variable index - 1>
+	#
+	# parse_ypconf ./yp.conf NIS_DOMAIN NIS_SERVER
+	# # NIS_DOMAIN   + NIS_SERVER,
+	# # NIS_DOMAIN_1 + NIS_SERVER_1
+	# for dom in ${!NIS_DOMAIN*} ; do
+	# 	idx=${dom#NIS_DOMAIN}
+	# 	srv="NIS_SERVER$idx"
+	# 	echo "$dom=${!dom}"
+	# 	echo "$srv=${!srv}"
+	# done
+	#
+	local _ypconf=$1
+	local _yp_dom=$2
+	local _yp_srv=$3
+	local _yp_idx=$(($4))
+	local -i _idx=${_yp_idx}
+	local -a _row
+
+	test -n "$_yp_dom" -a -n "$_yp_srv" || return 1
+	# unset all domain[_<num>] and server[_<num>]
+        # variables specified by variable name first
+	eval "unset \${!$_yp_dom*}"
+	eval "unset \${!$_yp_srv*}"
+
+	test -n "$_ypconf" -a -r "$_ypconf" || return 1
+
+	set_indexed()
+	{
+		test -n "${!1}" -a -n "$2" || return 1
+		if test $(( ${!1} )) -gt ${4:-0} ; then
+			eval "$2_$(( ${!1} ))='$3'"
+		else
+			eval "$2='$3'"
+		fi
+	}
+
+	while read -rs -a _row ; do
+		: "{_row[@]}"
+		test ${#_row[@]} -gt 0 -a \
+		     ${#_row[@]} -le 4 || continue
+		case ${_row[0]} in
+		(domain)
+			test -n "${_row[1]}" -a \
+			     -n "${_row[2]}" || continue
+			case ${_row[2]} in
+			(server)
+				test -n "${_row[3]}" || continue
+				set_indexed _idx $_yp_dom "${_row[1]}" $_yp_idx
+				set_indexed _idx $_yp_srv "${_row[3]}" $_yp_idx
+				_idx=$(( $_idx + 1 ))
+			;;
+			(broadcast|slp)
+				set_indexed _idx $_yp_dom "${_row[1]}" $_yp_idx
+				set_indexed _idx $_yp_srv "${_row[2]}" $_yp_idx
+				_idx=$(( $_idx + 1 ))
+			;;
+			esac
+		;;
+		(ypserver)
+			test -n "${_row[1]}" && continue
+			set_indexed _idx $_yp_dom ""           $_yp_idx
+			set_indexed _idx $_yp_srv "${_row[1]}" $_yp_idx
+			_idx=$(( $_idx + 1 ))
+		;;
+		(broadcast)
+			set_indexed _idx $_yp_dom "${_row[0]}" $_yp_idx
+			set_indexed _idx $_yp_srv ""           $_yp_idx
+			_idx=$(( $_idx + 1 ))
+		;;
+		esac
+	done < <(grep -Ev '^[[:space:]]*(#.*)?$' "$_ypconf" 2>/dev/null)
+}
+
+################################################################################
+SCRIPTNAME=${0##*/}
+
+# act bellow of this "root" directory
+test "${ROOT}" = "/" && unset ROOT
+r=${ROOT}
+
+# source sysconfig_remove_and_set()
+test -f "$ROOT/etc/sysconfig/network/scripts/functions.rpm-utils" && \
+      . "$ROOT/etc/sysconfig/network/scripts/functions.rpm-utils" || exit 1
+
+# dhcp config filed and NIS init script
+network_config="/etc/sysconfig/network/config"
+network_ifcfgs="/etc/sysconfig/network/ifcfg"
+network_dhcp="/etc/sysconfig/network/dhcp"
+ypbind_config="/etc/yp.conf"
+ypbind_script="/etc/init.d/ypbind"
+
+# backup files we create
+backup_suffix=".backup.by.convert_to_netconfig"
+netconfig_md5="/var/adm/netconfig/md5"
+
+# internal flags
+update_netconfig_settings=yes
+use_static_fallback_policy=no
+
+# set netconfig defaults
+NETCONFIG_NIS_POLICY="auto"
+NETCONFIG_NIS_SETDOMAINNAME="yes"
+NETCONFIG_NIS_STATIC_DOMAIN=""
+NETCONFIG_NIS_STATIC_SERVERS=""
+
+# NIS related dhcp variables
+DHCLIENT_MODIFY_NIS_CONF='no'
+DHCLIENT_SET_DOMAINNAME='no'
+
+#
+# check if there is netconfig and its variables
+#
+test -x "${r}/sbin/netconfig" -a \
+$((`grep -c "^[[:space:]]*\(\
+NETCONFIG_NIS_POLICY\|\
+NETCONFIG_NIS_SETDOMAINNAME\|\
+NETCONFIG_NIS_STATIC_DOMAIN\|\
+NETCONFIG_NIS_STATIC_SERVERS\)=" \
+"${r}${network_config}" 2>/dev/null`)) -eq 4 || {
+	failure "Unable to find netconfig and its sysconfig variables"
+	exit 1
+}
+#
+# check if there are conversion backups
+#
+test -f "${r}${ypbind_config}${backup_suffix}" && {
+	verbose "$SCRIPTNAME backup files exists - done"
+	exit 0
+}
+
+#
+# check if there is modify_resolvconf or its variables
+#
+contains_old_variables "${r}${network_dhcp}" 2>/dev/null || {
+	verbose "Unable to find global NIS variables in sysconfig/network/dhcp"
+	verbose "Disabled conversion to netconfig (cleanup ifcfg files only)"
+	update_netconfig_settings=no
+}
+
+#
+# OK, read current settings
+#
+eval `grep "^[[:space:]]*\(\
+NETCONFIG_NIS_POLICY\|\
+NETCONFIG_NIS_SETDOMAINNAME\|\
+NETCONFIG_NIS_STATIC_DOMAIN\(_[0-9]\+\)*\|\
+NETCONFIG_NIS_STATIC_SERVERS\(_[0-9]\+\)*\)=" \
+"${r}${network_config}" 2>/dev/null`
+eval `grep "^[[:space:]]*\(\
+DHCLIENT_MODIFY_NIS_CONF\|\
+DHCLIENT_SET_DOMAINNAME\)=" \
+"${r}${network_dhcp}" 2>/dev/null`
+_DHCLIENT_MODIFY_NIS_CONF=$DHCLIENT_MODIFY_NIS_CONF
+_DHCLIENT_SET_DOMAINNAME=$DHCLIENT_SET_DOMAINNAME
+
+#
+# check if have netconfig default settings
+#
+test "x$NETCONFIG_NIS_POLICY"             = xauto                         -a \
+     "x$NETCONFIG_NIS_SETDOMAINNAME"      = xyes                          -a \
+     "x$NETCONFIG_NIS_STATIC_DOMAIN"      = x                             -a \
+     "x$NETCONFIG_NIS_STATIC_SERVERS"     = x                             -a \
+     "x${!NETCONFIG_NIS_STATIC_DOMAIN*}"  = xNETCONFIG_NIS_STATIC_DOMAIN  -a \
+     "x${!NETCONFIG_NIS_STATIC_SERVERS*}" = xNETCONFIG_NIS_STATIC_SERVERS || {
+	verbose "Modified netconfig NIS settings found - disabled conversion"
+	update_netconfig_settings=no
+}
+
+#
+# OK, go on
+#
+dhcp_ifaces=()
+clear_ifaces=()
+mnc_y_ifaces=()
+mnc_n_ifaces=()
+snd_y_ifaces=()
+snd_n_ifaces=()
+policy_ifaces=()
+for ifcfg in "${r}${network_ifcfgs}-"* ; do
+	ifname="${ifcfg##*\/ifcfg-}"
+	case $ifname in
+	(lo|""|*" "*|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup) continue ;;
+	esac
+
+	# remember where to remove the variables later...
+	contains_old_variables "${r}${network_ifcfgs}-${ifname}" && \
+	clear_ifaces=("${clear_ifaces[@]}" "${ifname}")
+
+	BOOTPROTO="static"
+	DHCLIENT_MODIFY_NIS_CONF=$_DHCLIENT_MODIFY_NIS_CONF
+	DHCLIENT_SET_DOMAINNAME=$_DHCLIENT_SET_DOMAINNAME
+	eval `grep "^[[:space:]]*\(BOOTPROTO\|DHCLIENT_MODIFY_NIS_CONF\|DHCLIENT_SET_DOMAINNAME\)=" \
+		"${r}${network_ifcfgs}-${ifname}" 2>/dev/null`
+
+	# skip if this is not a dhcp interface;
+	# we migrate DHCP client variables... !
+	case $BOOTPROTO in
+		(*[dD][hH][cC][pP]*) dhcp_ifaces=("${dhcp_ifaces[@]}" "$ifname") ;;
+		(*)                  continue                                    ;;
+	esac
+
+	if test "x$DHCLIENT_MODIFY_NIS_CONF" = xyes ; then
+		mnc_y_ifaces=("${mnc_y_ifaces[@]}" "$ifname")
+		if test "x$DHCLIENT_SET_DOMAINNAME"  = xyes ; then
+			snd_y_ifaces=("${snd_y_ifaces[@]}" "$ifname")
+		else
+			snd_n_ifaces=("${snd_n_ifaces[@]}" "$ifname")
+		fi
+	else
+		mnc_n_ifaces=("${mnc_n_ifaces[@]}" "$ifname")
+		snd_n_ifaces=("${snd_n_ifaces[@]}" "$ifname")
+	fi
+done
+
+verbose "dhcp  DHCLIENT_MODIFY_NIS_CONF = $_DHCLIENT_MODIFY_NIS_CONF"
+verbose "dhcp  DHCLIENT_SET_DOMAINNAME  = $_DHCLIENT_SET_DOMAINNAME"
+verbose "ifcfg DHCLIENT_MODIFY_NIS_CONF = yes in : ${mnc_y_ifaces[@]}"
+verbose "ifcfg DHCLIENT_MODIFY_NIS_CONF = no  in : ${mnc_n_ifaces[@]}"
+verbose "ifcfg DHCLIENT_SET_DOMAINNAME  = yes in : ${snd_y_ifaces[@]}"
+verbose "ifcfg DHCLIENT_SET_DOMAINNAME  = no  in : ${snd_n_ifaces[@]}"
+verbose "ifcfg files with bootproto dhcp         : ${dhcp_ifaces[@]}"
+verbose "ifcfg files to cleanup                  : ${clear_ifaces[@]}"
+
+if test -r "${r}${ypbind_config}" ; then
+	if has_netconfig_info "${r}${ypbind_config}" ; then
+		verbose "A netconfig generated ${ypbind_config} found"
+		verbose "Disabled conversion to netconfig (cleanup only)"
+		update_netconfig_settings=no
+	else
+		if test -r "${r}${ypbind_config}.sv" ; then
+			# it looks like the yp.conf is created by dhcpcd
+			# the backup may contain the static settings ...
+			parse_ypconf "${r}${ypbind_config}.sv"   \
+			             NETCONFIG_NIS_STATIC_DOMAIN \
+		                     NETCONFIG_NIS_STATIC_SERVERS
+		else
+			# we have a yp.conf, but don't know where it's from
+			# it may be static or created by dhcpcd...
+			parse_ypconf "${r}${ypbind_config}"      \
+			             NETCONFIG_NIS_STATIC_DOMAIN \
+		                     NETCONFIG_NIS_STATIC_SERVERS
+		fi
+		# parse_ypconf unsets any result variables ...
+		if test "x${!NETCONFIG_NIS_STATIC_DOMAIN*}"   != x -o \
+			"x${!NETCONFIG_NIS_STATIC_SERVERS*}"  != x ;
+		then
+			#
+			# yp.conf[.sv] exists and contains some settings
+			# we enable netconfig static fallback mode and convert them
+			# into netconfig variables. If they are used or not depends
+			# on the policy we evaluate later...
+			#
+			# When DHCLIENT_MODIFY_NIS_CONF was "yes" for at least one
+			# interface, we are alowed to change the yp.conf and enable
+			# netconfig (non-empty policy) too.
+			#
+			# The netconfig fallback mode, will use a similar way as
+			# dhcpcd with DHCLIENT_MODIFY_NIS_CONF and existing yp.conf
+			# (that is saved as .sv) before: when dhcp provided NIS
+			# settings, they're used, otherwise the static values.
+			#
+			use_static_fallback_policy=yes
+		else
+			# restore empty defaults
+			NETCONFIG_NIS_STATIC_DOMAIN=''
+			NETCONFIG_NIS_STATIC_SERVERS=''
+		fi
+	fi
+fi
+
+if test "x$_DHCLIENT_MODIFY_NIS_CONF" = xyes ; then
+	if test ${#mnc_n_ifaces[@]} -gt 0 ; then
+		verbose "DHCLIENT_MODIFY_NIS_CONF=yes for all ifaces except ${policy_ifaces[@]}"
+		ifaces=""
+		for a in "${dhcp_ifaces[@]}" ; do
+			for s in "${mnc_n_ifaces[@]}" ; do
+				test "x$a" = "x$s" && continue 2
+			done
+			add_to_wordlist ifaces "$a"
+		done
+		policy_ifaces=($ifaces)
+		test "$use_static_fallback_policy" != yes && \
+		NETCONFIG_NIS_POLICY="STATIC $ifaces"     || \
+		NETCONFIG_NIS_POLICY="STATIC_FALLBACK $ifaces"
+	else
+		verbose "DHCLIENT_MODIFY_NIS_CONF=yes for all ifaces"
+		policy_ifaces=("${dhcp_ifaces[@]}")
+		test "$use_static_fallback_policy" != yes && \
+		NETCONFIG_NIS_POLICY='auto'               || \
+		NETCONFIG_NIS_POLICY='STATIC_FALLBACK *'
+	fi
+else #  "x$_DHCLIENT_MODIFY_NIS_CONF" = xno
+	if test ${#mnc_y_ifaces[@]} -gt 0 ; then
+		verbose "DHCLIENT_MODIFY_NIS_CONF=no for all ifaces except ${mnc_y_ifaces[@]}"
+		ifaces="${mnc_y_ifaces[@]}"
+		policy_ifaces=($ifaces)
+		test "$use_static_fallback_policy" != yes && \
+		NETCONFIG_NIS_POLICY="STATIC $ifaces"     || \
+		NETCONFIG_NIS_POLICY="STATIC_FALLBACK $ifaces"
+	else
+		verbose "DHCLIENT_MODIFY_NIS_CONF=no for all ifaces"
+		policy_ifaces=()
+		NETCONFIG_NIS_POLICY=''
+	fi
+fi
+
+# set domain name only when we're not disabled
+if test "x$NETCONFIG_NIS_POLICY" != x ; then
+	if test "x$_DHCLIENT_SET_DOMAINNAME" = xyes ; then
+		if test ${#snd_n_ifaces[@]} -gt 0 ; then
+			verbose "DHCLIENT_SET_DOMAINNAME=yes for all ifaces except ${snd_n_ifaces[@]}"
+			ifaces=""
+			for a in "${dhcp_ifaces[@]}" ; do
+				for s in "${snd_n_ifaces[@]}" ; do
+					test "x$a" = "x$s" && continue 2
+				done
+				for p in ${policy_ifaces[@]} ; do
+					test "x$p" = "x$a" || continue
+					add_to_wordlist ifaces "$a"
+					break
+				done
+			done
+			_ifaces=($ifaces)
+			if test ${#_ifaces[@]} -eq 1 ; then
+				NETCONFIG_NIS_SETDOMAINNAME=${_ifaces[0]}
+			else
+				NETCONFIG_NIS_SETDOMAINNAME=yes
+			fi
+		else
+			verbose "DHCLIENT_SET_DOMAINNAME=yes for all ifaces"
+		fi
+	else #  "x$_DHCLIENT_SET_DOMAINNAME" = xno
+		if test ${#snd_y_ifaces[@]} -gt 0 ; then
+			verbose "DHCLIENT_SET_DOMAINNAME=no for all ifaces except ${snd_y_ifaces[@]}"
+			ifaces=""
+			for a in "${snd_y_ifaces[@]}" ; do
+				for p in ${policy_ifaces[@]} ; do
+					test "x$p" = "x$a" || continue
+					add_to_wordlist ifaces "$a"
+					break
+				done
+			done
+			_ifaces=($ifaces)
+			if test ${#_ifaces[@]} -eq 1 ; then
+				NETCONFIG_NIS_SETDOMAINNAME=${_ifaces[0]}
+			else
+				NETCONFIG_NIS_SETDOMAINNAME=yes
+			fi
+		else
+			verbose "DHCLIENT_SET_DOMAINNAME=no for all ifaces"
+			NETCONFIG_NIS_SETDOMAINNAME=no
+		fi
+	fi
+fi
+
+verbose "`printf '%-30s: %s' "NETCONFIG_NIS_POLICY" "$NETCONFIG_NIS_POLICY"`"
+verbose "`printf '%-30s: %s' "NETCONFIG_NIS_SETDOMAINNAME" "$NETCONFIG_NIS_SETDOMAINNAME"`"
+for v in ${!NETCONFIG_NIS_STATIC_DOMAIN*} ; do
+	verbose "`printf '%-30s: %s\n' "$v" "${!v}"`"
+done
+for v in ${!NETCONFIG_NIS_STATIC_SERVERS*} ; do
+	verbose "`printf '%-30s: %s\n' "$v" "${!v}"`"
+done
+
+if test "$update_netconfig_settings" = yes ; then
+   	if test "x$NETCONFIG_NIS_POLICY"             = xauto                         -a \
+   	        "x$NETCONFIG_NIS_SETDOMAINNAME"      = xyes                          -a \
+	        "x$NETCONFIG_NIS_STATIC_DOMAIN"      = x                             -a \
+	        "x$NETCONFIG_NIS_STATIC_SERVERS"     = x                             -a \
+	        "x${!NETCONFIG_NIS_STATIC_DOMAIN*}"  = xNETCONFIG_NIS_STATIC_DOMAIN  -a \
+	        "x${!NETCONFIG_NIS_STATIC_SERVERS*}" = xNETCONFIG_NIS_STATIC_SERVERS  ;
+	then
+		verbose "No changes to netconfig NIS settings necessary"
+  	else
+		create_backup_once "$network_config" "$backup_suffix" "$r" && {
+			verbose "Converting NIS settings to netconfig:"
+			for v in NETCONFIG_NIS_POLICY              \
+			         NETCONFIG_NIS_SETDOMAINNAME       \
+	        		 ${!NETCONFIG_NIS_STATIC_DOMAIN*}  \
+			         ${!NETCONFIG_NIS_STATIC_SERVERS*} ;
+			do
+				verbose "=> ${v}='${!v}'"
+				sed -e "s/^[[:space:]]*\(${v}\)=.*/\1='${!v}'/g" \
+				    -i "${r}${network_config}" || break
+			done
+			message "NIS settings to netconfig conversion... done"
+		}
+	fi
+
+	if test "x$NETCONFIG_NIS_POLICY" != x ; then
+		# OK, NIS not disabled
+		create_backup_once "$ypbind_config" "$backup_suffix" "$r" && \
+		fake_netconfig_md5 "$ypbind_config" "$netconfig_md5" "$r" && {
+			message "Enabled $ypbind_config for use with netconfig"
+		}
+		if test -e "${ypbind_config}.sv" ; then
+			create_backup_once "${ypbind_config}.sv" "$backup_suffix" "$r" && {
+				out=`LC_ALL=POSIX rm -fv "${ypbind_config}.sv"`
+				test -n "$out" && {
+					message "Removed dhcpcd backup file:"
+					message "$out"
+				}
+			}
+		fi
+	#else just keep yp.conf[.sv] as it is
+	fi
+fi
+
+msg="Removing obsolete NIS variables (dhcp, ifcfg-<${clear_ifaces[@]}> files)"
+contains_old_variables "${r}${network_dhcp}" && {
+	test -n "$msg" && message "$msg" ; msg=""
+	create_backup_once "$network_dhcp" "$backup_suffix" "$r" && {
+		sysconfig_remove_and_set -b ""	\
+		"${r}${network_dhcp}"		\
+		DHCLIENT_MODIFY_NIS_CONF	\
+		DHCLIENT_SET_DOMAINNAME
+	}
+}
+for ifname in "${clear_ifaces[@]}" ; do
+	test -n "$msg" && message "$msg" ; msg=""
+	if test -f "${r}${network_ifcfgs}-${ifname}" ; then
+		test -f "${r}${network_ifcfgs}.${ifname}${backup_suffix}" || {
+			cp -p --backup=t "${r}${network_ifcfgs}-${ifname}" \
+			"${r}${network_ifcfgs}.${ifname}${backup_suffix}" || continue
+		}
+		sed -e '/^[[:space:]]*\(DHCLIENT_MODIFY_NIS_CONF\|DHCLIENT_SET_DOMAINNAME\)=/d' \
+		    -i "${r}${network_ifcfgs}-${ifname}"
+	fi
+done
+
+exit 0
+
