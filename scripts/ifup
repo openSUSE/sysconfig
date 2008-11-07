@@ -874,6 +874,7 @@ dhcpretcode=$R_SUCCESS
 case "$BOOTPROTO$SKIP_MAIN_PART" in
 	dhcp+autoip|dhcp4+autoip)
 		if [ "$DHCP" = yes ] ; then      # called from dhcp client
+			SKIP_MAIN_PART=skip
 			${SCRIPTNAME}-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			retcode=$?
 		else                             # called from rcnetwork or manually

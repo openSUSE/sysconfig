@@ -93,6 +93,7 @@ explicit_dhcp4=no
 explicit_dhcp6=no
 BOOTPROTO=$(echo "$BOOTPROTO" | awk '{print tolower($0);}')
 BOOTPROTOS=()
+AUTOIP=no
 add_bootproto_once() {
 	local b p
 	for b in $@ ; do
@@ -113,6 +114,10 @@ for bp in ${BOOTPROTO//+/ } ; do
 			explicit_dhcp6=yes
 			add_bootproto_once ${bp}
 		;;
+		# FIXME: dhcpcd has a builtin autoip support...
+		#        at the moment we handle autoip in ifup;
+		#        it needs a "quiet minute" to change it.
+		#(autoip) AUTOIP=yes ;;
 		(*) continue ;;
 	esac
 done
@@ -259,7 +264,9 @@ start_dhcp4_dhcpcd() {
 	# Using netconfig, we can request all options and
 	# netconfig takes care to apply them properlly...
 	#
-	args="--netconfig"
+	args="--netconfig -L"
+
+	#test "$AUTOIP"                      != "yes" && args="$args -L"
 	test "$DHCLIENT_DEBUG"               = "yes" && args="$args -d"
 	test "$DHCLIENT_SET_HOSTNAME"        = "yes" && args="$args -HHH"
 	test "$DHCLIENT_SET_DEFAULT_ROUTE"  != "yes" && args="$args -G"
