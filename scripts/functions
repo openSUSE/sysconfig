@@ -651,7 +651,7 @@ resolve_iface_startorder()
 		if [ $? = 0 -a ${#slaves[@]} -gt 0 ] ; then
 			ret=0
 			_resolve_iface_startorder \
-				"${slaves[@]}"    \
+				"${slaves[*]}"    \
 				"${skip}"         \
 				"${func}"         \
 				"${guard} $iface" \
