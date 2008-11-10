@@ -375,12 +375,6 @@ start_dhcp6_dhcp6c() {
 
 case "$ACTION" in
 	start|renew)
-		# Create the ntp runtime cache dir before the dhcp client is started.
-		# Netconfig writes the /var/run/ntp/servers-netconfig file containing
-		# the ntp server list that is picked up by the ntp init script to apply
-		# the ntp servers at runtime to the ntpd.
-		test -d "/var/run/ntp" || mkdir -p "/var/run/ntp"
-
 		# if we were called at boot time, increase the time startproc waits,
 		# because the next scripts might rely on a configured network
 		# test "$MODE" = "boot" && STARTPROC_TIMEOUT=5

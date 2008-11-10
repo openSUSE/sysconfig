@@ -62,7 +62,7 @@ write_iucv_rules () {
 
     echo "# Rules converted from $cfgname" > $file
     cat >> $file <<EOF
-ACTION=="add", SUBSYSTEM=="bus", KERNEL=="iucv", RUN+="modprobe netiucv"
+ACTION=="add", SUBSYSTEM=="subsystem", KERNEL=="iucv", RUN+="modprobe netiucv"
 ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="netiucv", ATTR{connection}="$id"
 EOF
 }
@@ -99,24 +99,24 @@ EOF
 }
 
 write_qeth_rules () {
-    local file=$UDEVDIR/$RULE-$type-${busid}.rules
+    local file=$UDEVDIR/$RULE-$ccwtype-${busid}.rules
     local attr
 
     echo "# Rules converted from $cfgname" > $file
     cat >> $file <<EOF
-ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $ccwtype"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$type", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $type"
 EOF
     for chan in $CCW_CHAN_IDS ; do
 	cat >> $file <<EOF
 ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", RUN+="/sbin/modprobe --quiet $MODULE"
-ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $ccwtype"
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $type"
 EOF
     done
     attr=$(echo $CCW_CHAN_IDS | sed 's/ /,/g')
     cat >> $file <<EOF
-TEST=="[ccwgroup/$busid]", GOTO="$type-${busid}_end"
+TEST=="[ccwgroup/$busid]", GOTO="$ccwtype-${busid}_end"
 ACTION=="add", SUBSYSTEM=="$bus", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
-ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$type", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
 EOF
     if [ "$CCW_CHAN_MODE" ] ; then
         cat >> $file <<EOF
@@ -159,7 +159,7 @@ EOF
         esac
     done
     cat >> $file <<EOF
-LABEL="$type-${busid}_end"
+LABEL="$ccwtype-${busid}_end"
 ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{online}="1"
 EOF
 }
@@ -254,9 +254,14 @@ if [ "$bus" = "ccw" ] ; then
 		subtype="lcs"
 		CCW_CHAN_NUM=2
 		;;
-	    1731/01|1731/05|1731/06)
-                # OSA/Express or Guest LAN
+	    1731/01|1731/06)
+                # OSA/Express
 		ccwtype="qeth"
+		CCW_CHAN_NUM=3
+		;;
+	    1731/05)
+                # Hipersockets
+		ccwtype="hsi"
 		CCW_CHAN_NUM=3
 		;;
 	    1731/03)

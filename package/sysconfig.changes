@@ -1,7 +1,19 @@
 -------------------------------------------------------------------
 Mon Nov 10 14:11:05 CET 2008 - mt@suse.de
 
+- Removed obsolete creation of /var/run/ntp directory that breaks
+  ntp; when ntp is installed the directory exists, otherwise we
+  can skip any efforts to configure it (bnc#443326).
+
+-------------------------------------------------------------------
+Mon Nov 10 14:11:05 CET 2008 - mt@suse.de
+
 - Fix to handle multiple bonding slaves correctly (bnc#429858).
+
+-------------------------------------------------------------------
+Mon Nov 10 11:58:49 CET 2008 - hare@suse.de
+
+- Update hwcfg2rules to handle hsi correctly (bnc#440570) 
 
 -------------------------------------------------------------------
 Fri Nov  7 17:30:49 CET 2008 - mt@suse.de
