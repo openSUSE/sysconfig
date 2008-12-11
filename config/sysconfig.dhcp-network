@@ -76,19 +76,31 @@ DHCLIENT_SET_DEFAULT_ROUTE="yes"
 #
 DHCLIENT_LEASE_TIME=""
 
+## Type:        yesno
+## Default:     yes
+#
+# dhcpcd -E/--lastlease option
+#
+# This setting controls whether dhcpcd should try to use DHCP settings
+# provided in its last lease when the dhcp-server is not reachable and
+# the lease hasn't expired yet.
+# Set this variable to "no" to disable the fallback to the last lease.
+#
+DHCLIENT_USE_LAST_LEASE=yes
+
 ## Type:	integer
-## Default:	999999
+## Default:	"0"
 #
-# (only dhcpcd does use this setting)
+# dhcpcd -t/--timeout option
 #
-# You can set the timeout (dhcpcd will terminate after this time when it 
-# does not get a reply from the server). 
+# You can set the timeout - dhcpcd will terminate after this time when
+# does not get a reply from the dhcp server. The dhcpcd default timeout
+# is 20 seconds, we set it to 0 to and wait forever to get a lease.
 #
-# The default timeout of dhcpcd is 20 seconds. However, we'll set it to a 
-# much longer time. dhcpcd will then run as a daemon in the background and
-# broadcast a DHCPDISCOVER once in a while, trying to get a lease.
+# Note: In the past, this setting was set to a much higher value (999999)
+# by default, because the dhcpcd < 3.2.3 didn't provided a infinite one.
 #
-DHCLIENT_TIMEOUT="999999"
+DHCLIENT_TIMEOUT="0"
 
 ## Type:	string
 ## Default:	AUTO

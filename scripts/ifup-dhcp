@@ -267,6 +267,7 @@ start_dhcp4_dhcpcd() {
 	args="--netconfig -L"
 
 	#test "$AUTOIP"                      != "yes" && args="$args -L"
+	test "$DHCLIENT_USE_LAST_LEASE"      = "yes" && args="$args -E"
 	test "$DHCLIENT_DEBUG"               = "yes" && args="$args -d"
 	test "$DHCLIENT_SET_HOSTNAME"        = "yes" && args="$args -HHH"
 	test "$DHCLIENT_SET_DEFAULT_ROUTE"  != "yes" && args="$args -G"

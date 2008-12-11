@@ -256,7 +256,7 @@ but makes use of NTP "runtime configuration".
 The list of the NTP servers is written to the \fI/var/run/ntp/servers-netconfig\fR
 file and if the configuration changed meanwhile, the ntp service will be restarted
 using "rcntp try-restart". The ntp init script provides the functionality to apply
-the runtime server list at runtime using the \fBntpdc\fR(1) program.
+the server list at runtime to the \fBntpd\fR(1) daemon.
 .TP
 .B nis
 This module writes the NIS configuration into the \fI/etc/ypconf\fR file and

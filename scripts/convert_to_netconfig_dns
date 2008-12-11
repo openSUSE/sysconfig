@@ -70,6 +70,11 @@ try_to_find_original()
 	test -n "$original"
 }
 
+has_networkmanager_info()
+{
+	test -n "$1" -a -f "$1" && grep -qs '#.*NetworkManager' "$1" 2>/dev/null
+}
+
 has_netconfig_info()
 {
 	test -n "$1" -a -f "$1" && grep -qs '^### .* netconfig' "$1" 2>/dev/null
@@ -220,6 +225,7 @@ contains_old_variables "${r}${network_dhcp}"   || {
 # OK, read current settings
 #
 eval `grep "^[[:space:]]*\(\
+NETWORKMANAGER\|\
 NETCONFIG_DNS_POLICY\|\
 NETCONFIG_DNS_FORWARDER\|\
 NETCONFIG_DNS_STATIC_SERVERS\|\
@@ -251,7 +257,8 @@ if test "$update_netconfig_settings" = yes ; then
 
 	# disable netconfig dns updates when modify was disabled
 	if test "$_MODIFY_NAMED_CONF_DYNAMICALLY"  != yes -a \
-	        "$_MODIFY_RESOLV_CONF_DYNAMICALLY" != yes ;
+	        "$_MODIFY_RESOLV_CONF_DYNAMICALLY" != yes -a \
+		"$NETWORKMANAGER"                  != yes ;
 	then
 		# disable netconfig dns updates
 		NETCONFIG_DNS_POLICY=''
@@ -277,8 +284,17 @@ original=`try_to_find_original "${resolver_conf}" "${r}"`
 # don't remove the file, because it may be in a running system...
 if test -n "$original" -a -r "${r}$original" ; then
 
-	if ! has_netconfig_info "${r}${resolver_conf}" && \
-	   test "$update_netconfig_settings" = yes ; then
+	if has_networkmanager_info "${r}${resolver_conf}" ; then
+
+		# just enable for netconfig when created by NM
+		create_backup_once "$resolver_conf" "$backup_suffix" "$r" && \
+		fake_netconfig_md5 "$resolver_conf" "$netconfig_md5" "$r" && {
+			message "Enabled $resolver_conf for use with netconfig"
+		}
+
+	elif ! has_netconfig_info "${r}${resolver_conf}" && \
+	     test "$update_netconfig_settings" = yes ;
+	then
 
 		remove_modify_resolvconf_info "${r}${resolver_conf}"
 
@@ -346,7 +362,9 @@ if test -n "$original" -a -r "$original" ; then
 
 		remove_modify_resolvconf_info "${r}${forwarder_conf}"
 
-		if test "$_MODIFY_NAMED_CONF_DYNAMICALLY" = yes ; then
+		if test "$NETWORKMANAGER" != yes -a \
+		        "$_MODIFY_NAMED_CONF_DYNAMICALLY" = yes ;
+		then
 			# first, read the forwarders
 			dns_servers=(`
 				test -f "${r}${original}" && \

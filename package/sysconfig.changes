@@ -1,4 +1,72 @@
 -------------------------------------------------------------------
+Thu Dec 11 11:51:33 CET 2008 - hare@suse.de
+
+- Add 'udevmountd' for automatic mounts of devices from
+  /etc/fstab marked with 'nofail' (bnc#457252)
+
+-------------------------------------------------------------------
+Mon Dec  8 18:51:37 CET 2008 - mt@suse.de
+
+- More fixes to conversion of ctc and iucv ifcfg files (bnc#440570)
+
+-------------------------------------------------------------------
+Thu Dec  4 15:47:17 CET 2008 - mt@suse.de
+
+- Fixed conversion of interface names/files using bus a based hw
+  description in hwdesc2iface script (bnc#440570, bnc#442232).
+
+-------------------------------------------------------------------
+Tue Dec  2 18:05:07 CET 2008 - mt@suse.de
+
+- Changed to use DHCLIENT_TIMEOUT=0 (infinite timeout) by default,
+  updated variable comment (bnc#450917, fate#302402, bnc#447237).
+
+-------------------------------------------------------------------
+Tue Dec  2 16:25:25 CET 2008 - mt@suse.de
+
+- Fixed passing of ip-up script args to ip-up.d scripts (bnc#450772).
+
+-------------------------------------------------------------------
+Mon Dec  1 15:57:28 CET 2008 - mt@suse.de
+
+- Fixed to enable resolv.conf for netconfig when it contains a
+  NetworkManager comment and avoid resetting netcofig dns policy
+  when the NETWORKMANAGER variable is set to yes (bnc#450332).
+- Fixed exit codes in netcontrol_global_hooks NM hook (bnc#450155).
+
+-------------------------------------------------------------------
+Fri Nov 28 14:39:40 CET 2008 - lnussel@suse.de
+
+- Fixed ppp/ip-up script to fallback to DNS servers defined in
+  the provider description file (bnc#449518).
+
+-------------------------------------------------------------------
+Thu Nov 27 16:24:40 CET 2008 - mt@suse.de
+
+- Added DHCLIENT_USE_LAST_LEASE (-E/--lastlease) dhcpcd option to
+  dhcp config and ifup-dhcp script, addopted new DHCLIENT_TIMEOUT
+  default 20 and increased WAIT_FOR_INTERFACES to 30 to allow
+  dhcpcd to use the old lease in time (fate#302402, bnc#447237).
+
+-------------------------------------------------------------------
+Wed Nov 26 22:03:53 CET 2008 - mt@suse.de
+
+- Fixed obsolete ntp-runtime decription in netconfig.8 (bnc#446545).
+- Fixed rcnetwork remotefs virtual iface start order (bnc#447098).
+
+-------------------------------------------------------------------
+Fri Nov 14 11:26:27 CET 2008 - hare@suse.de
+
+- Update hwcfg2rules script to handle hsi and iucv devices
+  correctly (bnc#440570)
+
+-------------------------------------------------------------------
+Wed Nov 12 16:54:29 CET 2008 - mt@suse.de
+
+- Fixed udev 77-network.rules rule to skip ifup hotplug for
+  bridge interfaces (bnc#443749).
+
+-------------------------------------------------------------------
 Mon Nov 10 14:11:05 CET 2008 - mt@suse.de
 
 - Removed obsolete creation of /var/run/ntp directory that breaks
@@ -9,11 +77,6 @@ Mon Nov 10 14:11:05 CET 2008 - mt@suse.de
 Mon Nov 10 14:11:05 CET 2008 - mt@suse.de
 
 - Fix to handle multiple bonding slaves correctly (bnc#429858).
-
--------------------------------------------------------------------
-Mon Nov 10 11:58:49 CET 2008 - hare@suse.de
-
-- Update hwcfg2rules to handle hsi correctly (bnc#440570) 
 
 -------------------------------------------------------------------
 Fri Nov  7 17:30:49 CET 2008 - mt@suse.de

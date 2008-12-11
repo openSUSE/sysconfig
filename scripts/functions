@@ -127,6 +127,7 @@ get_ethtool_drv_info () {
 	if [ ! -x $ethtool ] ; then
 		[ -x /usr${ethtool} ] && ethtool="/usr${ethtool}"  || return 1
 	fi
+	local key val
 	$ethtool -i "$IF" 2>/dev/null |
 	while read key val ; do
 		case "$key" in
@@ -150,7 +151,7 @@ get_iface_type () {
 			test -f /proc/net/vlan/$IF && TYPE=vlan
 			test -d /sys/class/net/$IF/bonding && TYPE=bond
 			test -d /sys/devices/virtual/net/$IF && {
-				eval local `get_ethtool_drv_info $IF`
+				eval local x `get_ethtool_drv_info $IF`
 				test "$ETHTOOL_DRV_NAME" == "tun" && \
 				TYPE="$ETHTOOL_DRV_BUS_INFO" || \
 				case $IF in tap*) TYPE=tap ;; esac

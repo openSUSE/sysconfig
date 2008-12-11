@@ -3,38 +3,43 @@
 usage() {
 	echo -e $* >&2
 	echo >&2
-	echo "usage ${0##*/} {netconfig|id|bus} <arg> [<arg>]" >&2
-	echo "	netconfig <directory>:"
+	echo "usage ${0##*/} {netconfig|id|*-id|bus|*-bus} <arg> [<arg>]" >&2
+	echo "	netconfig         <directory>:"
 	echo "		converts all ifcfg-, ifroute- and ifservices- in this directory"
-	echo "	id <mac address>:"
+	echo ""
+	echo "	id                <mac address>:"
+	echo "	<device type>-id  <mac address>:"
 	echo "		returns the interface that matches this mac address"
-	echo "	bus <busname> <device id>:"
+	echo ""
+	echo "	bus               <busname> <device id>:"
+	echo "	<device type>-bus <busname> <device id>:"
 	echo "		returns the interface that matches this busname and device id"
 	exit 1
 }
 
 get_iface_from_lladdr() {
-	local LLADDR=$1
+	local DEVTYPE=$1 ; shift # we don't use DEVTYPE at the moment
+	local LLADDR=$1  ; shift
 	local SYSPATH IFACES IFACE N
-	
+
 	test -z "$LLADDR" && return 1
 
 	# 1) Look in new pers.name udev rule file
-	IFACES="`sed -n "s/^[^#]\+.*$LLADDR.*NAME=\\"\([^\\"]*\)\\".*$/\1/p" \
-		/etc/udev/rules.d/70-persistent-net.rules 2>/dev/null`"
+	IFACES=`sed -n "s/^[^#]\+.*$LLADDR.*NAME=\"\([^\"]*\)\".*$/\1/p" \
+		/etc/udev/rules.d/70-persistent-net.rules 2>/dev/null`
 	N=0
 	for IFACE in $IFACES; do
 		: $((N++))
-		info_mesg "get_iface_from_lladdr $LLADDR 70-per: $IFACE"
+		info_mesg "get_iface_from_lladdr $DEVTYPE $LLADDR 70-per: $IFACE"
 	done
 	if [ "$N" == 1 ] ; then
 		echo $IFACE
 		return 0
 	fi
 	
-	# 2) Check sysfs if there currently is a matching interface.
-	# TODO: In this case we should check if the right udev rule exists and
-	# TODO: create one if not.
+	# 2a) Check sysfs if there currently is a matching interface.
+	# TODO: In this case we should check if the right udev rule exists
+	# TODO: and trigger (somehow) a creation of a rule when not?
 	N=0
 	for SYSPATH in `grep -l "$LLADDR" /sys/class/net/*/address`; do
 		# skip wlan helper interfaces
@@ -43,7 +48,30 @@ get_iface_from_lladdr() {
 		IFACE=${SYSPATH#/sys/class/net/}
 		IFACE=${IFACE%/address}
 		: $((N++))
-		info_mesg "get_iface_from_lladdr $LLADDR  sysfs: $IFACE"
+		info_mesg "get_iface_from_lladdr $DEVTYPE $LLADDR sysfs: $IFACE"
+	done
+	if [ "$N" == 1 ] ; then
+		echo $IFACE
+		return 0
+	fi
+
+	# 2b) Check sysfs if there currently is a matching interface.
+	#     this is for ifcfg-iucv-id-ROUTER01 on s390...
+	N=0
+	for SYSPATH in /sys/class/net/*/device; do
+		# skip wlan helper interfaces
+		test "`cat ${SYSPATH/device/type}`" == 801 && continue
+		cd -P $SYSPATH 2>/dev/null || continue
+		if test -n "$DEVTYPE" ; then
+			cd -P subsystem 2>/dev/null && \
+			test "${PWD##*/}" = "$DEVTYPE" || continue
+			cd -P $SYSPATH 2>/dev/null || continue
+		fi
+		test -f user -a "`cat user`" = "$LLADDR" || continue
+		IFACE=${SYSPATH#/sys/class/net/}
+		IFACE=${IFACE%/device}
+		: $((N++))
+		info_mesg "get_iface_from_lladdr $DEVTYPE $LLADDR sysfs: $IFACE"
 	done
 	if [ "$N" == 1 ] ; then
 		echo $IFACE
@@ -51,14 +79,14 @@ get_iface_from_lladdr() {
 	fi
 	
 	# 3) Look in old pers.name udev rule file
-	# This should not happen, because old rule files should already have been
-	# converted.
-	IFACES="`sed -n "/$LLADDR/s/^.*netiface *\%k *\\([^\\"]*\\)\\".*$/\1/p" \
-	        /etc/udev/rules.d/30-net_persistent_names.rules 2>/dev/null`"
+	# This should not happen, because old rule files should already
+	# have been converted.
+	IFACES=`sed -n "/$LLADDR/s/^.*netiface *\%k *\([^\"]*\)\".*$/\1/p" \
+	        /etc/udev/rules.d/30-net_persistent_names.rules 2>/dev/null`
 	N=0
 	for IFACE in $IFACES; do
 		: $((N++))
-		info_mesg "get_iface_from_lladdr $LLADDR 30-net: $IFACE"
+		info_mesg "get_iface_from_lladdr $DEVTYPE $LLADDR 30-net: $IFACE"
 	done
 	if [ "$N" == 1 ] ; then
 		echo $IFACE
@@ -67,10 +95,10 @@ get_iface_from_lladdr() {
 
 	# 4) Look for PERSISTENT_NAME
 	# Ideally we should add a udev rule for this name
-	IFACE="`sed -n \
+	IFACE=`sed -n \
 	    "/^[[:space:]]*PERSISTENT_NAME/s/^.*=\([^[:space:]]*\).*$/\1/p" \
-	    "/etc/sysconfig/network/ifcfg-*id-$LLADDR" 2>/dev/null`"
-	info_mesg "get_iface_from_lladdr $LLADDR ifcfg-: $IFACE"
+	    "/etc/sysconfig/network/ifcfg-*id-$LLADDR" 2>/dev/null`
+	info_mesg "get_iface_from_lladdr $DEVTYPE $LLADDR ifcfg-: $IFACE"
 	if [ -n "$IFACE" ] ; then
 		echo $IFACE
 		return 0
@@ -78,65 +106,75 @@ get_iface_from_lladdr() {
 	return 1
 }
 
-get_iface_from_businfo() {
-	local BUSNAME=$1 DEVID=$2
+get_iface_from_businfo()
+{
+	local DEVTYPE=$1 ; shift
+	local BUSNAME=$1 ; shift
+	local DEVID=$1   ; shift
 	local SYSPATH N
+	local IFACES IFACE IF
 
 	test -z "$BUSNAME" -o -z "$DEVID" && return 1
 
-	# 1) Check sysfs if there currently is a matching interface.
+	if test -n "$DEVTYPE" -a -n "$BUSNAME" ; then
+		MATCH="\($DEVTYPE\|$BUSNAME\)"
+	elif test -n "$BUSNAME" ; then
+		MATCH="$BUSNAME"
+	fi
+
+	# 1) Look in new pers.name udev rule file
+	IFACES=`sed -n \
+		"/^[^#]\+.*==\"$MATCH/{/==\"$DEVID\"/s/.*NAME=\"\([^\"]*\)\".*$/\1/p}" \
+		/etc/udev/rules.d/70-persistent-net.rules 2>/dev/null`
 	N=0
-	for SYSPATH in /sys/class/net/*/device; do
-		# skip wlan helper interfaces
-		test "`cat ${SYSPATH/device/type}`" == 801 && continue
-		cd -P $SYSPATH
-		test "${PWD##*/}" != "$DEVID" && continue
-		cd -P subsystem
-		test "${PWD##*/}" != "$BUSNAME" && continue
-		IFACE=${SYSPATH#/sys/class/net/}
-		IFACE=${IFACE%/device}
+	for IFACE in $IFACES; do
 		: $((N++))
-		info_mesg "get_iface_from_businfo $BUSNAME $DEVID  sysfs: $IFACE"
+		info_mesg "get_iface_from_businfo $DEVTYPE $BUSNAME $DEVID 70-per: $IFACE"
 	done
 	if [ "$N" == 1 ] ; then
 		echo $IFACE
 		return 0
 	fi
 
-#### FIXME #### FIXME #### FIXME #### FIXME #### FIXME #### FIXME ####
-#### The sed commands in the following two sections need to be adapted
-#### Low priority since we never wrote bus location based rules
-#	# 2) Look in new pers.name udev rule file
-#	IFACES="`sed -n "s/^[^#]\+.*$LLADDR.*NAME=\\"\([^\\"]*\)\\".*$/\1/p" \
-#		/etc/udev/rules.d/70-persistent-net.rules 2>/dev/null`"
-#	N=0
-#	for IFACE in $IFACES; do
-#		: $((N++))
-#		info_mesg "get_iface_from_businfo $BUSNAME $DEVID 70-per: $IFACE"
-#	done
-#	if [ "$N" == 1 ] ; then
-#		echo $IFACE
-##		return 0
-#	fi
-#	
-#	# 3) Look in old pers.name udev rule file
-#	IFACES="`sed -n "/$LLADDR/s/^.*netiface *\%k *\([^\"]*\)\".*$/\1/p" \
-#	        /etc/udev/rules.d/30-net_persistent_names.rules 2>/dev/null`"
-#	N=0
-#	for IFACE in $IFACES; do
-#		: $((N++))
-#		info_mesg "get_iface_from_businfo $BUSNAME $DEVID 30-net: $IFACE"
-#	done
-#	if [ "$N" == 1 ] ; then
-#		echo $IFACE
-##		return 0
-#	fi
+	# 2) Check sysfs if there currently is a matching interface.
+	N=0
+	for SYSPATH in /sys/class/net/*/device; do
+		# skip wlan helper interfaces
+		test "`cat ${SYSPATH/device/type}`" == 801 && continue
+		cd -P $SYSPATH 2>/dev/null || continue
+		test "${PWD##*/}" != "$DEVID" && continue
+		cd -P subsystem 2>/dev/null || continue
+		if test "${PWD##*/}" != "${BUSNAME}" ; then
+		  # ccw devices are in ccwgroup, not in ccw (s390*)
+		  test "${PWD##*/}" != "${BUSNAME}group" && continue
+		  if test -n "$DEVTYPE" ; then
+			cd -P ${SYSPATH}/driver 2>/dev/null || continue
+			# ctc iface driver type is ctcm, but qeth
+			# and hsi iface driver seems to be qeth...
+			test "${PWD##*/}" != "${DEVTYPE}" -a \
+			     "${PWD##*/}" != "${DEVTYPE}m" && continue
+		  fi
+		fi
+		IFACE=${SYSPATH#/sys/class/net/}
+		IFACE=${IFACE%/device}
+		: $((N++))
+		info_mesg "get_iface_from_businfo $DEVTYPE $BUSNAME $DEVID sysfs: $IFACE"
+	done
+	if [ "$N" == 1 ] ; then
+		echo $IFACE
+		return 0
+	fi
+
+	# 3) Look in old pers.name udev rule file
+	# This should not happen, because old rule files should already
+	# have been converted.
+	# --> removed
 
 	# 4) Look for PERSISTENT_NAME
-	IFACE="`sed -n \
+	IFACE=`sed -n \
 	    "/^[[:space:]]*PERSISTENT_NAME/s/^.*=\([^[:space:]]*\).*$/\1/p" \
-	    "/etc/sysconfig/network/ifcfg-*bus-$BUSNAME-$DEVID" 2>/dev/null`"
-	info_mesg "get_iface_from_businfo $BUSNAME $DEVID ifcfg-: $IFACE"
+	    "/etc/sysconfig/network/ifcfg-*bus-$BUSNAME-$DEVID" 2>/dev/null`
+	info_mesg "get_iface_from_businfo $DEVTYPE $BUSNAME $DEVID ifcfg-: $IFACE"
 	if [ -n "$IFACE" ] ; then
 		echo $IFACE
 		return 0
@@ -167,8 +205,10 @@ get_iface_from_hwdesc() {
 		return 0
 	fi
 	case $H in
-		*id-*)  get_iface_from_lladdr ${H#*id-} ;;
-		*bus-*) get_iface_from_businfo `(IFS=-; echo ${H#*bus-})` ;;
+		*-id-*)   get_iface_from_lladdr  "${H%-id*}"  "${H#*id-}" ;;
+		*id-*)    get_iface_from_lladdr  ""           "${H#*id-}" ;;
+		*-bus-*)  get_iface_from_businfo "${H%-bus*}" `(IFS=-; echo ${H#*bus-})` ;;
+		*bus-*)   get_iface_from_businfo ""           `(IFS=-; echo ${H#*bus-})` ;;
 		*interface-*) echo ${H#*interface-} ;;
 		*devpath-*|*vpid-*|*type-*) ;;
 		*) echo $H ;;
@@ -179,22 +219,28 @@ convert_netconfig() {
 	cd ${1:-Xx-HAMMERNID-xX} || usage "Cannot change into directory '$1'"
 	RCF=revert_conversion_from_`date +"%y%m%d.%H%M"`
 	for F in ifcfg-* ifroute-* ifservices-*; do
-		TYPE=${F%%-*}
+		CFGTYPE=${F%%-*}
+		CFGNAME=${F#*-}
+		DEVTYPE=
 		IFACE=
 		info_mesg "convert_all_files: $F"
-		case $F in
-			*id-*)  IFACE=$(get_iface_from_lladdr ${F#*id-}) ;;
-			*bus-*) IFACE=$(get_iface_from_businfo `(IFS=-; echo ${F#*bus-})`) ;;
+		case $CFGNAME in
+			id-*)	IFACE=$(get_iface_from_lladdr ""         ${F#*id-}) ;;
+			*-id-*) DEVTYPE=${CFGNAME%%-id-*}
+				IFACE=$(get_iface_from_lladdr "$DEVTYPE" ${F#*id-}) ;;
+			bus-*)	IFACE=$(get_iface_from_businfo "" `(IFS=-; echo ${F#*bus-})`) ;;
+			*-bus-*)DEVTYPE=${CFGNAME%%-bus-*}
+				IFACE=$(get_iface_from_businfo "$DEVTYPE" `(IFS=-; echo ${F#*bus-})`) ;;
 			*)      continue ;;
 		esac
-		if [ -n "$IFACE" -a ! -e "$TYPE-$IFACE" ] ; then
-			MSG="`mv -v $F $TYPE-$IFACE 2>&1`"
+		if [ -n "$IFACE" -a ! -e "$CFGTYPE-$IFACE" ] ; then
+			MSG="`mv -v $F $CFGTYPE-$IFACE 2>&1`"
 			echo "converting filename: $MSG"
-			echo "mv -v $TYPE-$IFACE $F" >> $RCF
+			echo "mv -v $CFGTYPE-$IFACE $F" >> $RCF
 		else
 			echo -n "# could not convert '$F': "
 			test -z "$IFACE" && echo -n "no interface found"
-			test -e "$TYPE-$IFACE" && echo -n "file '$TYPE-$IFACE' already exists"
+			test -e "$CFGTYPE-$IFACE" && echo -n "file '$CFGTYPE-$IFACE' already exists"
 			echo
 		fi
 	done
@@ -218,7 +264,7 @@ get_variable () {
 
 # known variables to be converted
 KVTBC="BONDING_SLAVE BRIDGE_PORTS DEVICE ETHERDEVICE"
-KVTBC="$KVTBC TUNNEL_LOCAL_INTERFACE"
+KVTBC="$KVTBC TUNNEL_LOCAL_INTERFACE _nm_name"
 
 convert_vars_in_file() {
 	local F=$1 V VV IFACE
@@ -245,13 +291,18 @@ convert_vars_in_file() {
 . /etc/sysconfig/network/scripts/functions.common
 shopt -s nullglob
 
-case $1 in
-	netconfig) convert_netconfig $2 ;;
-	id)        get_iface_from_lladdr $2 ;;
-	bus)       get_iface_from_businfo $2 $3 ;;
+one=$1 ; shift
+case $one in
+	netconfig) convert_netconfig $1 ;;
+	*-id)      t=${one%-id}  ;
+	           get_iface_from_lladdr  "$t" $@ ;;
+	id)        get_iface_from_lladdr  ""   $@ ;;
+	bus)       get_iface_from_businfo ""   $@ ;;
+	*-bus)     t=${one%-bus} ;
+	           get_iface_from_businfo "$t" $@ ;;
 	*)
-		if [ -r "$1" ] ; then
-			convert_vars_in_file $*
+		if [ -r "$one" ] ; then
+			convert_vars_in_file $one $*
 		else
 			usage
 		fi ;;

@@ -27,15 +27,15 @@
 # Note that hooked scripts are called always _after_ the interface is up/down.
 # Calling them earlier would require a change in NetworkManager itself.
 
-cd /etc/sysconfig/network/ || exit
+cd /etc/sysconfig/network/ || exit 0
 test -r ./config && . ./config
 test -r scripts/functions && . scripts/functions
 
 INTERFACE=$1
 ACTION=$2
 
-test "$ACTION" == down -a "$GLOBAL_PRE_DOWN_EXEC" != yes && exit
-test "$ACTION" == up   -a "$GLOBAL_POST_UP_EXEC"  != yes && exit
+test "$ACTION" == down -a "$GLOBAL_PRE_DOWN_EXEC" != yes && exit 0
+test "$ACTION" == up   -a "$GLOBAL_POST_UP_EXEC"  != yes && exit 0
 
 shopt -s nullglob
 for a in if-${ACTION}.d/*; do
@@ -43,4 +43,5 @@ for a in if-${ACTION}.d/*; do
 	info_mesg "calling '`pwd`/$a '${INTERFACE}' ${INTERFACE} -o nm'"
 	$a "${INTERFACE}" ${INTERFACE} -o nm
 done
+exit 0
 

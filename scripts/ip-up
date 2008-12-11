@@ -52,8 +52,6 @@ parse_ipparam()
 # pppd when the link goes down.
 add_nameservers()
 {
-	# TODO: do we have to consider MODIFYDNS and USEPEERDNS? test it!
-	NETCONFIG_VERBOSE="-v"
 	{
 		echo "INTERFACE='$INTERFACE'"
 		echo "IPADDR='$LOCALIP'"
@@ -64,6 +62,8 @@ add_nameservers()
 				dnsservers=($DNS1 $DNS2)
 			elif [ "x$MS_DNS1" != x -o "x$MS_DNS2" != x ] ; then
 				dnsservers=($MS_DNS1 $MS_DNS2)
+			elif [ -f /etc/sysconfig/network/providers/"$provider" ]; then
+				dnsservers=(`. /etc/sysconfig/network/providers/"$provider"; test \$MODIFYDNS = yes && echo \$DNS1 \$DNS2`)
 			fi
 			echo "DNSSERVERS='${dnsservers[@]}'"
 		#fi
@@ -78,7 +78,16 @@ add_nameservers()
 }
 restore_nameservers()
 {
-	NETCONFIG_VERBOSE="-v"
+	# DoD. Keep assigned DNS servers
+	if [ -f /etc/sysconfig/network/providers/"$provider" ]; then
+		noremove=(`
+			. /etc/sysconfig/network/providers/"$provider"
+			if [ \$MODIFYDNS = yes -a \$DEMAND = yes ]; then
+				echo 1
+			fi
+			`)
+		test -z "$noremove" || return
+	fi
 	/sbin/netconfig remove -s pppd -i "$INTERFACE" $NETCONFIG_VERBOSE
 }
 
@@ -127,7 +136,7 @@ run_poll_tcpip()
 # $1 = basename
 run_scripts()
 {
-	name="$1"
+	name="$1" ; shift
 	[ -n "$name" ] || return
 
 	if test -x /etc/ppp/$name.local ; then
@@ -197,7 +206,7 @@ case "$BASENAME" in
 	
 	start_firewall
 
-	if [ ${BASENAME%*-} = "ip" ]; then
+	if [ ${BASENAME%-*} = "ip" ]; then
 		# ip_resend hook
 		test "$IP_RESEND" = "yes" -a -x /usr/sbin/ip_resend_wakeup && \
 		    /usr/sbin/ip_resend_wakeup -m $LOCALIP -o $INTERFACE
@@ -206,7 +215,7 @@ case "$BASENAME" in
 	fi
 
 	# run additional scripts
-	run_scripts $BASENAME
+	run_scripts $BASENAME "$@"
 
 	#run_ifup
 
@@ -219,14 +228,14 @@ case "$BASENAME" in
 	
 	start_firewall
 
-	if [ ${BASENAME%*-} = "ip" ]; then
+	if [ ${BASENAME%-*} = "ip" ]; then
 		# ip_resend hook
 		test "$IP_RESEND" = "yes" -a -x /usr/sbin/ip_resend && \
 		    /usr/sbin/ip_resend -o $INTERFACE $IP_RESEND_PARAMETER
 	fi
 
 	# run additional scripts
-	run_scripts $BASENAME
+	run_scripts $BASENAME "$@"
 
 	#run_ifdown
 

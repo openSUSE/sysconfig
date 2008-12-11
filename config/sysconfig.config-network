@@ -127,13 +127,13 @@ CONNECTION_SEND_KILL_SIGNAL="no"
 MANDATORY_DEVICES=""
 
 ## Type:	integer
-## Default:	20
+## Default:	30
 #
 # Some interfaces need some time to come up or come asynchronously via hotplug.
 # WAIT_FOR_INTERFACES is a global wait for all mandatory interfaces in
 # seconds. If empty no wait occurs.
 #
-WAIT_FOR_INTERFACES="20"
+WAIT_FOR_INTERFACES="30"
 
 ## Type:	yesno
 ## Default:	yes
