@@ -74,6 +74,9 @@ make DESTDIR=$RPM_BUILD_ROOT install
 mkdir -p $RPM_BUILD_ROOT/var/lock/subsys/sysconfig
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/config
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/dhcp
+# install udevmountd
+mkdir -p $RPM_BUILD_ROOT/lib/udev
+mv $RPM_BUILD_ROOT/sbin/udevmountd $RPM_BUILD_ROOT/lib/udev
 # remove template dir
 rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 
@@ -91,6 +94,9 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %dir /etc/udev
 %dir /etc/udev/rules.d
 %config /etc/udev/rules.d/77-network.rules
+%config /etc/udev/rules.d/81-mount.rules
+%dir /lib/udev
+/lib/udev/udevmountd
 %dir /etc/modprobe.d
 %config /etc/modprobe.d/blacklist
 /etc/sysconfig/network/ifcfg.template
@@ -192,8 +198,16 @@ for cfg in hwcfg-*-ccw-* ; do
 done
 popd > /dev/null
 #
+## we provide own, improved variant of the remove_and_set suse
+## rpm macro that is able to handle files in subdirs, and more
+. etc/sysconfig/network/scripts/functions.rpm-utils
+#
 %{fillup_and_insserv -fY network}
 %{fillup_and_insserv -fY network-remotefs}
+if test -f etc/sysconfig/network/dhcp ; then
+    # remove first, we need the new default value
+    sysconfig_remove_and_set network/dhcp DHCLIENT_TIMEOUT
+fi
 %{fillup_only -dns dhcp network network}
 %{fillup_only -dns config network network}
 /sbin/ldconfig
@@ -203,11 +217,6 @@ rm -vf /etc/sysconfig/storage
 #
 # * update to >= 11.1 / SLE11:
 #
-if test -f etc/sysconfig/network/scripts/functions.rpm-utils ; then
-    # we provide own, improved variant of the remove_and_set suse
-    # rpm macro that is able to handle files in subdirs, and more
-    . etc/sysconfig/network/scripts/functions.rpm-utils
-fi
 # convert dns / modify_resolvconf to netconfig
 if [ -e etc/sysconfig/network/scripts/convert_to_netconfig_dns ] ; then
     ROOT=$PWD bash etc/sysconfig/network/scripts/convert_to_netconfig_dns
@@ -238,4 +247,4 @@ sysconfig_remove_and_set network/config WRITE_HOSTNAME_TO_HOSTS
 %preun
 %{stop_on_removal network}
 
-%changelog -n sysconfig
+%changelog
