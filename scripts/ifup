@@ -872,7 +872,7 @@ fi
 dhcpretcode=$R_SUCCESS
 # switch type. If SKIP_MAIN_PART == skip, don't execute any section
 case "$BOOTPROTO$SKIP_MAIN_PART" in
-	dhcp+autoip|dhcp4+autoip)
+	dhcp+autoip|dhcp4+autoip|dhcp6+autoip|dhcp4+dhcp6+autoip)
 		if [ "$DHCP" = yes ] ; then      # called from dhcp client
 			SKIP_MAIN_PART=skip
 			${SCRIPTNAME}-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
@@ -890,7 +890,7 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 		${SCRIPTNAME}-autoip $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		retcode=$?
 	;;
-	dhcp|dhcp4|dhcp6)
+	dhcp|dhcp4|dhcp6|dhcp4+dhcp6)
 		# With dhcp if{up,down} is called twice. See comment "DHCP special" above
 		if [ "$DHCP" = yes ] ; then      # called from dhcp client
 			SKIP_MAIN_PART=skip
