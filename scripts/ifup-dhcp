@@ -744,21 +744,42 @@ case "$ACTION" in
 				message "`printf "    %-9s DHCP6 continues in background" $INTERFACE`"
 			fi
 		fi
-		debug "DHCP4: STARTED=$DHCP4_STARTED STATUS=$DHCP4_STATUS"
-		debug "DHCP6: STARTED=$DHCP6_STARTED STATUS=$DHCP6_STATUS"
+		debug "DHCP4(required=$explicit_dhcp4) STARTED=$DHCP4_STARTED STATUS=$DHCP4_STATUS"
+		debug "DHCP6(required=$explicit_dhcp6) STARTED=$DHCP6_STARTED STATUS=$DHCP6_STATUS"
+		[ -z "$DHCP4_STATUS" ] && DHCP4_STATUS=$R_ERROR
+		[ -z "$DHCP6_STATUS" ] && DHCP6_STATUS=$R_ERROR
 
-		if   [ "$DHCP4_STATUS" = $R_SUCCESS       -a $DHCP6_STATUS = $R_SUCCESS    ] ; then
-			exit $R_SUCCESS
-		elif [ "$DHCP4_STATUS" = $R_NOTRUNNING    -o $DHCP6_STATUS = $R_NOTRUNNING ] ; then
-			exit $R_NOTRUNNING
-		elif [ "$DHCP4_STATUS" = $R_DHCP_BG       -o $DHCP6_STATUS = $R_DHCP_BG    ] ; then
-			exit $R_DHCP_BG
-		elif [ "$DHCP4_STATUS" != $R_NOTCONFIGURED ] ; then
+		case "${explicit_dhcp4}_${explicit_dhcp6}" in
+		(yes_yes)	# BOOTPROTO=dhcp4+dhcp6	    (need both to report success)
+			if   [ $DHCP4_STATUS = $R_SUCCESS        -a $DHCP6_STATUS = $R_SUCCESS    ] ; then
+				exit $R_SUCCESS
+			elif [ $DHCP4_STATUS = $R_DHCP_BG        -o $DHCP6_STATUS = $R_DHCP_BG    ] ; then
+				exit $R_DHCP_BG
+			elif [ $DHCP4_STATUS != $R_NOTCONFIGURED ] ; then
+				exit $DHCP4_STATUS
+			elif [ $DHCP6_STATUS != $R_NOTCONFIGURED ] ; then
+				exit $DHCP6_STATUS
+			fi
+		;;
+		(no_no)		# BOOTPROTO=dhcp	    (one is sufficient)
+			if   [ $DHCP4_STATUS = $R_SUCCESS        -o $DHCP6_STATUS = $R_SUCCESS    ] ; then
+				exit $R_SUCCESS
+			elif [ $DHCP4_STATUS = $R_DHCP_BG        -o $DHCP6_STATUS = $R_DHCP_BG    ] ; then
+				exit $R_DHCP_BG
+			elif [ $DHCP4_STATUS != $R_NOTCONFIGURED ] ; then
+				exit $DHCP4_STATUS
+			elif [ $DHCP6_STATUS != $R_NOTCONFIGURED ] ; then
+				exit $DHCP6_STATUS
+			fi
+		;;
+		(yes_no)	# BOOTPROTO=dhcp4
 			exit $DHCP4_STATUS
-		elif [ "$DHCP6_STATUS" != $R_NOTCONFIGURED ] ; then
+		;;
+		(no_yes)	# BOOTPROTO=dhcp6
 			exit $DHCP6_STATUS
-		fi
-		exit 0
+		;;
+		esac
+		exit $R_ERROR
 
 	;;
 	stop)
@@ -1040,17 +1061,40 @@ case "$ACTION" in
 			;;
 			esac
 		done
-		if   [ "$DHCP4_STATUS" = $R_SUCCESS       -a $DHCP6_STATUS = $R_SUCCESS    ] ; then
-			exit $R_SUCCESS
-		elif [ "$DHCP4_STATUS" = $R_NOTRUNNING    -o $DHCP6_STATUS = $R_NOTRUNNING ] ; then
-			exit $R_NOTRUNNING
-		elif [ "$DHCP4_STATUS" = $R_DHCP_BG       -o $DHCP6_STATUS = $R_DHCP_BG    ] ; then
-			exit $R_DHCP_BG
-		elif [ "$DHCP4_STATUS" != $R_NOTCONFIGURED ] ; then
+
+		debug "DHCP4(required=$explicit_dhcp4) STATUS=$DHCP4_STATUS"
+		debug "DHCP6(required=$explicit_dhcp6) STATUS=$DHCP6_STATUS"
+
+		case "${explicit_dhcp4}_${explicit_dhcp6}" in
+		(yes_yes)	# BOOTPROTO=dhcp4+dhcp6	    (need both to report success)
+			if   [ $DHCP4_STATUS = $R_SUCCESS        -a $DHCP6_STATUS = $R_SUCCESS    ] ; then
+				exit $R_SUCCESS
+			elif [ $DHCP4_STATUS = $R_DHCP_BG        -o $DHCP6_STATUS = $R_DHCP_BG    ] ; then
+				exit $R_DHCP_BG
+			elif [ $DHCP4_STATUS != $R_NOTCONFIGURED ] ; then
+				exit $DHCP4_STATUS
+			elif [ $DHCP6_STATUS != $R_NOTCONFIGURED ] ; then
+				exit $DHCP6_STATUS
+			fi
+		;;
+		(no_no)		# BOOTPROTO=dhcp	    (one is sufficient)
+			if   [ $DHCP4_STATUS = $R_SUCCESS        -o $DHCP6_STATUS = $R_SUCCESS    ] ; then
+				exit $R_SUCCESS
+			elif [ $DHCP4_STATUS = $R_DHCP_BG        -o $DHCP6_STATUS = $R_DHCP_BG    ] ; then
+				exit $R_DHCP_BG
+			elif [ $DHCP4_STATUS != $R_NOTCONFIGURED ] ; then
+				exit $DHCP4_STATUS
+			elif [ $DHCP6_STATUS != $R_NOTCONFIGURED ] ; then
+				exit $DHCP6_STATUS
+			fi
+		;;
+		(yes_no)	# BOOTPROTO=dhcp4
 			exit $DHCP4_STATUS
-		elif [ "$DHCP6_STATUS" != $R_NOTCONFIGURED ] ; then
+		;;
+		(no_yes)	# BOOTPROTO=dhcp6
 			exit $DHCP6_STATUS
-		fi
-		exit $R_NOTCONFIGURED
+		;;
+		esac
+		exit $R_ERROR
 	;;
 esac
