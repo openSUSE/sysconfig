@@ -129,9 +129,9 @@ if [ "$NETWORKMANAGER" = yes ] ; then
 fi
 
 check_firewall() {
-	test "$MODE" = onboot && return -1
-	test "$FIREWALL" != yes && return -2
-	/sbin/SuSEfirewall2 -q status &>/dev/null || return -3
+	test "$MODE" = onboot && return 1
+	test "$FIREWALL" != yes && return 2
+	/sbin/SuSEfirewall2 -q status &>/dev/null || return 3
 	return 0
 }
 
@@ -147,7 +147,7 @@ reload_firewall() {
 
 start_nm_online() {
 	test -x "$NM_ONLINE_BIN" || return 0
-	if [ "$NM_ONLINE_TIMEOUT" == 0 ] ; then
+	if [ "$NM_ONLINE_TIMEOUT" = 0 ] ; then
 #		mesg "If service network should wait until connection is established"
 #		mesg "then set /etc/sysconfig/network/config:NM_ONLINE_TIMEOUT"
 		return 0
@@ -164,7 +164,7 @@ start_nm_online() {
 cd "$OLDPWD"
 case "$ACTION" in
 	start)
-		if [ "$NETWORKMANAGER" == yes ] ; then
+		if [ "$NETWORKMANAGER" = yes ] ; then
 			if nm_running; then
 				mesg_n "NetworkManager already running"
 				rc_status -v
@@ -248,7 +248,7 @@ case "$ACTION" in
 		# NetworkManager does not support reload (2005.01.15).
 		# If configuration and running system do not match exec restart.
 		# Fall through if NetControl is confiured and NM not active.
-		if [ "$NETWORKMANAGER" == yes ] ; then
+		if [ "$NETWORKMANAGER" = yes ] ; then
 			if netcontrol_running; then
 				mesg "Changing Network Control System. Calling $0 restart"
 				exec $0 restart $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
@@ -265,7 +265,7 @@ case "$ACTION" in
 		fi
 		;;
 	status)
-		if [ "$NETWORKMANAGER" == yes ] ; then
+		if [ "$NETWORKMANAGER" = yes ] ; then
 			mesg_n "Checking for the NetworkManager: "
 			nm_running
 			rc_status -v
@@ -291,7 +291,7 @@ case "$ACTION" in
 		echo "           type=<typelist>,skip=<skiplist>"
 		echo "  typelist: space seperated list of interface types"
 		echo "  skiplist: space seperated list of interfaces to skip for 'start'"
-		if [ "$NETWORKMANAGER" == yes ] ; then
+		if [ "$NETWORKMANAGER" = yes ] ; then
 		echo
 			echo "Note:"
 			echo "  <config>, <interface> and options [on]boot,hotplug,manual" \
@@ -446,7 +446,7 @@ for a in $(type_filter `ls -A /sys/class/net/`); do
 	case "$t" in
 		eth|tr|ib|wlan)
 			STAMPFILE=$STAMPFILE_STUB`cat /sys/class/net/$a/ifindex`
-			if [ "$MODE" == onboot -a "$ACTION" == start ] ; then
+			if [ "$MODE" = onboot -a "$ACTION" = start ] ; then
 				# skip interfaces (with active drivers)
 				# but not yet prepared by an
 				#   ifup -o hotplug
@@ -716,7 +716,7 @@ status() {
 
 rc_reset
 declare -i FAILED=0
-if [ "$NETWORKMANAGER" == yes -a ${NM_STATUS:-0} -ne 0 ] ; then
+if [ "$NETWORKMANAGER" = yes -a ${NM_STATUS:-0} -ne 0 ] ; then
 	FAILED=1
 fi
 
