@@ -19,6 +19,19 @@ getcfg-interface \- returns the matching interface
 .br
 getcfg-all-info \- returns the sysfs information matching a
 configuration name
+.SH NOTE
+The
+.B getcfg
+command family is
+.BI obsolete
+since openSUSE 10.3. This manual page is provided to document
+the commands and device name rules on legacy systems.
+
+See also the
+.B "PERSISTENT INTERFACE NAMES"
+section in the
+.BR ifup (8)
+manual page for more informations.
 .SH SYNOPSIS
 .B getcfg{-parse-hwdesc,-make-hwdesc,-device,-interface,-all-info}
 .I cfg-name
@@ -204,7 +217,8 @@ Michal Svec <msvec@suse.cz> -- hwup script
 Hannes Reinecke <hare@suse.de> -- S/390 configuration
 .fi
 .SH "SEE ALSO"
-.BR hwup(8),
+.BR ifup (8),
+.BR hwup (8),
 .br
 .BR /etc/sysconfig/hardware/*,
 .br

@@ -3,6 +3,9 @@ SUSE Linux device and interface configuration
 (Christian Zoz <zoz@suse.de>)
 
 
+NOTE: Please note, that this documentation as well as getcfg, hwup/hwdown
+      command and the device name rules defined getcfg(8), are obsolete.
+
 This document describes the new concept of device initialization and interface
 configuration. Also if many other services and processes have configuration
 files in /etc/sysconfig these will be described in documents that come with the

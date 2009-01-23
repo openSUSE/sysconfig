@@ -12,6 +12,28 @@ hwup \- start a pre-configured hardware device.
 hwdown \- stop a (pre-configured) hardware device.
 .br
 hwstatus \- show the state of a (pre-configured) hardware device.
+
+.SH NOTE
+The
+.B hwup
+command family,
+.B hwcfg-*
+files and the
+.B hardware-description
+defined in
+.BR getcfg (8)
+are
+.BI obsolete
+since openSUSE 10.3. This manual page is provided to document
+the commands on legacy systems.
+
+The hardware configuration is implemented using
+.BR udev (7)
+rules and can be modified in YaST2 LAN module, the
+.B hwup
+and
+.B hwdown
+commands are implemented as wrappers triggering udev events.
 .SH SYNOPSIS
 .B hw{up,down,status}
 .B [
@@ -247,7 +269,5 @@ Stefan Scheler <sscheler@suse.de>
 .SH "SEE ALSO"
 .BR getcfg(8),
 .br
-.BR /etc/sysconfig/hardware/*,
-.br
-.BR /etc/sysconfig/hardware/skel/*
+.BR /etc/sysconfig/hardware/README.hwcfg_and_device_initialisation
 
