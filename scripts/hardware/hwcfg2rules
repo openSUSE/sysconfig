@@ -124,12 +124,6 @@ EOF
 ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{portname}="$CCW_CHAN_MODE"
 EOF
     fi
-    if [ "$QETH_LAYER2_SUPPORT" = "1" ] ; then
-        cat >> $file <<EOF
-# Enable Layer2 Support
-ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{layer2}="1"
-EOF
-    fi
     if [ "$QETH_IPA_TAKEOVER" = "1" ]; then
         cat >> $file <<EOF
 # Enable IPA takeover
@@ -160,6 +154,20 @@ EOF
     done
     cat >> $file <<EOF
 LABEL="$ccwtype-${busid}_end"
+EOF
+    if [ "$QETH_LAYER2_SUPPORT" = "1" ] ; then
+        cat >> $file <<EOF
+# Enable Layer2 Support
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{layer2}="1"
+EOF
+    fi
+    if [ "$QETH_LAYER2_SUPPORT" = "0" ] ; then
+        cat >> $file <<EOF
+# Disable Layer2 Support
+ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{layer2}="0"
+EOF
+    fi
+    cat >> $file <<EOF
 ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{online}="1"
 EOF
 }
