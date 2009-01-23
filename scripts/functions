@@ -227,6 +227,12 @@ get_iface_type_from_config () {
 		ib*.*) INTERFACETYPE=ibchild ;;
 		ib*)   INTERFACETYPE=ib      ;;
 	esac
+
+	# bnc#458412: map obsolete (s390) eth type overrides
+	case "$INTERFACETYPE" in
+		(qeth|hsi|lcs|ctc|iucv|tr) INTERFACETYPE=eth ;;
+	esac
+
 	test -n "$INTERFACETYPE" && echo $INTERFACETYPE && return
 	if [ -z "$TYPE" ] ; then
 		case $IF in
