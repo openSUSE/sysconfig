@@ -213,6 +213,7 @@ up)
 	sit)
 		case "$BOOTPROTO" in
 		static|6to4)
+			/sbin/modprobe -q sit
 			iptunnel_add
 			RETVAL=$?
 		;;
@@ -225,6 +226,10 @@ up)
 	gre|ipip)
 		case "$BOOTPROTO" in
 		static)
+			case "$INTERFACETYPE" in
+			#gre)	/sbin/modprobe -q ip_gre ;;
+			ipip)	/sbin/modprobe -q ipip   ;;
+			esac
 			iptunnel_add
 			RETVAL=$?
 		;;
