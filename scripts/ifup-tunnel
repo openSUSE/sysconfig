@@ -86,8 +86,9 @@ done
 #
 if [ -f ifcfg-$CONFIG ] ; then
 	. ifcfg-$CONFIG
-else
+elif test "$ACTION" != down ; then
 	message "could not find configuration file ifcfg-$CONFIG"
+	exit $R_NOCONFIG
 fi
 
 
@@ -207,15 +208,19 @@ tunctl_bin ()
 RETVAL=$R_SUCCESS
 case $ACTION in
 up)
-	printf "    %-9s " "$INTERFACE"
-
 	case "$INTERFACETYPE" in
 	sit)
 		case "$BOOTPROTO" in
 		static|6to4)
 			/sbin/modprobe -q sit
-			iptunnel_add
-			RETVAL=$?
+			case $INTERFACE in
+			sit0) ;;
+			*)
+				printf "    %-9s " "$INTERFACE"
+				iptunnel_add
+				RETVAL=$?
+			;;
+			esac
 		;;
 		*)
 			logerror "unsupported tunnel boot protocol $BOOTPROTO"
@@ -227,11 +232,18 @@ up)
 		case "$BOOTPROTO" in
 		static)
 			case "$INTERFACETYPE" in
-			#gre)	/sbin/modprobe -q ip_gre ;;
+			gre)	/sbin/modprobe -q ip_gre ;;
 			ipip)	/sbin/modprobe -q ipip   ;;
 			esac
-			iptunnel_add
-			RETVAL=$?
+
+			case $INTERFACE in
+			gre0|tunl0) ;;
+			*)
+				printf "    %-9s " "$INTERFACE"
+				iptunnel_add
+				RETVAL=$?
+			;;
+			esac
 		;;
 		*)
 			logerror "unsupported tunnel boot protocol $BOOTPROTO"
@@ -253,6 +265,7 @@ up)
 				exit $R_ERROR
 			fi
 
+			printf "    %-9s " "$INTERFACE"
 			$tunctl -t $INTERFACE ${TUNCTL_TYPE_ARG} \
 				${TUNNEL_SET_OWNER:+-u "$TUNNEL_SET_OWNER"} \
 				${TUNNEL_SET_GROUP:+-g "$TUNNEL_SET_GROUP"} \
@@ -272,8 +285,6 @@ down)
 
 	case "$INTERFACETYPE" in
 	tun|tap)
-		printf "    %-9s " "$INTERFACE"
-
 		if [ -d /sys/class/net/$INTERFACE ] ; then
 			tunctl=$(tunctl_bin)
 			if [ -z "$tunctl" ] ; then
@@ -281,12 +292,22 @@ down)
 				exit $R_ERROR
 			fi
 
+			printf "    %-9s " "$INTERFACE"
 			$tunctl -d $INTERFACE 2>&1 || RETVAL=$R_ERROR
 		fi
 	;;
 	sit|gre|ipip)
-		iptunnel_del
-		RETVAL=$?
+
+		if [ -d /sys/class/net/$INTERFACE ] ; then
+			case $INTERFACE in
+			sit0|gre0|tunl0) ;;
+			*)
+				printf "    %-9s " "$INTERFACE"
+				iptunnel_del
+				RETVAL=$?
+			;;
+			esac
+		fi
 	;;
 	esac
 ;;

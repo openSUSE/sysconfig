@@ -100,7 +100,7 @@ you may choose the interface names.
 Create a GRE tunnel between a local computer with IP address 192.168.1.2
 and a remote computer with IP address 172.16.2.3. After the tunnel is
 created assign an IP address 10.20.30.40 to it's local end. Default filename:
-.I ifcfg-gre0
+.I ifcfg-gre1
 .nf
    STARTMODE='onboot'
    BOOTPROTO='static'
@@ -114,7 +114,7 @@ created assign an IP address 10.20.30.40 to it's local end. Default filename:
 IPIP tunnel is created in exactly the same way, except that the variable
 .B TUNNEL
 has to be set to "ipip" in this case. Use filename
-.I ifcfg-ipip0 
+.I ifcfg-tunl1 
 in this case.
 
 .TP
