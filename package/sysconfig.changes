@@ -1,3 +1,9 @@
+Fri Jan 23 17:45:29 CET 2009 - mt@suse.de
+
+- version 0.71.14
+- Added obsolete notes to legacy documentation (getcfg.8,hwup.8),
+  updated netconfig diagram.
+
 -------------------------------------------------------------------
 Fri Jan 23 15:32:29 CET 2009 - mt@suse.de
 
