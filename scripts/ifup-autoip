@@ -163,7 +163,7 @@ case "$ACTION" in
 	stop)
 		debug "Shutting down service autoip on $INTERFACE"
 		info=/var/lib/autoip/autoip-$INTERFACE.info
-	        pid=`sed -ne 's/PID=//p' < $info`
+	        test -f $info && pid=`sed -ne 's/PID=//p' < $info` || pid=''
 	        test -n "$pid" && kill $pid
 		if [ "$AUTOIP_SET_DOWN_LINK" = yes ] ; then
 			ip link set down dev $INTERFACE
