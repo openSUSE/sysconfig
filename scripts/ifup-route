@@ -122,9 +122,9 @@ if [ -d /sys/class/net/$INTERFACE ] ; then
 	# Don't add this route if interface has no v4 address (Bug 65557)
 	test -z "`ip -4 a l dev $INTERFACE 2>/dev/null`" && islinklocal=
 	if test -n "$islinklocal" ; then
-		current=`ip route show 169.254.0.0/16`
+		current=`ip -4 route show 169.254.0.0/16`
 		if test -z "$current" -o "$current" != "${current/ dev $INTERFACE }"; then
-			EXTRALINKLOCAL="169.254.0.0 - 255.255.0.0 $INTERFACE"
+			EXTRALINKLOCAL="169.254.0.0/16 - - $INTERFACE"
 		fi
 	fi
 fi
@@ -144,8 +144,10 @@ reverse ()
 }
 
 run_iproute() {
+	local OPT
+	case $1 in -*) OPT=$1 ; shift ;; esac
 	test "$REPLACE_ONLY" = yes -a "$1" != replace && return
-	local COMMAND="ip route $@"
+	local COMMAND="ip ${OPT:+$OPT }route $@"
 	RETMESSAGE="$($COMMAND 2>&1)"
 	RETVALUE=$?
 	if test $RETVALUE -ne 0 ; then
@@ -281,7 +283,7 @@ get_default_route() {
 			OLDDEFROUTEIFACE=$IFACE
 			return
 		fi
-	done < <(ip route show)
+	done < <(ip -4 route show)
 	return 1
 }
 
@@ -312,11 +314,11 @@ if [ "$ACTION" = status ] ; then
 		fi
 		case $DEST in
 			unreachable|blackhole|prohibit|throw)
-				ALL_ROUTES="$ALL_ROUTES ${VIA}:::${DEST}" ;;
+				ALL_ROUTES="$ALL_ROUTES ${VIA}___${DEST}" ;;
 			*)
-				ALL_ROUTES="$ALL_ROUTES ${DEST}:${GWAY}:${IFACE}:" ;;
+				ALL_ROUTES="$ALL_ROUTES ${DEST}_${GWAY}_${IFACE}_" ;;
 		esac
-	done < <(ip route show)
+	done < <(ip -4 route show)
 
 	declare -i n=0 m=0
 fi
@@ -329,7 +331,10 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 	test "$MASK" = "-" && MASK=""
 	test "$IFACE" = "-" && IFACE=""
 	test "$TYPE" = "-" && TYPE=""
-	
+
+	# skip commented out and empty lines (already done in reverse(), but...)
+	case "$DEST" in \#*|"")  continue ;; esac
+
 	# If we are setting up a route for 6to4 tunnel we must
 	# differentiate between USAGI and non-USAGI stack as they
 	# accept gateway addresses in different notations.
@@ -368,17 +373,49 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 			test "$INTERFACE" != noiface  && continue
 		fi
 	fi
-	# Check if $MASK is a netmask or prefixlength and calculate prefixlength if
-	# it is a netmask. Then add the prefixlength to the destination. Finally we
-	# get the prefixlength back from the destination to have always the right
-	# prefixlength in $PFXL.
-	if [ "$MASK" -ge 0 -a "$MASK" -le 32 ] 2>/dev/null; then
-		PFXL=$MASK
-	else
-		PFXL=`mask2pfxlen $MASK`
+
+	# Check if this is a ipv6 or a ipv4 route entry
+	INET=4
+	case "${DEST}${GWAY}${MASK}" in
+		*:*) INET=6 ;;
+	esac
+
+	# - Check if $DEST is "default" -- it includes implicit /0 prefixlen
+	# - Check if $DEST is already in the iproute2 prefix/prefixlen notation
+	# - Otherwise check if $MASK is a prefixlength or netmask and calculate
+	#   the prefixlength if it is a netmask. Then add the prefixlength to
+	#   the destination.
+	#   Finally extract the prefixlength back from the destination to have
+	#   always the right prefixlength in $PFXL.
+	case $DEST in
+	default)
+		PFXL=0
+	;;
+	*/*)
+		PFXL=${DEST#*/}
+	;;
+	*)
+		# Check if it is a prefixlen or interpret as ipv4 netmask
+		if [ "$MASK" -ge 0 -a "$MASK" -le 128 ] 2>/dev/null; then
+			PFXL=$MASK
+		else # elif [ -n "$MASK" ] ; then
+			PFXL=`mask2pfxlen $MASK`
+		fi
+		test "${DEST%%/*}" = "$DEST" && DEST="$DEST${PFXL:+/$PFXL}"
+		test "${DEST#*/}" != "$DEST" && PFXL=${DEST#*/}
+	;;
+	esac
+
+	# To be able to compare destination later we possibly have to fill up $DEST
+	# with some '.0'. For this we have to seperate DIST and PFXL once again.
+	# Don't do that if $DEST = default ;)
+	if [ "$INET" = 4 -a "$DEST" != default ] ; then
+		DEST=${DEST%%/*}
+		read D1 D2 D3 D4 < <(IFS=.; echo $DEST)
+		for a in D1 D2 D3 D4; do test -z "${!a}" && eval $a=0; done
+		DEST=$D1.$D2.$D3.$D4${PFXL:+/$PFXL}
 	fi
-	test "${DEST%%/*}" = "$DEST" && DEST="$DEST${PFXL:+/$PFXL}"
-	test "${DEST#*/}" != "$DEST" && PFXL=${DEST#*/}
+	case $DEST in */0) DEST=default ; PFXL=0 ;; esac
 
 	# If the first word of the options ($TYPE) is a value that is respected
 	# as an valid type by ip route, then keep it. If $TYPE is anything else
@@ -396,10 +433,8 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 
 		test -n "$IFACE" && IFACE="dev $IFACE"
 
-		case "$DEST" in
-			\#*|"")
-				;;
-			224.0.0.0*|224/4)
+		case "$DEST-$INET" in
+			224.0.0.0*-4|224/4-4)
 				# We are doing multicast
 				if [ -e /proc/net/igmp -a "$GWAY" = 0.0.0.0 \
 				     -a \( "$PFXL" = 4 -o "$DEST" = 224/4 \) ] ; then
@@ -413,7 +448,7 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 						&& logerror "	wrong netmask/prefixlength entry $MASK in $ROUTECONF"
 				fi
 				;;
-			default*)
+			default-4)
 				if [ "$ACTION" != "del" ] ; then
 					# I cannot remember why we were running run_iproute always after
 					# the possible ip route command. But it hurts if there are two
@@ -426,11 +461,11 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 					#		&& push_route_stack
 					#run_iproute $ACTION to $TYPE $DEST via $GWAY $IFACE $IPOPTS
 					if get_default_route \
-					      && ip route $ACTION to $TYPE $DEST via $GWAY \
+					      && ip route $ACTION to $TYPE $DEST ${GWAY:+via $GWAY} \
 					         ${INTERFACE:+dev $INTERFACE} $IPOPTS &>/dev/null ; then
 						push_route_stack
 					else
-						run_iproute $ACTION to $TYPE $DEST via $GWAY $IFACE $IPOPTS
+						run_iproute $ACTION to $TYPE $DEST ${GWAY:+via $GWAY} $IFACE $IPOPTS
 					fi
 				fi
 				if [ "$ACTION" = "del" ] ; then
@@ -438,36 +473,31 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 				fi
 				;;
 			*)
+				FOPT=""
 				case "$GWAY" in
-					0.0.0.0|\*)     # Add/Delete a local Network
+					0.0.0.0|\*|::)	# Add/Delete a local network / device route
 						GWAY=""
+						FOPT="-$INET"
 						;;
 					$DEST)
-						test "$PFXL" = 32 && GWAY=""
+						test "$PFXL" = 32 -o "$PFXL" = 128 && GWAY=""
 						;;
 				esac
-				run_iproute $ACTION to $TYPE $DEST ${GWAY:+via $GWAY} $IFACE $IPOPTS
+				run_iproute $FOPT $ACTION to $TYPE $DEST ${GWAY:+via $GWAY} $IFACE $IPOPTS
+			;;
 		esac
 		;;
 
 	status)
 
-		# To be able to compare destination later we possibly have to fill up $DEST
-		# with some '.0'. For this we have to seperate DIST and PFXL once again.
-		# Don't do that if $DEST = default ;)
-		if [ "$DEST" != default ] ; then
-			DEST=${DEST%%/*}
-			read D1 D2 D3 D4 < <(IFS=.; echo $DEST)
-			for a in D1 D2 D3 D4; do test -z "${!a}" && eval $a=0; done
-			DEST=$D1.$D2.$D3.$D4${PFXL:+/$PFXL}
-		fi
+		# don't compare ipv6 routes -- we need a compress function to do it
+		test "$INET" != 4 && continue
 
-		case "$DEST" in \#*|"")  continue ;; esac
 		n=$((n + 1))
-		test $n = 1 && message_if_not_run_from_rc "Configured routes for interface $INTERFACE:"
+		test $n = 1 && message_if_not_run_from_rc "Configured IPv4 routes for interface $INTERFACE:"
 		message_if_not_run_from_rc "  $LINE"
 		for R in $ALL_ROUTES ; do
-			if test "$R" = "${DEST}:${GWAY}:${IFACE}:${TYPE}" ; then
+			if test "$R" = "${DEST}_${GWAY}_${IFACE}_${TYPE}" ; then
 				m=$((m + 1))
 			fi
 		done
@@ -481,13 +511,20 @@ done < <(reverse < <(${ROUTECONF:+cat $ROUTECONF}; echo; \
 
 # Write a summary for status
 if [ "$ACTION" = status ] ; then
+	IFACE_ROUTES=""
 	while read LINE; do
 		IFACE_ROUTES="${IFACE_ROUTES:+$IFACE_ROUTES\n}  $LINE"
-	done < <(ip route show dev $INTERFACE 2>/dev/null)
-	test -n "$IFACE_ROUTES" && message_if_not_run_from_rc "Active routes for interface $INTERFACE:"
+	done < <(ip -4 route show dev $INTERFACE 2>/dev/null)
+	test -n "$IFACE_ROUTES" && message_if_not_run_from_rc "Active IPv4 routes for interface $INTERFACE:"
 	message_if_not_run_from_rc "$IFACE_ROUTES"
 	test $n -gt 0  && \
-		message_if_not_run_from_rc "$m of $n configured routes for interface $INTERFACE up"
+		message_if_not_run_from_rc "$m of $n configured IPv4 routes for interface $INTERFACE up"
+	IFACE_ROUTES=""
+	while read LINE; do
+		IFACE_ROUTES="${IFACE_ROUTES:+$IFACE_ROUTES\n}  $LINE"
+	done < <(ip -6 route show dev $INTERFACE 2>/dev/null)
+	test -n "$IFACE_ROUTES" && message_if_not_run_from_rc "Active IPv6 routes for interface $INTERFACE:"
+	message_if_not_run_from_rc "$IFACE_ROUTES"
 	test $n -ne $m && exit 3
 fi
 
