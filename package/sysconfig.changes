@@ -1,4 +1,56 @@
 -------------------------------------------------------------------
+Fri Jan 23 15:32:29 CET 2009 - mt@suse.de
+
+- version 0.71.13
+- Mentioned in network-remotefs init script's LSB description tag,
+  that it starts NetworkManager, Wireless, PPP, ... (bnc#463439).
+
+-------------------------------------------------------------------
+Fri Jan 23 09:05:04 CET 2009 - mt@suse.de
+
+- Added cyblafb module to the blacklist (bnc#466280).
+
+-------------------------------------------------------------------
+Wed Jan 21 22:26:16 CET 2009 - mt@suse.de
+
+- Fixed previous patch avoiding new interface types by just
+  skipping creations/deletions in ifup-tunnel (bnc#467165).
+
+-------------------------------------------------------------------
+Wed Jan 21 17:52:20 CET 2009 - mt@suse.de
+
+- Fix to not handle sit0,gre0,tunl0 in ifup-tunnel (bnc#467165).
+
+-------------------------------------------------------------------
+Tue Jan 20 16:20:01 CET 2009 - mt@suse.de
+
+- Fixed ifup-tunnel script to modprobe modules (bnc#467165).
+- Fixed ipv6 support in ifup-route script (bnc#467165).
+
+-------------------------------------------------------------------
+Thu Jan 15 19:09:44 CET 2009 - mt@suse.de
+
+- Removed TPM (Trusted Platform Module) kernel modules from
+  /etc/modprobe.d/blacklist (bnc#439196)
+
+-------------------------------------------------------------------
+Wed Jan 14 14:51:18 CET 2009 - uli@suse.de
+
+- hwcfg2rules: explicitly disable layer2, and do so after the
+  end label to make it work (bnc #442232)
+
+-------------------------------------------------------------------
+Thu Jan  8 11:28:54 CET 2009 - mt@suse.de
+
+- Map obsolete (s390) interface type overrides to eth (bnc#458412).
+- Fixed ifdown-autoip to check if info file exists (bnc#463266).
+
+-------------------------------------------------------------------
+Wed Jan  7 10:33:05 CET 2009 - schwab@suse.de
+
+- Fix syntax errors in network init script.
+
+-------------------------------------------------------------------
 Fri Dec 19 13:51:41 CET 2008 - mt@suse.de
 
 - Fixed ifup-dhcp status to match BOOTPROTO settings (bnc#460093).
