@@ -33,9 +33,8 @@
 # Default-Start:	2 3 5
 # Default-Stop:		
 # Short-Description:	Configure the remote-fs depending network interfaces
-# Description:		Configure the remote-fs depending network interfaces
-# 			(start NetworkManager, Wireless, PPP, ...) and
-#                       set up routing
+# Description:		Configure the remote-fs depending network interfaces as
+#                       Wireless and set up routing or start the NetworkManager
 ### END INIT INFO
 
 . /etc/rc.status
