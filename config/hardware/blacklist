@@ -29,6 +29,7 @@ blacklist aty128fb
 blacklist atyfb
 blacklist clgenfb
 blacklist cyber2000fb
+blacklist cyblafb
 blacklist encode-big5
 blacklist encode-gb
 blacklist encode-gbk
