@@ -102,6 +102,7 @@ is_iface_available () {
 		ippp*|isdn*|modem*|dsl*|ppp*)   return 0 ;;
 		ipip*|sit*|gre*|tun*|tap*)      return 0 ;;
 		ib*.*|vlan*)                    return 0 ;;
+		dummy*)                         return 0 ;;
 	esac
 	test "${SCRIPTNAME%%-*}" = ifdown -a \
 	     "$MODE" = hotplug               && return 0
@@ -128,7 +129,7 @@ get_ethtool_drv_info () {
 		[ -x /usr${ethtool} ] && ethtool="/usr${ethtool}"  || return 1
 	fi
 	local key val
-	$ethtool -i "$IF" 2>/dev/null |
+	$ethtool -i "$1" 2>/dev/null |
 	while read key val ; do
 		case "$key" in
 			driver:)           printf 'ETHTOOL_DRV_NAME=%q\n'       "$val" ;;
@@ -151,11 +152,16 @@ get_iface_type () {
 			test -f /proc/net/vlan/$IF && TYPE=vlan
 			test -d /sys/class/net/$IF/bonding && TYPE=bond
 			test -d /sys/devices/virtual/net/$IF && {
-				eval local x `get_ethtool_drv_info $IF`
-				test "$ETHTOOL_DRV_NAME" == "tun" && \
-				TYPE="$ETHTOOL_DRV_BUS_INFO" || \
-				case $IF in tap*) TYPE=tap ;; esac
-				# may be another virtual eth iface
+				eval local ETHTOOL_DRV_NAME=""     \
+				           ETHTOOL_DRV_BUS_INFO="" \
+				           `get_ethtool_drv_info $IF`
+				test "$ETHTOOL_DRV_NAME" = "tun"        && \
+				  TYPE="${ETHTOOL_DRV_BUS_INFO:-$TYPE}" || \
+				case $IF in
+				  (tap*)   TYPE=tap   ;;
+				  (dummy*) TYPE=dummy ;;
+				esac
+				# may be another virtual eth iface ...
 			}
 			;;
 		   24)	TYPE=eth ;; # firewire ;; # IEEE 1394 IPv4 - RFC 2734
@@ -237,6 +243,7 @@ get_iface_type_from_config () {
 	if [ -z "$TYPE" ] ; then
 		case $IF in
 			lo)          TYPE=lo;;
+			dummy*)      TYPE=dummy;;
 			ib*)         TYPE=ib;;
 			ip6tnl*)     TYPE=ip6tnl;;
 			mip6mnha*)   TYPE=mip6mnha;;
@@ -266,7 +273,7 @@ supported_on_localfs() {
 	local result=1	# remote-fs requirement as default
 	case $IFTYPE in
 		"")                     result=2 ;;
-		lo)                     result=0 ;;
+		lo|dummy)               result=0 ;;
 		eth|tr)                 result=0 ;;
 		ib|ibchild)             result=0 ;;
 		vlan|bridge|bond)       result=0 ;;

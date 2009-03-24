@@ -31,9 +31,9 @@
 ### BEGIN INIT INFO
 # Provides:		network
 # Required-Start:	$local_fs dbus
-# Should-Start:		isdn SuSEfirewall2_init
+# Should-Start:		isdn openibd SuSEfirewall2_init
 # Required-Stop:	$local_fs dbus
-# Should-Stop:		isdn SuSEfirewall2_init
+# Should-Stop:		isdn openibd SuSEfirewall2_init
 # Default-Start:	2 3 5
 # Default-Stop:		
 # Short-Description:	Configure the localfs depending network interfaces
@@ -424,6 +424,9 @@ while IFS=- read a b; do
 			TUNNEL_IFACES="$TUNNEL_IFACES $b"
 			add_to_wordlist VIRTUAL_IFACES $b
 		;;
+		dummy)
+			add_to_wordlist VIRTUAL_IFACES $b
+		;;
 		*)
 			add_to_wordlist VIRTUAL_IFACES $b
 
@@ -670,7 +673,8 @@ status() {
 	for IFACE in $@; do
 		$FAKE /sbin/ifstatus $CONFIG $IFACE -o rc $CHECK $MODE
 		RET=$?
-		debug && printf "    %-9s returned %s\n" $IFACE $RET
+		debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+		         printf "    %-9s\n" $IFACE
 		case $RET in
 			$R_SUCCESS|$R_BUSY)
 				# : $((R++))
@@ -740,7 +744,8 @@ case "$ACTION" in
 			done
 			$FAKE ifup $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+			         printf "    %-9s\n" $IFACE
 			case "$RET" in
 	 			$R_SUCCESS)
 	 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
@@ -864,7 +869,8 @@ case "$ACTION" in
 				done
 				$FAKE ifup $CONFIG $IFACE -o rc $MODE
 				RET=$?
-				debug && printf "    %-9s returned %s\n" $IFACE $RET
+				debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+				         printf "    %-9s\n" $IFACE
 				case "$RET" in
 		 			$R_SUCCESS)
 		 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
@@ -933,7 +939,8 @@ case "$ACTION" in
 			# printf "    %-9s " $IFACE
 			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+			         printf "    %-9s\n" $IFACE
 			rc_failed $RET
 			case "$RET" in
 				$R_NODEV|$R_NOTCONFIGURED|$R_INACTIVE)
@@ -980,7 +987,8 @@ case "$ACTION" in
 			fi
 			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+			         printf "    %-9s\n" $IFACE
 			rc_failed $RET
 			case "$RET" in
 				$R_NODEV|$R_NOTCONFIGURED|$R_INACTIVE)

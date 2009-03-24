@@ -276,13 +276,9 @@ setup_iwdev()
 {
         # Mode need to be first : some settings apply only in a specific mode !
         run_iw_tool config mode $WIRELESS_MODE
-        # This is a bit hackish, but should do the job right...
-        if [ -n "$WIRELESS_ESSID" -o -n "$WIRELESS_MODE" ] ; then
-                test -z "$WIRELESS_NICK" && WIRELESS_NICK=`/bin/hostname`
-        fi
         # Regular stuff...
         while read OPT ARG; do
-                run_iw_tool config $OPT "$ARG"
+                ${OPT:+run_iw_tool config "$OPT" "$ARG"}
         done <<-EOL
 nick $WIRELESS_NICK
 nwid $WIRELESS_NWID
@@ -337,15 +333,25 @@ EOL
         # set AP address when requested in $WIRELESS_AP.
         # At last mac80211 based drivers need this as signal to start
         # scanning for an appropriate cell, so we set it to 'any' when
-        # $WIRELESS_AP is empty in Managed and Ad-Hoc modes.
+        # $WIRELESS_AP is empty in Managed and Ad-Hoc modes, except we
+        # have the madwifi (ath_pci) driver, which does not like it...
         # It is required to set up the interface before doing that.
-        ip link set up dev $INTERFACE 2>/dev/null
         case "$WIRELESS_MODE" in
-                [M,m]anaged|[A,a]d-[H,h]oc|"")
-                    test -z "$WIRELESS_AP" && WIRELESS_AP='any'
+                ([M,m]anaged|[A,a]d-[H,h]oc|"")
+                    case "${DRIVER}" in
+                        (ath_pci)
+                            test -z "$WIRELESS_AP" && WIRELESS_AP='off'
+                        ;;
+                        (*)
+                            test -z "$WIRELESS_AP" && WIRELESS_AP='any'
+                        ;;
+                    esac
                 ;;
         esac
-        test -n "$WIRELESS_AP" && run_iw_tool config ap "$WIRELESS_AP"
+        if test -n "$WIRELESS_AP" ; then
+            ip link set up dev $INTERFACE 2>/dev/null
+            run_iw_tool config ap "$WIRELESS_AP"
+        fi
 }
 
 setup_wlanngdev()

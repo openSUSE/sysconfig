@@ -24,25 +24,6 @@ write_zfcp_rules () {
     cat >> $file <<EOF
 ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$busid", IMPORT{program}="collect $busid %k $busid zfcp"
 ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="zfcp", IMPORT{program}="collect $busid %k $busid zfcp"
-EOF
-    for lun in $ZFCP_LUNS ; do
-	set -- $(IFS=: ; echo $lun)
-	tmpwwpn=$1
-	for wwpn in $wwpn_list ; do
-	    if [ "$wwpn" == "$1" ] ; then
-		tmpwwpn=
-	    fi
-	done
-	if [ -n "$tmpwwpn" ] ; then
-	    wwpn_list="$wwpn_list $tmpwwpn"
-	fi
-    done
-    for wwpn in $wwpn_list ; do
-	cat >> $file <<EOF
-ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/$busid]port_add}="$wwpn"
-EOF
-    done
-    cat >> $file <<EOF
 ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/$busid]online}="1"
 EOF
     for lunid in $ZFCP_LUNS ; do
@@ -50,7 +31,7 @@ EOF
 	wwpn=$1
 	lun=$2
 	cat >> $file <<EOF
-ACTION=="add", SUBSYSTEMS=="ccw", KERNELS=="$busid", TEST=="[ccw/$busid]$wwpn", ATTR{[ccw/$busid]$wwpn/unit_add}="$lun"
+ACTION=="add", KERNEL=="rport-*", ATTR{port_name}=="$wwpn", SUBSYSTEMS=="ccw", KERNELS=="$busid", ATTR{[ccw/$busid]$wwpn/unit_add}="$lun"
 EOF
     done
     
@@ -62,30 +43,30 @@ write_iucv_rules () {
 
     echo "# Rules converted from $cfgname" > $file
     cat >> $file <<EOF
-ACTION=="add", SUBSYSTEM=="subsystem", KERNEL=="iucv", RUN+="modprobe netiucv"
+ACTION=="add", SUBSYSTEM=="subsystem", KERNEL=="iucv", RUN+="/sbin/modprobe netiucv"
 ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="netiucv", ATTR{connection}="$id"
 EOF
 }
 
 write_ctc_rules () {
-    local file=$UDEVDIR/$RULE-$type-${busid}.rules
+    local file=$UDEVDIR/$RULE-$subtype-${busid}.rules
     local attr
 
     echo "# Rules converted from $cfgname" > $file
-    cat >> $file <<EOF
-ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $ccwtype"
-EOF
     for chan in $CCW_CHAN_IDS ; do
 	cat >> $file <<EOF
-ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", RUN+="/sbin/modprobe --quiet $MODULE"
-ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $ccwtype"
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", RUN+="/sbin/modprobe --quiet $subtype"
+ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$chan", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $subtype"
 EOF
     done
+    cat >> $file <<EOF
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$subtype", IMPORT{program}="collect $busid %k $CCW_CHAN_IDS $subtype"
+EOF
     attr=$(echo $CCW_CHAN_IDS | sed 's/ /,/g')
     cat >> $file <<EOF
-TEST=="[ccwgroup/$busid]", GOTO="$type-${busid}_end"
-ACTION=="add", SUBSYSTEM=="$bus", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
-ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$ccwtype", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$type]group}="$attr"
+TEST=="[ccwgroup/$busid]", GOTO="$type-${busid}-end"
+ACTION=="add", SUBSYSTEM=="$bus", ENV{COLLECT_$busid}=="0", ATTR{[drivers/ccwgroup:$subtype]group}="$attr"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="$subtype", ENV{COLLECT_$busid}=="0", ATTR{group}="$attr"
 EOF
     if [ "$CCW_CHAN_MODE" -ne 0 ] ; then
         cat >> $file <<EOF
@@ -93,7 +74,7 @@ ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{protocol}="$CCW_CHA
 EOF
     fi
     cat >> $file <<EOF
-LABEL="$type-${busid}_end"
+LABEL="$type-${busid}-end"
 ACTION=="add", SUBSYSTEM=="ccwgroup", KERNEL=="$busid", ATTR{online}="1"
 EOF
 }
@@ -241,19 +222,19 @@ if [ "$bus" = "ccw" ] ; then
 	    3088/08)
                 # Channel To Channel
 		ccwtype="cu3088"
-		subtype="ctc"
+		subtype="ctcm"
 		CCW_CHAN_NUM=2
                 ;;
 	    3088/1e)
                 # FICON adapter
 		ccwtype="cu3088"
-		subtype="ctc"
+		subtype="ctcm"
 		CCW_CHAN_NUM=2
                 ;;
 	    3088/1f)
                 # ESCON adapter (I.e. hardware CTC device)
 		ccwtype="cu3088"
-		subtype="ctc"
+		subtype="ctcm"
 		CCW_CHAN_NUM=2
 		;;
 	    3088/60)

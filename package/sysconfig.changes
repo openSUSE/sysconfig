@@ -1,3 +1,86 @@
+-------------------------------------------------------------------
+Tue Mar 24 14:05:44 CET 2009 - mt@suse.de
+
+- version 0.71.15
+- Added /etc/modprobe.d/50-ipv6.conf config (noreplace install) 
+  with IPv6 enabled by default; added renaming of yast2-network
+  created ipv6 file to 50-ipv6.conf in post-install (bnc#485947).
+- Fixed overlapping messages in rcnetwork output (bnc#406887).
+- Fixed ifup-wireless to not set nick by default that breaks
+  several drivers (bnc#478513).
+- Fixed ifup-wireless to set ap to 'off' instead to 'any' for
+  the madwifi driver that does not support 'any' (bnc#402438).
+- Fixed network scripts to handle dummy interfaces (bnc#436857).
+- Fixed ifroute script parsing of final lines without EOL in
+  ifroute files (bnc#467165).
+
+-------------------------------------------------------------------
+Mon Mar  9 21:49:38 CET 2009 - mmarek@suse.cz
+
+- renamed modprobe config to /etc/modprobe.d/50-blacklist.conf
+  (required by new module-init-tools).
+
+-------------------------------------------------------------------
+Thu Feb 26 15:58:54 CET 2009 - hare@suse.de
+
+- ctc device has been renamed to ctcm (bnc#440570)
+
+-------------------------------------------------------------------
+Wed Feb 25 09:47:17 CET 2009 - mt@suse.de
+
+- Fixed to use exact match for networkmanager generation info
+  comment in the resolv.conf to avoid discarding of static dns
+  setup on update (bnc#471785).
+
+-------------------------------------------------------------------
+Mon Feb 23 10:25:53 CET 2009 - ihno@suse.de
+
+- Blacklist chsc_sch module (bnc#478601)
+
+-------------------------------------------------------------------
+Fri Feb 20 14:56:40 CET 2009 - mt@suse.de
+
+- Fixed to use absolute /sbin/modprobe in iucv rule (bnc#440570).
+
+-------------------------------------------------------------------
+Fri Feb 20 09:59:14 CET 2009 - mt@suse.de
+
+- Fixed ifup-dhcp status code in case the "-o rc" option was not
+  used, causing e.g. a yast2 internet test failure (bnc#460093).
+- Appended bug number and .diff suffix to patch files without.
+
+-------------------------------------------------------------------
+Thu Feb 19 16:01:45 CET 2009 - hare@suse.de
+
+- Initiate conversion of iucv rules (bnc#440570)
+
+-------------------------------------------------------------------
+Fri Feb  6 14:33:18 CET 2009 - hare@suse.de
+
+- Automount of iSCSI devices doesn't work (bnc#457252)
+
+-------------------------------------------------------------------
+Wed Feb  4 15:58:13 CET 2009 - hare@suse.de
+
+- Fixup zfcp conversion rules (bnc#471400)
+
+-------------------------------------------------------------------
+Wed Jan 28 13:53:20 CET 2009 - mt@suse.de
+
+- Fixed to use ifup-infiniband to setup ibchild type (bnc#423046).
+
+-------------------------------------------------------------------
+Tue Jan 27 14:30:35 CET 2009 - mt@suse.de
+
+- Added openibd to network LSB Should-Start/Stop, so infiniband
+  modules are loaded before the network script runs (bnc#469600).
+
+-------------------------------------------------------------------
+Mon Jan 26 09:32:14 CET 2009 - mt@suse.de
+
+- Added additional fb modules to the blacklist (bnc#468964).
+
+-------------------------------------------------------------------
 Fri Jan 23 17:45:29 CET 2009 - mt@suse.de
 
 - version 0.71.14

@@ -476,16 +476,16 @@ case "$ACTION" in
 							DHCP4_STATUS=$R_DHCP_BG
 							if test "$RUN_FROM_RC" = yes; then
 								print_mesg mesg "DHCP4 client is already running"
-								while read a b c d e f g h i; do
-									case "$d" in
-									169.254.*) continue ;;
-									esac
-									print_mesg mesg "IP address: $d"
-									DHCP4_STATUS=$R_SUCCESS
-								done < <(ip -o -4 addr show $INTERFACE)
 							else
 								mesg "DHCP4 client is already running on $INTERFACE"
 							fi
+							while read a b c d e f g h i; do
+								case "$d" in
+								169.254.*) continue ;;
+								esac
+								print_mesg mesg "IP address: $d"
+								DHCP4_STATUS=$R_SUCCESS
+							done < <(ip -o -4 addr show $INTERFACE)
 						fi
 					#fi
 				;;
@@ -499,16 +499,16 @@ case "$ACTION" in
 							DHCP6_STATUS=$R_DHCP_BG
 							if test "$RUN_FROM_RC" = yes; then
 								print_mesg mesg "DHCP6 client is already running"
-								while read a b c d rest; do
-									case "$d" in
-									fe80::*) continue ;;
-									esac
-									print_mesg mesg "IP address: $d"
-									DHCP6_STATUS=$R_SUCCESS
-								done < <(ip -o -6 addr show $INTERFACE)
 							else
 								mesg "DHCP6 client is already running on $INTERFACE"
 							fi
+							while read a b c d rest; do
+								case "$d" in
+								fe80::*) continue ;;
+								esac
+								print_mesg mesg "IP address: $d"
+								DHCP6_STATUS=$R_SUCCESS
+							done < <(ip -o -6 addr show $INTERFACE)
 						fi
 					#fi
 				;;

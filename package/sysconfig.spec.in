@@ -99,7 +99,8 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %dir /lib/udev
 /lib/udev/udevmountd
 %dir /etc/modprobe.d
-%config /etc/modprobe.d/blacklist
+%config /etc/modprobe.d/50-blacklist.conf
+%config(noreplace) /etc/modprobe.d/50-ipv6.conf
 /etc/sysconfig/network/ifcfg.template
 /etc/sysconfig/network/scripts/*
 /etc/sysconfig/hardware
@@ -194,7 +195,7 @@ if [ -f etc/sysconfig/network/__convert_hwdesc_to_iface__ ] ; then
 fi
 #
 pushd /etc/sysconfig/hardware > /dev/null
-for cfg in hwcfg-*-ccw-* ; do
+for cfg in hwcfg-*-ccw-* hwcfg-*-iucv-* ; do
 	[ -f $cfg ] && bash ./hwcfg2rules $cfg
 done
 popd > /dev/null
@@ -240,6 +241,13 @@ for file in etc/sysconfig/network/dhcp etc/sysconfig/network/ifcfg-* ; do
 done
 # erroneous move from network/dhcp to network/config while 11.1 beta
 sysconfig_remove_and_set network/config WRITE_HOSTNAME_TO_HOSTS
+#
+# * update to >= 11.2
+#
+# move ipv6 settings created by yast2-network before 11.2
+if test -f etc/modprobe.d/ipv6 ; then
+	mv -f etc/modprobe.d/ipv6 etc/modprobe.d/50-ipv6.conf
+fi
 
 %postun
 %{insserv_cleanup}
