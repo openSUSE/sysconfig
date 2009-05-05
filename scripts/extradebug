@@ -13,9 +13,9 @@ exec 2> $dir/exdeb.${SCRIPT}_$$.$PPID.${SEQNUM}_$1.$2
 
 date +"%F %T.%N" >&2
 echo -------------------------------------------------- >&2
-ps axwfu | head -1 >&2
-#ps axwfu | grep -v "grep\|sed" | grep -C3 "$$\|ifplugd\|dhcp\|ifup\|ifdown\|ifstatus" |
-ps axwwfu | grep -C3 "$$\|ifplugd\|dhcp\|ifup\|ifdown\|ifstatus" |
+ps axhwfu >&2
+#ps axhwfu | grep -v "grep\|sed" | grep -C3 "$$\|ifplugd\|dhcp\|ifup\|ifdown\|ifstatus" |
+ps axhwwfu | grep -C3 "$$\|ifplugd\|dhcp\|ifup\|ifdown\|ifstatus" | \
 	sed "s/ $$ /#$$#/" >&2
 echo -------------------------------------------------- >&2
 ls -ltr --full-time /sys/class/net /dev/shm/sysconfig >&2

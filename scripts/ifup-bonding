@@ -137,9 +137,9 @@ load_bond() {
 		/sbin/modprobe bonding
 		# If we add module option max_bonds=0 in the modprobe command above
 		# then we may skip the following lines in this if-fi block.
-		for a in {1..33}; do
+		for ((count=400; count >= 0; count--)) ; do
 			test -r "$sysfs_npath/bonding_masters" && break
-			usleep 300000
+			usleep 25000
 		done
 		NIF=`cat "$sysfs_npath/bonding_masters"`
 		if [ -n "$NIF" -a "$NIF" != "$INTERFACE" ] ; then
@@ -150,16 +150,15 @@ load_bond() {
 	if [ ! -d "$sysfs_iface/bonding" ] ; then
 		echo "+$INTERFACE" > "$sysfs_npath/bonding_masters"
 	fi
-	for a in {1..33}; do
+	for ((count=400; count >= 0; count--)) ; do
 		test -d "$sysfs_iface/bonding" && break
-		usleep 300000
+		usleep 25000
 	done
 	if [ ! -d "$sysfs_iface/bonding" ] ; then
 		return 1
 	fi
 
 	# Set options
-	sleep 1
 	for OPT in $*; do
 		read OPT_NAME OPT_VALUE < <(IFS==; echo $OPT)
 		if [ "$OPT_NAME" == max_bonds ] ; then
