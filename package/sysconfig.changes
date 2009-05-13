@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed May 13 15:15:56 CEST 2009 - mt@suse.de
+
+- Changed to exit in ifup when network manager is enabled/active.
+- Removed obsolete nm "up" notification and NM_CONTROLLED variable.
+
+-------------------------------------------------------------------
 Thu Apr 30 14:52:53 CEST 2009 - werner@suse.de
 
 - Use usleep for more often
