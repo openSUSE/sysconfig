@@ -1,65 +1,100 @@
 ## Process this file with automake to produce Makefile.in
 
 EXTRA_DIST = 	VERSION \
-		package/sysconfig.spec.in 
+		sysconfig.spec \
+		sysconfig.spec.in 
 
-AUTOMAKE_OPTIONS = foreign dist-bzip2
+AUTOMAKE_OPTIONS = foreign dist-bzip2 no-dist-gzip
+CONFIGURE_DEPENDENCIES = VERSION
 
 CLEANFILES = *~
-MAINTAINERCLEANFILES = aclocal.m4 config.guess config.sub \
-	configure depcomp install-sh ltmain.sh Makefile.in missing \
-	sysconfig-$(VERSION).tar.bz2 sysconfig-$(VERSION).tar.gz
+MAINTAINERCLEANFILES = aclocal.m4 config.guess config.sub  \
+	configure depcomp install-sh ltmain.sh Makefile.in \
+	missing sysconfig.spec package/sysconfig.spec      \
+	$(DIST_ARCHIVES) $(PACKAGE)-$(VERSION).tar.bz2     \
+	package/$(PACKAGE)-$(VERSION).tar.bz2
 
-maintainer-clean-local:
-	-rm -rf autom4te.cache
+SUBDIRS = doc scripts tools config
 
-SUBDIRS = doc scripts tools config package
+package/sysconfig.spec: sysconfig.spec
+	@rm -f package/sysconfig.spec
+	@cp -vp sysconfig.spec package/
 
-$(srcdir)/configure: configure.in aclocal.m4 VERSION
-	cd $(srcdir) && autoconf
+package/$(PACKAGE)-$(VERSION).tar.bz2: $(PACKAGE)-$(VERSION).tar.bz2
+	@rm -f package/$(PACKAGE)-$(VERSION).tar.bz2
+	@cp -vp $(PACKAGE)-$(VERSION).tar.bz2 package/
 
+package package-local: check dist distcheck
+package package-local: package/$(PACKAGE)-$(VERSION).tar.bz2
+package package-local: package/sysconfig.spec
+package package-local: show-commit-state
+	@echo "Package should be in package directory"
+	@ls -l package/
 
-dist-hook: package/sysconfig.spec VERSION cl
+dist-hook: VERSION sysconfig.spec $(distdir)/ChangeLog
 
-sysconfig-$(VERSION).tar.bz2: all dist-bzip2 
+$(distdir)/ChangeLog:
+	@if [ -d $(srcdir)/.svn ]; then \
+	  if ! svn   --version &>/dev/null ; then \
+	    echo 'ERROR: Unable to find the '\'svn\'' subversion client!' ; \
+	    echo '       Please install subversion and try again.'        ; \
+	    exit 1 ; \
+	  fi >&2 ; \
+	  LANG=C svn log $(srcdir) -v > $(distdir)/ChangeLog ; \
+	fi
 
-pac-poeml: sysconfig-$(VERSION).tar.bz2
-	mkdir -p $$HOME/pac/@PACKAGE@
-	cp -p @PACKAGE@-$(VERSION).tar.bz2 \
+show-commit-state:
+	@if [ -d $(srcdir)/.svn ]; then \
+	  if ! svn   --version &>/dev/null ; then \
+	    echo '*** ERROR: Unable to find the '\'svn\'' subversion client!' ; \
+	    echo '           Please install subversion and try again.'        ; \
+	    exit 1 ; \
+	  fi >&2 ; \
+	  cd $(srcdir) && \
+	    out=`LC_ALL=C svn status --show-updates --quiet 2>&1` ; \
+	  if [ "x`echo \"$$out\" | grep -v '^Status against revision'`" != x ] ; then \
+	    echo "NOTE: There are uncommited changes:" ; \
+	    echo "$$out" ; \
+	  fi ; \
+	fi
+
+### ====================================================
+pac-poeml: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+	mkdir -p $$HOME/pac/$(PACKAGE)
+	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
 		package/sysconfig.spec \
 		package/sysconfig.changes \
-		$$HOME/pac/@PACKAGE@/
+		$$HOME/pac/$(PACKAGE)/
 
-pac-zoz: sysconfig-$(VERSION).tar.bz2
-	mkdir -p $$HOME/@PACKAGE@
-	cp -p @PACKAGE@-$(VERSION).tar.bz2 \
+pac-zoz: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+	mkdir -p $$HOME/$(PACKAGE)
+	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
 		package/sysconfig.spec \
 		package/sysconfig.changes \
-		$$HOME/@PACKAGE@/
+		$$HOME/$(PACKAGE)/
 
-pac-hare: sysconfig-$(VERSION).tar.bz2
-	mkdir -p $$HOME/Devel/cvstree/checkouts/@PACKAGE@
-	cp -p @PACKAGE@-$(VERSION).tar.bz2 \
+pac-hare: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+	mkdir -p $$HOME/Devel/cvstree/checkouts/$(PACKAGE)
+	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
 		package/sysconfig.spec \
 		package/sysconfig.changes \
-		$$HOME/Devel/cvstree/checkouts/@PACKAGE@/
+		$$HOME/Devel/cvstree/checkouts/$(PACKAGE)/
 
-usrsrcsysconfig: sysconfig-$(VERSION).tar.bz2
+usrsrcsysconfig: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
 	rm -rf /usr/src/sysconfig; \
 	mkdir /usr/src/sysconfig; \
-	cp -p @PACKAGE@-$(VERSION).tar.bz2 \
+	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
 		package/sysconfig.spec \
 		package/sysconfig.changes \
-		/usr/src/@PACKAGE@/
+		/usr/src/$(PACKAGE)/
 
-tmppack: sysconfig-$(VERSION).tar.bz2
-	rm -rf /tmp/@PACKAGE@-$(VERSION); \
-	mkdir /tmp/@PACKAGE@-$(VERSION); \
-	cp -p @PACKAGE@-$(VERSION).tar.bz2 \
+tmppack: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+	rm -rf /tmp/$(PACKAGE)-$(VERSION); \
+	mkdir /tmp/$(PACKAGE)-$(VERSION); \
+	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
 		package/sysconfig.spec \
 		package/sysconfig.changes \
-		/tmp/@PACKAGE@-$(VERSION)/
+		/tmp/$(PACKAGE)-$(VERSION)/
 
-cl:
-	LANG=C svn log . -v > $(distdir)/ChangeLog
+cl: $(distdir)/ChangeLog
 
