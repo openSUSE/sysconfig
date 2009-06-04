@@ -192,11 +192,32 @@ fi
 # Without this flag rcnetwork does not know if renaming was completed and
 # will therefore wait unneccessarily. In older releases we did this in
 # rename_netiface, but since rename_netiface is gone we do it here.
-if [ "$SCRIPTNAME" == ifup -a "$HOTPLUG" == yes ] ; then
-	IFINDEX=/sys/$DEVPATH/ifindex
-	if [ -r "$IFINDEX" ] ; then
-		STAMPFILE=$STAMPFILE_STUB`cat $IFINDEX`
-		echo renamed > $STAMPFILE
+if [ "$SCRIPTNAME" = ifup ] ; then
+	if [ "$HOTPLUG" = yes ] ; then
+		# set renamed (ready to configure) flag
+		IFINDEX=/sys/$DEVPATH/ifindex
+		if [ -r "$IFINDEX" ] ; then
+			STAMPFILE=$STAMPFILE_STUB`cat $IFINDEX`
+			echo renamed > $STAMPFILE
+		fi
+		# don't continue on (creation) events for virtual interfaces;
+		# somebody created them and will configure them as well.
+		case $INTERFACETYPE in
+	                lo|dummy|bridge|bond|vlan|ibchild)
+				exit $R_SUCCESS
+			;;
+	                gre|sit|tap|tun|ipip|ip6tnl)
+				exit $R_SUCCESS
+			;;
+	                ppp|isdn|plip|irda|ipsec|mip6mnha)
+				exit $R_SUCCESS
+			;;
+		esac
+	fi
+	# check if service network was started and skip ifup in auto mode
+	if [ "$MODE" = auto ] && ! netcontrol_running ; then
+		message "Service network not started and mode 'auto' -> skipping"
+		exit $R_SUCCESS
 	fi
 fi
 
@@ -233,24 +254,14 @@ fi
 ######################################################################
 # Check if NetworkManager is running, inform the user and exit
 # 
-if nm_running ; then
-	mesg "Network interface is managed by the NetworkManager -> skipping"
-	exit $R_NOTIMPL
-elif [ "$NETWORKMANAGER" = yes ] && ! netcontrol_running ; then
+if [ "$NETWORKMANAGER" = yes ] && ! netcontrol_running ; then
 	if [ "$SCRIPTNAME" != ifdown ] ; then
 		mesg "Network interface is managed by the NetworkManager -> skipping"
 		exit $R_NOTIMPL
 	fi
-fi
-
-######################################################################
-# Check if service network was started and skip ifup in auto mode
-#
-if [ "$SCRIPTNAME" = ifup -a "$MODE" = auto ] ; then
-	if ! netcontrol_running ; then
-		message "Service network not started and mode 'auto' -> skipping"
-		exit $R_SUCCESS
-	fi
+elif nm_running ; then
+	mesg "Network interface is managed by the NetworkManager -> skipping"
+	exit $R_NOTIMPL
 fi
 
 

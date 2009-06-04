@@ -1,3 +1,9 @@
+--------------------------------------------------------------------
+Mon May 18 15:51:30 CEST 2009 - mt@suse.de
+
+- Improved ifup -o hotplug to filter by interface type, updated
+  77-network.rules udev rule (fate#305947).
+
 -------------------------------------------------------------------
 Wed May 13 15:15:56 CEST 2009 - mt@suse.de
 
