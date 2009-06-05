@@ -16,6 +16,8 @@ MAINTAINERCLEANFILES = aclocal.m4 config.guess config.sub  \
 
 SUBDIRS = doc scripts tools config
 
+$(PACKAGE)-$(VERSION).tar.bz2: all check dist distcheck
+
 package/sysconfig.spec: sysconfig.spec
 	@rm -f package/sysconfig.spec
 	@cp -vp sysconfig.spec package/
@@ -24,12 +26,11 @@ package/$(PACKAGE)-$(VERSION).tar.bz2: $(PACKAGE)-$(VERSION).tar.bz2
 	@rm -f package/$(PACKAGE)-$(VERSION).tar.bz2
 	@cp -vp $(PACKAGE)-$(VERSION).tar.bz2 package/
 
-package package-local: check dist distcheck
-package package-local: package/$(PACKAGE)-$(VERSION).tar.bz2
-package package-local: package/sysconfig.spec
-package package-local: show-commit-state
-	@echo "Package should be in package directory"
+package package-local:  package/$(PACKAGE)-$(VERSION).tar.bz2 \
+			package/sysconfig.spec show-commit-state
+	@echo "=========================================================================="
 	@ls -l package/
+	@echo "=========================================================================="
 
 dist-hook: VERSION sysconfig.spec $(distdir)/ChangeLog
 
@@ -59,28 +60,36 @@ show-commit-state:
 	fi
 
 ### ====================================================
-pac-poeml: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+pac-poeml: package
 	mkdir -p $$HOME/pac/$(PACKAGE)
 	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
 		package/sysconfig.spec \
 		package/sysconfig.changes \
 		$$HOME/pac/$(PACKAGE)/
 
-pac-zoz: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+pac-zoz: package
 	mkdir -p $$HOME/$(PACKAGE)
 	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
 		package/sysconfig.spec \
 		package/sysconfig.changes \
 		$$HOME/$(PACKAGE)/
 
-pac-hare: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+pac-hare: package
 	mkdir -p $$HOME/Devel/cvstree/checkouts/$(PACKAGE)
 	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
 		package/sysconfig.spec \
 		package/sysconfig.changes \
 		$$HOME/Devel/cvstree/checkouts/$(PACKAGE)/
 
-usrsrcsysconfig: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+pac-mt: package
+	@if test -d "/space/mt/osc/home:mtomaschewski:Factory/sysconfig" ; then \
+		cp -vp package/$(PACKAGE)-$(VERSION).tar.bz2 \
+		       package/sysconfig.spec \
+		       package/sysconfig.changes \
+		      "/space/mt/osc/home:mtomaschewski:Factory/sysconfig/" ; \
+	fi
+
+usrsrcsysconfig: package
 	rm -rf /usr/src/sysconfig; \
 	mkdir /usr/src/sysconfig; \
 	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
@@ -88,7 +97,7 @@ usrsrcsysconfig: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
 		package/sysconfig.changes \
 		/usr/src/$(PACKAGE)/
 
-tmppack: package/$(PACKAGE)-$(VERSION).tar.bz2 package/sysconfig.spec
+tmppack: package
 	rm -rf /tmp/$(PACKAGE)-$(VERSION); \
 	mkdir /tmp/$(PACKAGE)-$(VERSION); \
 	cp -p   package/$(PACKAGE)-$(VERSION).tar.bz2 \
