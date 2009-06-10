@@ -131,18 +131,18 @@ fi
 check_firewall() {
 	test "$MODE" = onboot && return 1
 	test "$FIREWALL" != yes && return 2
-	/sbin/SuSEfirewall2 -q status &>/dev/null || return 3
+	test -x scripts/firewall || return 3
 	return 0
 }
 
 lock_firewall() {
 	check_firewall || return $?
-	/sbin/SuSEfirewall2 bootlock
+	scripts/firewall net-reconfig-init
 }
 
 reload_firewall() {
 	check_firewall || return $?
-	/sbin/SuSEfirewall2 --bootunlock start
+	scripts/firewall net-reconfig-done
 }
 
 start_nm_online() {

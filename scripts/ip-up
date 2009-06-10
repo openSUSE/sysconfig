@@ -114,8 +114,8 @@ start_firewall()
 {
 	test "$FIREWALL" = "no" && return
 
-	if /sbin/chkconfig --check SuSEfirewall2_setup; then
-		/sbin/SuSEfirewall2 start
+	if test -x /etc/sysconfig/network/scripts/firewall ; then
+		/etc/sysconfig/network/scripts/firewall try-restart
 	fi
 }
 

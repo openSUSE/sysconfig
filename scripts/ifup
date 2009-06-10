@@ -1092,7 +1092,8 @@ if [ "$DHCP" != yes ] ; then
 			#done
 		fi
 		# check if setting up firewall is in progress
-		if [ -f /var/lock/SuSEfirewall2.pid ] ; then
+		if [ -x scripts/firewall ] && \
+			scripts/firewall running &>/dev/null ; then
 			message "Setting up firewall still in progress"
 			retcode=$R_DHCP_BG
 		fi

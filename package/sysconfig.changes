@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Wed Jun 10 16:43:02 CEST 2009 - mt@suse.de
+
+- version 0.72.0
+- Improved to use /etc/sysconfig/network/scripts/firewall hook
+  link for all optional calls to the firewall script allowing
+  the user to point the link to another script. SuSEfirewall2
+  provides the script and the link by default (bnc#485450).
+- Improved makefiles and configure script, added more tests.
+
+-------------------------------------------------------------------
 Mon May 18 15:51:30 CEST 2009 - mt@suse.de
 
 - Improved ifup -o hotplug to filter by interface type, updated
