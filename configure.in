@@ -51,13 +51,9 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_LIBTOOL
 
-# Checks for libraries.
-AC_CHECK_LIB([sysfs], [sysfs_get_link], [true], [AC_MSG_ERROR([*** Sorry, you have to install libsysfs (possibly in udev package) ***])])
-
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([arpa/inet.h errno.h netdb.h netinet/in.h stdlib.h string.h unistd.h])
-AC_CHECK_HEADERS([sysfs/libsysfs.h],,AC_MSG_ERROR(couldn't find libsysfs header. You might need to install the udev package))
 
 
 
