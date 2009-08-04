@@ -322,7 +322,7 @@ while true ; do
     REGEX=''
     case "$1" in
         -s|--service)   VARIABLE=SERVICE ;
-                        REGEX='^[a-zA-Z0-9_-]+$' ;;
+                        REGEX='^[[:alnum:]_-]+$' ;;
         -i|--interface) VARIABLE=INTERFACE ;
                         REGEX='^[^'"'"'`"\\/[:space:][:cntrl:]]+$' ;;
         -l|--lease-file) VARIABLE=LEASEFILE;;
