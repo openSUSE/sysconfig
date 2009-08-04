@@ -874,12 +874,12 @@ case "$ACTION" in
 						then
 							USE_SIGNAL="-9"
 						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" \
-						          -a -f "${DHCPIFLEASE}" ;
+						          -a -f "${DHCP6IFLEASE}" ;
 						then
 							$DHCLIENT_BIN6 -6 -r \
 								-cf /dev/null \
-								-lf "$DHCPIFLEASE" \
-								-pf "$DHCPIFPID" \
+								-lf "$DHCP6IFLEASE" \
+								-pf "$DHCP6IFPID" \
 								$INTERFACE
 						fi
 					;;
