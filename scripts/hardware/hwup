@@ -143,6 +143,11 @@ echo SUBSYSTEMPATH=$SUBSYSTEMPATH
 
 case $SCRIPTNAME in
 	hwup)
+	    if [ -z "${DRIVERPATH##/sys/bus/ccwgroup/drivers/*}" ]; then
+		echo "add > /sys/bus/ccw/devices/$DEVICE/uevent"
+		echo -n add > "/sys/bus/ccw/devices/$DEVICE/uevent"
+		udevadm settle
+	    else
 		echo "add > $DEVPATH/uevent"
 		echo -n add > "$DEVPATH/uevent"
 		udevadm settle
@@ -155,6 +160,7 @@ case $SCRIPTNAME in
 			echo "$DEVICE > $SUBSYSTEMPATH/drivers_probe"
 			echo -n "$DEVICE" > $SUBSYSTEMPATH/drivers_probe
 		fi
+	    fi
 		;;
 	hwdown)
 		echo "$DEVICE > $DRIVERPATH/unbind"
