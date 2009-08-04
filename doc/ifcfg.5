@@ -83,7 +83,9 @@ If there multiple interfaces have
 .B STARTMODE=ifplugd
 and a nonzero priority, only one of them will be set up at a time. Every time one
 of these interfaces is (un)plugged the interface with highest priority (and
-plugged cable) will be set up.
+plugged cable) will be set up. Default is IFPLUGD_PRIORITY='0' causing set up as
+when the cable is plugged. Note: This is not supported for e.g. bridge interfaces
+or bridge ports.
 .TP 
 .BR BOOTPROTO\  { static* | dhcp | autoip | dhcp+autoip | 6to4 }
 Setup protocol. If this variable is empty, missing or
