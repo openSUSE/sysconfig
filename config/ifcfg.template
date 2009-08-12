@@ -578,6 +578,15 @@ WIRELESS_AP_SCANMODE=''
 # mulitle network sections (see wpa_supplicant documentation).
 WIRELESS_WPA_CONF=''
 
+## Type:        string
+## Default:     ""
+#
+# This variable allows to override the wpa driver name that should be used
+# by the wpa_supplicant. In most cases "wext" can be used, but there are
+# few exceptions.
+#
+WIRELESS_WPA_DRIVER=''
+
 ## Type:	yesno
 ## Default:	yes
 #

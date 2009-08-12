@@ -682,28 +682,41 @@ show_status()
 
 case $ACTION in
     up)
+        test -n "$WIRELESS_WPA_DRIVER"    && \
+        WPA_DRIVER="$WIRELESS_WPA_DRIVER" || \
         case "${DRIVER}" in
-            ath_pci)
-                WPA_DRIVER=wext
-                ;;
-            at76c5*)
-                WPA_DRIVER=atmel
-                PREFER_WPA_SUPPLICANT=no
-                ;;
             prism54)
                 WPA_DRIVER=prism54
                 PREFER_WPA_SUPPLICANT=no
                 ;;
-            ipw2200|ipw3945|hostap_*)
-                WPA_DRIVER=wext
-                ;;
-            ipw2100)
+            ipw2200|ipw2100|ipw3945|hostap_*)
                 WPA_DRIVER=wext
                 ;;
             ndiswrapper|*.sys)
                 WPA_DRIVER=wext
                 ;;
-            rt2500*)
+            rt2500usb|rt2500pci)
+                WPA_DRIVER=wext
+                ;;
+            rt61pci|rt73usb|rt2400pci)
+                WPA_DRIVER=wext
+                ;;
+            iwlagn|iwl3945|iwl4965)
+                WPA_DRIVER=wext
+                ;;
+            zd1211rw)
+                WPA_DRIVER=wext
+                ;;
+            ath5k|ath9k|ath_pci)
+                WPA_DRIVER=wext
+                ;;
+            b43|b43legacy|ssb)
+                WPA_DRIVER=wext
+                ;;
+            p54pci|p54usb)
+                WPA_DRIVER=wext
+                ;;
+            at76*)
                 WPA_DRIVER=wext
                 ;;
             *)
