@@ -1,4 +1,19 @@
 -------------------------------------------------------------------
+Wed Aug 12 12:40:25 CEST 2009 - mt@suse.de
+
+- version 0.72.2
+- Marked tap interfaces as supported in rcnetwork localfs flow,
+  to start a bridge with tap port in localfs flow (bnc#522225).
+- Fixed spec file to remove the HOTPLUG_CHECK_FILESYSTEMS and
+  HOTPLUG_MOUNT_FSTAB variables from /etc/sysconfig/storage
+  instead of removing of the complete file (bnc#528759).
+- Disabled installation of obsolete README.storage, README.s390,
+  getcfg, hwup and modify_resolvconf manual pages. Updated and
+  moved README.hwcfg_and_device_initialisation to package docs.
+- Disabled installation of the obsolete hwup script (bnc#483774,
+  fate#306215).
+
+-------------------------------------------------------------------
 Wed Aug 12 09:57:00 CEST 2009 - mt@suse.de
 
 - version 0.72.1
