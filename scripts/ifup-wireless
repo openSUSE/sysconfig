@@ -689,6 +689,9 @@ case $ACTION in
                 WPA_DRIVER=prism54
                 PREFER_WPA_SUPPLICANT=no
                 ;;
+            rt61|rt73)
+                WPA_DRIVER=ralink
+                ;;
             ipw2200|ipw2100|ipw3945|hostap_*)
                 WPA_DRIVER=wext
                 ;;
