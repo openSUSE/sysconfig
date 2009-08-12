@@ -13,18 +13,11 @@ man_MANS = 	ifup.8 \
 		ifcfg-tunnel.5 \
 		ifcfg-vlan.5 \
 		ifcfg-wireless.5 \
-		hwup.8 \
-		hwdown.8 \
-		hwstatus.8 \
-		getcfg.8 \
-		modify_resolvconf.8 \
 		netconfig.8 \
 		routes.5
 
-doc_DATA =	README COPYING Contents Network README.s390 \
-		README.storage \
+doc_DATA =	README COPYING Contents Network \
+		README.hwcfg_and_device_initialisation \
 		README.netconfig netconfig.odg netconfig.png
 
-sysconfig_hardware_DATA = README.hwcfg_and_device_initialisation
-
-EXTRA_DIST = $(doc_DATA) $(man_MANS) $(sysconfig_hardware_DATA)
+EXTRA_DIST = $(doc_DATA) $(man_MANS)
