@@ -25,7 +25,6 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					ifup-wireless \
 					ifup-tunnel \
 					dhcpcd-hook \
-					drop-hotplug-symlink.sh \
 					ifplugd-selectif \
 					extradebug \
 					hwdesc2iface \
