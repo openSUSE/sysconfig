@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Wed Aug 12 09:57:00 CEST 2009 - mt@suse.de
+
+- version 0.72.1
+- Fixed netconfig regex checks to work with some non-English (e.g.
+  Estonian) locales and to allow spaces in lease file (bnc#488257).
+- Applied fix for the obsolete hwup utility to work with ccwgroup
+  (qeth,lcs,ctc) devices on s390x (bnc#483774).
+- Applied patch for udev 81-mount.rules to allow md devices on
+  iscsi to automount (bnc#509495).
+- Fixed dhclient6 variable typos in ifup-dhcp (bnc#524691).
+- Improved IFPLUGD_PRIORITY documentation in ifcfg(5) man page.
+- Improved the NETCONFIG_DNS_FORWARDER documentation to list the
+  valid settings in netconfig(8) man page (bnc#507979).
+- Fixed scripts/extradebug to avoid huge files it created.
+- Changed is_iface_available() to use interface type only
+- Changed to use /dev/.sysconfig/network instead of the POSIX shm
+  path /dev/shm/sysconfig, that may be a dedicated file system
+  (bnc#335486).
+
+-------------------------------------------------------------------
 Tue Jun 30 18:34:52 CEST 2009 - mt@suse.de
 
 - Applied fastboot patch from Moblin:Factory to avoid a sleep.
