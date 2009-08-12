@@ -27,7 +27,7 @@
 
 # RUN_FILES_BASE contains the path to the configuration data cache.
 # It __must__ __not__ contain a trailing slash.
-RUN_FILES_BASE=/dev/shm/sysconfig
+RUN_FILES_BASE=/dev/.sysconfig/network
 test -d $RUN_FILES_BASE || mkdir -p $RUN_FILES_BASE
 
 #####################################################################

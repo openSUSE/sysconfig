@@ -28,7 +28,7 @@
 
 . /etc/sysconfig/network/scripts/functions.common
 
-NETWORK_RUNFILE="$RUN_FILES_BASE/network"
+NETWORK_RUNFILE="$RUN_FILES_BASE/started"
 STAMPFILE_STUB="$RUN_FILES_BASE/new-stamp-"
 NETWORKMANAGER_BIN=/usr/sbin/NetworkManager
 NM_ONLINE_BIN=/usr/bin/nm-online

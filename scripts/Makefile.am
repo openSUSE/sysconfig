@@ -29,6 +29,7 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					ifplugd-selectif \
 					extradebug \
 					hwdesc2iface \
+					move_shm_sysconfig.sh \
 					create-ifservices-directory
 
 sbin_SCRIPTS =	ifup \
