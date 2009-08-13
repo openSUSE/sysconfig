@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Thu Aug 13 13:36:00 CEST 2009 - mt@suse.de
+
+- version 0.72.3
+- Updated kernel driver to wpa_supplicant driver name mappings,
+  added WIRELESS_WPA_DRIVER ifcfg variable allowing the user to
+  specify/override the wpa driver (bnc#477833, bnc#481380).
+- Fixed redirection in ifdown-bonding, remove_bond function.
+- Improved to use faster pgrep in dhcp searching functions
+
+-------------------------------------------------------------------
 Wed Aug 12 12:40:25 CEST 2009 - mt@suse.de
 
 - version 0.72.2
