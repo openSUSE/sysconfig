@@ -719,83 +719,58 @@ ifup_on_iface() {
 # Usually it should not happen that more then one dhcpcd is running on one
 # interface, but it may happen. So better safe than sorry!
 dhcpc4_on_iface() {
-	local pid line retval=1
-	if [ "x$DHCLIENT"  != x -a \
-	     "x$INTERFACE" != x ] ; then
-		while read pid line; do
-			retval=0
-			test "x$1" == "x-q" && break
-			echo $pid
-		done < <(ps axhww | grep -Es "[ /]$DHCLIENT\>.*\<$INTERFACE\>$")
-	fi
+	local pid retval=1
+	[ "x$DHCLIENT"  != x -a "x$INTERFACE" != x ] || return $retval
+	for pid in `pgrep -f "^(/.*/)?$DHCLIENT\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
+		retval=0
+		test "x$1" == "x-q" && break
+		echo $pid
+	done
 	return $retval
 }
 dhcpc6_on_iface() {
-	local pid line retval=1
-	if [ "x$DHCLIENT6"  != x -a \
-	     "x$INTERFACE" != x ] ; then
-		while read pid line; do
-			retval=0
-			test "x$1" == "x-q" && break
-			echo $pid
-		done < <(ps axhww | grep -Es "[ /]$DHCLIENT6\>.*\<$INTERFACE\>$")
-	fi
+	local pid retval=1
+	[ "x$DHCLIENT6"  != x -a "x$INTERFACE" != x ] || return $retval
+	for pid in `pgrep -f "^(/.*/)?$DHCLIENT6\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
+		retval=0
+		test "x$1" == "x-q" && break
+		echo $pid
+	done
 	return $retval
 }
 dhcpc_on_iface() {
-	local pid line retval=1
-	if [ "x$DHCLIENT"  != x -a \
-	     "x$DHCLIENT6" != x -a \
-	     "x$INTERFACE" != x ] ; then
-		while read pid line; do
-			retval=0
-			test "$1" == "-q" && break
-			echo $pid
-		done < <(ps axhww | grep -Es "[ /]($DHCLIENT|$DHCLIENT6)\>.*\<$INTERFACE\>$")
-	fi
+	local pid retval=1 pattern
+	[ "x$DHCLIENT"  != x ] && pattern=$DHCLIENT || pattern=""
+	[ "x$DHCLIENT6" != x ] && pattern="${pattern:+$pattern|}$DHCLIENT6"
+	[ "x$pattern" != x -a "x$INTERFACE" != x ] || return $retval
+	for pid in `pgrep -f "^(/.*/)?($pattern)\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
+		retval=0
+		test "$1" == "-q" && break
+		echo $pid
+	done
 	return $retval
 }
 any_dhcpc_on_iface()
 {
-	local retval=1
-	if [ "x$INTERFACE" != x ] ; then
-		eval local `grep -h '^DHCLIENT_BIN=' \
-		           /etc/sysconfig/network/dhcp`
-		eval local `grep -h '^DHCLIENT6_BIN=' \
-		           /etc/sysconfig/network/dhcp`
-		: ${DHCLIENT_BIN:=dhcpcd}
-		: ${DHCLIENT6_BIN:=dhcp6c}
-		local dhclients=()
-		for x in "${DHCLIENT_BIN##*/}" \
-		         "${DHCLIENT6_BIN##*/}" \
-		         dhcpcd dhclient \
-		         dhcp6c dhclient6 ;
-		do
-			[ "x$x" == x ] && continue
-			for d in ${dhclients[@]} ; do
-				[ "x$d" = "x$x" ] && continue 2
-			done
-			dhclients=(${dhclients[@]} "$x")
-		done
-		if [ ${#dhclients[@]} -gt 0 ] ; then
-			local pid line
-			dhclients=${dhclients[@]}
-			dhclients=${dhclients// /|}
-			while read pid line; do
-				retval=0
-				test "$1" == "-q" && break
-				echo $pid
-			done < <(ps axhww | grep -Es "[ /]($dhclients)\>.*\<$INTERFACE\>$")
-		fi
-	fi
+	local pid retval=1 pattern=""
+	[ "x$INTERFACE" != x ] || return $retval
+	# just search for all known dhcp clients
+	pattern="dhcpcd|dhclient|dhcp6c|dhclient6"
+	for pid in `pgrep -f "^(/.*/)?($pattern)\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
+		retval=0
+		test "$1" == "-q" && break
+		echo $pid
+	done
 	return $retval
 }
 dhcp_interfaces() {
+	local old_if=$INTERFACE
 	for INTERFACE in `ls -1 /sys/class/net`; do
 		if test -d "/sys/class/net/$INTERFACE" ; then
 			any_dhcpc_on_iface -q && echo "$INTERFACE"
 		fi
 	done
+	INTERFACE=$old_if
 	return 0
 }
 
