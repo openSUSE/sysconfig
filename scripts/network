@@ -153,7 +153,7 @@ start_nm_online() {
 		return 0
 	fi
 	local rc_startmode="${stat}${attn}waiting${norm}"
-	$NM_ONLINE_BIN --exit --timeout $NM_ONLINE_TIMEOUT
+	$NM_ONLINE_BIN --timeout $NM_ONLINE_TIMEOUT
 	case $? in
 		0) rc_status -v ;;
 		1) echo -e "$rc_startmode" 1>&2 ;;
