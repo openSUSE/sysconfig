@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Sep 15 12:07:46 CEST 2009 - mt@suse.de
+
+- version 0.72.4
+- Fixed typo in md-on-iscsi-automount 81-mount.rules (bnc#509495).
+
+-------------------------------------------------------------------
 Wed Sep  9 13:07:36 CEST 2009 - mt@suse.de
 
 - Implemented support to set the wireless regulatory domain using
