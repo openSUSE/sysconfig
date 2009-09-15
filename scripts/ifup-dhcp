@@ -553,6 +553,10 @@ case "$ACTION" in
 				test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
 			fi
 
+			# remember the hostname to handle a change later
+			write_cached_config_data hostname "`hostname 2>/dev/null`" $INTERFACE
+			commit_cached_config_data $INTERFACE
+
 			debug "Activating interface $INTERFACE"
 			if ! is_iface_up $INTERFACE ; then
 				ip link set $INTERFACE up ${MTU:+mtu $MTU} \
