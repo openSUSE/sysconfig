@@ -5,7 +5,7 @@ Tue Sep 15 12:07:46 CEST 2009 - mt@suse.de
 - Added note to WIRELESS_REGULATORY_DOMAIN variable description in
   /etc/sysconfig/network/config, that it needs the new nl80211 wpa
   driver, that can be enabled using the WIRELESS_WPA_DRIVER ifcfg
-  variable on a per interface basis overriding our defaults.
+  variable on a per interface basis (bnc#537708).
 - Fixed typo in md-on-iscsi-automount 81-mount.rules (bnc#509495).
 
 -------------------------------------------------------------------
