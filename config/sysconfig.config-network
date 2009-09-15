@@ -297,3 +297,12 @@ NETCONFIG_NIS_STATIC_DOMAIN=""
 #
 NETCONFIG_NIS_STATIC_SERVERS=""
 
+## Type:	string
+## Default:	''
+#
+# Set this variable to the ISO / IEC 3166 alpha2 country code
+# specifying the wireless regulatory domain to set.
+# When not-empty, it will be set in the wpa_supplicant config
+# or via 'iw reg set' command.
+WIRELESS_REGULATORY_DOMAIN=''
+

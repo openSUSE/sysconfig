@@ -182,7 +182,7 @@ info_mesg "prefer wpa_supplicant: $PREFER_WPA_SUPPLICANT"
 ######################################################################
 # check for needed tools
 #
-for i in iwconfig hexdump sed awk ; do
+for i in iwconfig hexdump sed awk iw ; do
 if [ -z "`type -p $i`" ] ; then
     err_mesg "cannot find '$i', please install"
     exit $R_ERROR
@@ -443,6 +443,16 @@ old_setup()
         info_mesg "WIRELESS_MODE is unset, using Managed"
         WIRELESS_MODE="Managed"
     fi
+
+    # Set the wireless regulatory domain country code when configured
+    if [ "x$WIRELESS_REGULATORY_DOMAIN" != x ] ; then
+	CMD="iw reg set $WIRELESS_REGULATORY_DOMAIN"
+	OUT=`$CMD 2>&1` ; RET=$?
+	if [ "$RET" -ne "0" -o "x$OUT" != x ] ; then
+	    err_mesg "command '$CMD' returned\n $OUT"
+	fi
+    fi
+
     # some drivers seem to have extensions like wlan-ng,
     # although they do not
     case "$DRIVER" in
@@ -600,6 +610,7 @@ print_wpa_conf()
     # header
     echo "ctrl_interface=/var/run/wpa_supplicant"
     test -n "$WIRELESS_AP_SCANMODE" && echo "ap_scan=$WIRELESS_AP_SCANMODE"
+    test -n "$WIRELESS_REGULATORY_DOMAIN" && echo "country=$WIRELESS_REGULATORY_DOMAIN"
 
     get_first_index
     local index=$?
