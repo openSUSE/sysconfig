@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Wed Sep  9 13:07:36 CEST 2009 - mt@suse.de
+
+- Implemented support to set the wireless regulatory domain using
+  WIRELESS_REGULATORY_DOMAIN network/config variable (fate#305301).
+
+-------------------------------------------------------------------
+Thu Sep  3 12:34:35 CEST 2009 - mt@suse.de
+
+- Added check for hostname changes to avoid a syslog reload in
+  dhcpcd-hook when it didn't changed (fate#305702,bnc#466198).
+- Fixed waiting for successful connection in NetworkManager in
+  the /etc/init.d/network script by removing nm-online's --exit
+  option, that caused to exit immediately instead of waiting up
+  to NM_ONLINE_TIMEOUT seconds, because the NetworkManager has
+  been started just now and not ready yet (bnc#515629).
+- Added additional dhcp client specific start options variables
+  DHCPCD-, DHCLIENT- and DHCP6C_USER_OPTIONS, enabling the user
+  to set custom options in special cases (bnc#524695).  
+
+-------------------------------------------------------------------
 Thu Aug 13 13:36:00 CEST 2009 - mt@suse.de
 
 - version 0.72.3
