@@ -304,5 +304,12 @@ NETCONFIG_NIS_STATIC_SERVERS=""
 # specifying the wireless regulatory domain to set.
 # When not-empty, it will be set in the wpa_supplicant config
 # or via 'iw reg set' command.
+#
+# Note: in wpa_supplicant mode, it is currently (openSUSE 11.2)
+# not supported by our default 'wext', but by the new 'nl80211'
+# wpa driver. You can set WIRELESS_WPA_DRIVER='nl80211' in the
+# per interface ifcfg config file. We will switch to use the
+# new driver as soon as we've tested it with more chipsets.
+#
 WIRELESS_REGULATORY_DOMAIN=''
 
