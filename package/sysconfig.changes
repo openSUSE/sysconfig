@@ -1,6 +1,7 @@
 -------------------------------------------------------------------
 Fri Oct  2 11:25:17 CEST 2009 - mt@suse.de
 
+- Fixed typo in ifstatus causing to return bad code (bnc#542230).
 - Blacklisted mISDN modules in /etc/modprobe.d/50-blacklist.conf
   (bnc#537052).
 
