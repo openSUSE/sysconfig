@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+FIXME:
+
+- Implemented netconfig update -m <module|prefix> filter
+  (fate#306274)
+
+-------------------------------------------------------------------
 Fri Oct  2 13:27:02 CEST 2009 - mt@suse.de
 
 - Fixed to check for 'iw' utility only when it is required to set
