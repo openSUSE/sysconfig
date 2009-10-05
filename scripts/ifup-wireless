@@ -182,7 +182,7 @@ info_mesg "prefer wpa_supplicant: $PREFER_WPA_SUPPLICANT"
 ######################################################################
 # check for needed tools
 #
-for i in iwconfig hexdump sed awk iw ; do
+for i in iwconfig hexdump sed awk ; do
 if [ -z "`type -p $i`" ] ; then
     err_mesg "cannot find '$i', please install"
     exit $R_ERROR
@@ -446,11 +446,15 @@ old_setup()
 
     # Set the wireless regulatory domain country code when configured
     if [ "x$WIRELESS_REGULATORY_DOMAIN" != x ] ; then
-	CMD="iw reg set $WIRELESS_REGULATORY_DOMAIN"
-	OUT=`$CMD 2>&1` ; RET=$?
-	if [ "$RET" -ne "0" -o "x$OUT" != x ] ; then
-	    err_mesg "command '$CMD' returned\n $OUT"
-	fi
+        if [ -z "`type -p iw`" ] ; then
+            err_mesg "cannot set wireless regulatory domain, please install 'iw' utility"
+        else
+            CMD="iw reg set $WIRELESS_REGULATORY_DOMAIN"
+            OUT=`$CMD 2>&1` ; RET=$?
+            if [ "$RET" -ne "0" -o "x$OUT" != x ] ; then
+                err_mesg "command '$CMD' returned\n $OUT"
+            fi
+        fi
     fi
 
     # some drivers seem to have extensions like wlan-ng,
