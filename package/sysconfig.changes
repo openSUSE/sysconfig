@@ -1,5 +1,5 @@
 -------------------------------------------------------------------
-FIXME:
+Mon Oct  5 17:04:55 CEST 2009 - mt@suse.de
 
 - Implemented netconfig update -m <module|prefix> filter
   (fate#306274)
