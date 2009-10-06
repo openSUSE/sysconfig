@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Tue Sep  1 12:45:51 CEST 2009 - mt@suse.de
+
+- Fixed waiting for successful connection in NetworkManager in
+  the /etc/init.d/network script by removing nm-online's --exit
+  option, that caused to exit immediately instead of waiting up
+  to NM_ONLINE_TIMEOUT seconds, because the NetworkManager has
+  been started just now and not ready yet (bnc#515629).
+
+-------------------------------------------------------------------
 Fri Jul 10 10:32:45 CEST 2009 - mt@suse.de
 
 - Applied patch for udev 81-mount.rules to allow md devices on
