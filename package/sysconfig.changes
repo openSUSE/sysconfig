@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Oct  2 13:55:46 CEST 2009 - mt@suse.de
+
+- Blacklisted mISDN modules in /etc/modprobe.d/50-blacklist.conf
+  (bnc#537052).
+
+-------------------------------------------------------------------
 Mon Sep 28 14:17:16 CEST 2009 - crrodriguez@suse.de
 
 - build with -fno-strict-aliasing 
