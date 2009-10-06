@@ -8,6 +8,7 @@ Tue Sep  1 12:45:51 CEST 2009 - mt@suse.de
   been started just now and not ready yet (bnc#515629).
 - Marked tap interfaces as supported in rcnetwork localfs flow,
   to start a bridge with tap port in localfs flow (bnc#522225).
+- Fixed dhclient6 variable typos in ifup-dhcp (bnc#524691).
 
 -------------------------------------------------------------------
 Fri Jul 10 10:32:45 CEST 2009 - mt@suse.de
