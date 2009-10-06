@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Jan 27 14:30:35 CET 2009 - mt@suse.de
+
+- Added openibd to network LSB Should-Start/Stop, so infiniband
+  modules are loaded before the network script runs (bnc#469600).
+
+-------------------------------------------------------------------
 Mon Jan 26 09:32:14 CET 2009 - mt@suse.de
 
 - Added additional fb modules to the blacklist (bnc#468964).

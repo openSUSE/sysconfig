@@ -31,9 +31,9 @@
 ### BEGIN INIT INFO
 # Provides:		network
 # Required-Start:	$local_fs dbus
-# Should-Start:		isdn SuSEfirewall2_init
+# Should-Start:		isdn openibd SuSEfirewall2_init
 # Required-Stop:	$local_fs dbus
-# Should-Stop:		isdn SuSEfirewall2_init
+# Should-Stop:		isdn openibd SuSEfirewall2_init
 # Default-Start:	2 3 5
 # Default-Stop:		
 # Short-Description:	Configure the localfs depending network interfaces
