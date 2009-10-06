@@ -696,7 +696,7 @@ if [ "$DHCP" != yes ] ; then
 			scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			test "$?" -ne 0 && exit
 		;;
-		ib)
+		ib|ibchild)
 			# Frob ib interface
 			scripts/${SCRIPTNAME}-infiniband $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			test "$?" -ne 0 && exit
@@ -1135,7 +1135,7 @@ if [ "$DHCP" != yes ] ; then
 			scripts/${SCRIPTNAME}-802.1q $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			test "$?" -ne 0 && exit
 		;;
-		ib)
+		ib|ibchild)
 			# Frob ib interface
 			scripts/${SCRIPTNAME}-infiniband $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			test "$?" -ne 0 && exit

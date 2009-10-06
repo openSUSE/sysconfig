@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Jan 28 13:53:20 CET 2009 - mt@suse.de
+
+- Fixed to use ifup-infiniband to setup ibchild type (bnc#423046).
+
+-------------------------------------------------------------------
 Tue Jan 27 14:30:35 CET 2009 - mt@suse.de
 
 - Added openibd to network LSB Should-Start/Stop, so infiniband
