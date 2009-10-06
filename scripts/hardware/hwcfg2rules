@@ -24,25 +24,6 @@ write_zfcp_rules () {
     cat >> $file <<EOF
 ACTION=="add", SUBSYSTEM=="$bus", KERNEL=="$busid", IMPORT{program}="collect $busid %k $busid zfcp"
 ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="zfcp", IMPORT{program}="collect $busid %k $busid zfcp"
-EOF
-    for lun in $ZFCP_LUNS ; do
-	set -- $(IFS=: ; echo $lun)
-	tmpwwpn=$1
-	for wwpn in $wwpn_list ; do
-	    if [ "$wwpn" == "$1" ] ; then
-		tmpwwpn=
-	    fi
-	done
-	if [ -n "$tmpwwpn" ] ; then
-	    wwpn_list="$wwpn_list $tmpwwpn"
-	fi
-    done
-    for wwpn in $wwpn_list ; do
-	cat >> $file <<EOF
-ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/$busid]port_add}="$wwpn"
-EOF
-    done
-    cat >> $file <<EOF
 ACTION=="add", ENV{COLLECT_$busid}=="0", ATTR{[ccw/$busid]online}="1"
 EOF
     for lunid in $ZFCP_LUNS ; do
@@ -50,7 +31,7 @@ EOF
 	wwpn=$1
 	lun=$2
 	cat >> $file <<EOF
-ACTION=="add", SUBSYSTEMS=="ccw", KERNELS=="$busid", TEST=="[ccw/$busid]$wwpn", ATTR{[ccw/$busid]$wwpn/unit_add}="$lun"
+ACTION=="add", KERNEL=="rport-*", ATTR{port_name}=="$wwpn", SUBSYSTEMS=="ccw", KERNELS=="$busid", ATTR{[ccw/$busid]$wwpn/unit_add}="$lun"
 EOF
     done
     

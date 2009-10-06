@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Feb  4 15:58:13 CET 2009 - hare@suse.de
+
+- Fixup zfcp conversion rules (bnc#471400)
+
+-------------------------------------------------------------------
 Wed Jan 28 13:53:20 CET 2009 - mt@suse.de
 
 - Fixed to use ifup-infiniband to setup ibchild type (bnc#423046).
