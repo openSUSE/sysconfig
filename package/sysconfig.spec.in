@@ -194,7 +194,7 @@ if [ -f etc/sysconfig/network/__convert_hwdesc_to_iface__ ] ; then
 fi
 #
 pushd /etc/sysconfig/hardware > /dev/null
-for cfg in hwcfg-*-ccw-* ; do
+for cfg in hwcfg-*-ccw-* hwcfg-*-iucv-* ; do
 	[ -f $cfg ] && bash ./hwcfg2rules $cfg
 done
 popd > /dev/null

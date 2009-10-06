@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Feb 19 16:01:45 CET 2009 - hare@suse.de
+
+- Initiate conversion of iucv rules (bnc#440570)
+
+-------------------------------------------------------------------
 Fri Feb  6 14:33:18 CET 2009 - hare@suse.de
 
 - Automount of iSCSI devices doesn't work (bnc#457252)
