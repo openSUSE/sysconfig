@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Apr  8 17:49:07 CEST 2009 - mt@suse.de
+
+- Applied fix for the obsolete hwup utility to work with ccwgroup
+  (qeth,lcs,ctc) devices on s390x (bnc#483774).
+
+-------------------------------------------------------------------
 Fri Mar 13 14:27:57 CET 2009 - mt@suse.de
 
 - Fixed overlapping messages in rcnetwork output (bnc#406887).
