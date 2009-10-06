@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Jul 10 10:32:45 CEST 2009 - mt@suse.de
+
+- Applied patch for udev 81-mount.rules to allow md devices on
+  iscsi to automount (bnc#509495).
+
+-------------------------------------------------------------------
 Wed Apr  8 17:49:07 CEST 2009 - mt@suse.de
 
 - Fixed netconfig regex checks to work with some non-English (e.g.

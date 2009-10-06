@@ -2,8 +2,10 @@
 
 # Skip 'add' events for device-mapper
 ACTION=="add", SUBSYSTEM=="block", KERNEL=="dm-*", GOTO="skip_mount"
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="md*", GOTO="skip_mount"
 ACTION=="add", SUBSYSTEM=="block", ENV{FSTAB_OPTS}=="*nofail*", IMPORT="udevmountd"
 ACTION=="change", SUBSYSTEM=="block", KERNEL=="dm-*", ENV{FSTAB_OPTS}=="*nofail*", IMPORT="udevmountd"
+ACTION=="change", SUBSYSTEM=="block", KERNEL=="md*", ENV(FSTAB_OPTS)=="*nofail*", IMPORT="udevmountd"
 
 ACTION=="add|change", ENV{FSCK_STATE}=="unknown|clean", RUN+="udevmountd add"
 ACTION=="remove", ENV{FSTAB_OPTS}=="*nofail*", RUN+="udevmountd remove"
