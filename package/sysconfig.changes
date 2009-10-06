@@ -1,6 +1,8 @@
 -------------------------------------------------------------------
 Fri Mar 13 14:27:57 CET 2009 - mt@suse.de
 
+- Fixed ifup-wireless to set ap to 'off' instead to 'any' for
+  the madwifi driver that does not support 'any' (bnc#402438).
 - Fixed network scripts to handle dummy interfaces (bnc#436857).
 - Fixed ifroute script parsing of final lines without EOL in
   ifroute files (bnc#467165).
