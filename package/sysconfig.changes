@@ -1,6 +1,7 @@
 -------------------------------------------------------------------
 Fri Mar 13 14:27:57 CET 2009 - mt@suse.de
 
+- Fixed overlapping messages in rcnetwork output (bnc#406887).
 - Fixed ifup-wireless to not set nick by default that breaks
   several drivers (bnc#478513).
 - Fixed ifup-wireless to set ap to 'off' instead to 'any' for

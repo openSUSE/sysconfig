@@ -673,7 +673,8 @@ status() {
 	for IFACE in $@; do
 		$FAKE /sbin/ifstatus $CONFIG $IFACE -o rc $CHECK $MODE
 		RET=$?
-		debug && printf "    %-9s returned %s\n" $IFACE $RET
+		debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+		         printf "    %-9s\n" $IFACE
 		case $RET in
 			$R_SUCCESS|$R_BUSY)
 				# : $((R++))
@@ -743,7 +744,8 @@ case "$ACTION" in
 			done
 			$FAKE ifup $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+			         printf "    %-9s\n" $IFACE
 			case "$RET" in
 	 			$R_SUCCESS)
 	 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
@@ -867,7 +869,8 @@ case "$ACTION" in
 				done
 				$FAKE ifup $CONFIG $IFACE -o rc $MODE
 				RET=$?
-				debug && printf "    %-9s returned %s\n" $IFACE $RET
+				debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+				         printf "    %-9s\n" $IFACE
 				case "$RET" in
 		 			$R_SUCCESS)
 		 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
@@ -936,7 +939,8 @@ case "$ACTION" in
 			# printf "    %-9s " $IFACE
 			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+			         printf "    %-9s\n" $IFACE
 			rc_failed $RET
 			case "$RET" in
 				$R_NODEV|$R_NOTCONFIGURED|$R_INACTIVE)
@@ -983,7 +987,8 @@ case "$ACTION" in
 			fi
 			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET
+			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
+			         printf "    %-9s\n" $IFACE
 			rc_failed $RET
 			case "$RET" in
 				$R_NODEV|$R_NOTCONFIGURED|$R_INACTIVE)
