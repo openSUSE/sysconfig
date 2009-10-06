@@ -311,10 +311,10 @@ start_dhcp4_dhcpcd() {
 	args="$args${DHCLIENT_VENDOR_CLASS_ID:+ -i \"$DHCLIENT_VENDOR_CLASS_ID\"}"
 	args="$args${DHCLIENT_LEASE_TIME:+ -l \"$DHCLIENT_LEASE_TIME\"}"
 	args="$args${DHCLIENT_HOSTNAME_OPTION:+ -h \"$DHCLIENT_HOSTNAME_OPTION\"}"
-	debug "Starting dhcp client: $DHCLIENT_BIN $args $INTERFACE"
+	debug "Starting dhcp client: $DHCLIENT_BIN $DHCPCD_USER_OPTIONS $args $INTERFACE"
 
 	# now start dhcpcd
-	$DHCLIENT_BIN $DHCLIENT_ARGS \
+	$DHCLIENT_BIN $DHCPCD_USER_OPTIONS $DHCLIENT_ARGS \
 		${DHCLIENT_TIMEOUT:+-t "$DHCLIENT_TIMEOUT"}                 \
 		${DHCLIENT_CLIENT_ID:+-I "$DHCLIENT_CLIENT_ID"}             \
 		${DHCLIENT_VENDOR_CLASS_ID:+-i "$DHCLIENT_VENDOR_CLASS_ID"} \
@@ -354,8 +354,8 @@ start_dhcp4_dhclient() {
 	        	        { print $0; }
 	' < /etc/dhclient.conf > "$DHCPIFCONF" || return 1
 
-	debug "Starting dhcp client: $DHCLIENT_BIN -cf "$DHCPIFCONF" -lf "$DHCPIFLEASE" -pf "$DHCPIFPID" $args $INTERFACE"
-	$DHCLIENT_BIN -cf "$DHCPIFCONF" -lf "$DHCPIFLEASE" -pf "$DHCPIFPID" $args $INTERFACE </dev/null &>/dev/null &
+	debug "Starting dhcp client: $DHCLIENT_BIN $DHCLIENT_USER_OPTIONS -cf "$DHCPIFCONF" -lf "$DHCPIFLEASE" -pf "$DHCPIFPID" $args $INTERFACE"
+	$DHCLIENT_BIN $DHCLIENT_USER_OPTIONS -cf "$DHCPIFCONF" -lf "$DHCPIFLEASE" -pf "$DHCPIFPID" $args $INTERFACE </dev/null &>/dev/null &
 }
 
 start_dhcp6_dhcp6c() {
@@ -380,8 +380,8 @@ start_dhcp6_dhcp6c() {
 		echo "};"
 	} > "$DHCP6IFCONF" || return 1
 
-	debug "Starting dhcp client: $DHCLIENT6_BIN $args $INTERFACE"
-	$DHCLIENT6_BIN $args $INTERFACE </dev/null &>/dev/null &
+	debug "Starting dhcp client: $DHCLIENT6_BIN $DHCP6C_USER_OPTIONS $args $INTERFACE"
+	$DHCLIENT6_BIN $DHCP6C_USER_OPTIONS $args $INTERFACE </dev/null &>/dev/null &
 }
 
 case "$ACTION" in

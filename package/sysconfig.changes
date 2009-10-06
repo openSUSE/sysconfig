@@ -12,6 +12,9 @@ Tue Sep  1 12:45:51 CEST 2009 - mt@suse.de
 - Fixed spec file to remove the HOTPLUG_CHECK_FILESYSTEMS and
   HOTPLUG_MOUNT_FSTAB variables from /etc/sysconfig/storage
   instead of removing of the complete file (bnc#528759).
+- Added additional dhcp client specific start options variables
+  DHCPCD-, DHCLIENT- and DHCP6C_USER_OPTIONS, enabling the user
+  to set custom options in special cases (bnc#524695).  
 
 -------------------------------------------------------------------
 Fri Jul 10 10:32:45 CEST 2009 - mt@suse.de

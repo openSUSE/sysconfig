@@ -32,6 +32,33 @@ DHCLIENT_BIN=""
 #
 DHCLIENT6_BIN=""
 
+## Type:        string
+## Default:     ""
+## ServiceRestart: network
+#
+# Additional user start options to use when the 'dhcpcd' DHCPv4 client
+# is enabled in the DHCLIENT_BIN variable (default).
+#
+DHCPCD_USER_OPTIONS=""
+
+## Type:        string
+## Default:     ""
+## ServiceRestart: network
+#
+# Additional user start options to use when the 'dhclient' ISC DHCPv4
+# client is enabled in the DHCLIENT_BIN variable.
+#
+DHCLIENT_USER_OPTIONS=""
+
+## Type:        string
+## Default:     ""
+## ServiceRestart: network
+#
+# Additional user start options to use when the 'dhcp6c' DHCPv6 client
+# is enabled in the DHCLIENT6_BIN variable (default).
+#
+DHCP6C_USER_OPTIONS=""
+
 ## Type:	yesno
 ## Default:	no
 #
