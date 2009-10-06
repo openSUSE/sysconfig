@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Feb 25 09:47:17 CET 2009 - mt@suse.de
+
+- Fixed to use exact match for networkmanager generation info
+  comment in the resolv.conf to avoid discarding of static dns
+  setup on update (bnc#471785).
+
+-------------------------------------------------------------------
 Mon Feb 23 10:25:53 CET 2009 - ihno@suse.de
 
 - Blacklist chsc_sch module (bnc#478601)
