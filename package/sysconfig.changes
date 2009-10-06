@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Mar 13 14:27:57 CET 2009 - mt@suse.de
+
+- Fixed ifroute script parsing of final lines without EOL in
+  ifroute files (bnc#467165).
+
+-------------------------------------------------------------------
 Thu Feb 26 15:58:54 CET 2009 - hare@suse.de
 
 - ctc device has been renamed to ctcm (bnc#440570)

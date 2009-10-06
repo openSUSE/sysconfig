@@ -295,7 +295,7 @@ read_routes() {
 		test -z "$MASK" && MASK=-
 		test -z "$IFACE" -o "$IFACE" = "-" && IFACE="$INTERFACE"
 		echo $DEST $GWAY $MASK $IFACE $IPOPTS
-	done < $1 
+	done < <(cat "$1" ; echo)
 }
 
 # for status we need to prepare the output of ip route and store it in
