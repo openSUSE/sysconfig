@@ -273,14 +273,14 @@ supported_on_localfs() {
 	local result=1	# remote-fs requirement as default
 	case $IFTYPE in
 		"")                     result=2 ;;
-		lo|dummy)               result=0 ;;
+		lo|dummy|tap)           result=0 ;;
 		eth|tr)                 result=0 ;;
 		ib|ibchild)             result=0 ;;
 		vlan|bridge|bond)       result=0 ;;
 	esac
 	# tunnels in principle too, but it may be not possible
 	# to resolve the base / slave interface correctly ...
-	#tun|tap|sit|gre|ipip)   result=0 ;;
+	#tun|sit|gre|ipip)              result=0 ;;
 	return $result
 }
 
