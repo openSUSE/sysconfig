@@ -424,6 +424,9 @@ while IFS=- read a b; do
 			TUNNEL_IFACES="$TUNNEL_IFACES $b"
 			add_to_wordlist VIRTUAL_IFACES $b
 		;;
+		dummy)
+			add_to_wordlist VIRTUAL_IFACES $b
+		;;
 		*)
 			add_to_wordlist VIRTUAL_IFACES $b
 
