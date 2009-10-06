@@ -216,3 +216,7 @@ install bttv_skip_it /bin/echo "module alias skipped (bt878 chip without PCI Sub
 # is loaded first it will grab the device. Then intel-agp doesn't work.
 # Therefore we disable automatic loading of 82875p_edac. (Bug 213840)
 blacklist i82875p_edac
+#
+# Blacklist the IBM s390 module for I/O dynamic configuration support
+# Bug bnc#478601
+blacklist chsc_sch

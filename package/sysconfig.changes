@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Feb 23 10:25:53 CET 2009 - ihno@suse.de
+
+- Blacklist chsc_sch module (bnc#478601)
+
+-------------------------------------------------------------------
 Fri Feb 20 14:56:40 CET 2009 - mt@suse.de
 
 - Fixed to use absolute /sbin/modprobe in iucv rule (bnc#440570).
