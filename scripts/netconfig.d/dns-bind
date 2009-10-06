@@ -246,9 +246,9 @@ elif [ $RET -eq 2 ]; then
     exit 20
 fi
 
-# here we should reload services if needed
+# here we should restart services if needed
 if [ -x $r/etc/init.d/named ]; then
-    $r/etc/init.d/named reload >/dev/null 2>&1
+    $r/etc/init.d/named try-restart >/dev/null 2>&1
 fi
 
 exit 0;
