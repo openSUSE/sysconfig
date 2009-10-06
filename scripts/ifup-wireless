@@ -276,13 +276,9 @@ setup_iwdev()
 {
         # Mode need to be first : some settings apply only in a specific mode !
         run_iw_tool config mode $WIRELESS_MODE
-        # This is a bit hackish, but should do the job right...
-        if [ -n "$WIRELESS_ESSID" -o -n "$WIRELESS_MODE" ] ; then
-                test -z "$WIRELESS_NICK" && WIRELESS_NICK=`/bin/hostname`
-        fi
         # Regular stuff...
         while read OPT ARG; do
-                run_iw_tool config $OPT "$ARG"
+                ${OPT:+run_iw_tool config "$OPT" "$ARG"}
         done <<-EOL
 nick $WIRELESS_NICK
 nwid $WIRELESS_NWID
