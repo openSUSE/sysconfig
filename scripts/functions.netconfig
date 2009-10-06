@@ -193,7 +193,8 @@ netconfig_check_md5_and_move()
 
 netconfig_kv_filter()
 {
-	awk -- '/^[[:space:]]*$/ { next; }
+	# force portable "C" locale to match valid identifiers
+	LANG=C LC_ALL=C awk -- '/^[[:space:]]*$/ { next; }
 	/^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*='"'"'[^'"'"']*'"'"'[[:space:]]*$/ && \
 	!/^[[:space:]]*_+=/ {
 		sub("^[[:space:]]+", "", $0);
@@ -204,7 +205,7 @@ netconfig_kv_filter()
 		print key"="val;
 		next;
 	}
-	{ print "="NR; exit(NR); }' $@
+	{ print "="NR; exit(NR); }' "$@"
 }
 
 #

@@ -1,6 +1,8 @@
 -------------------------------------------------------------------
 Wed Apr  8 17:49:07 CEST 2009 - mt@suse.de
 
+- Fixed netconfig regex checks to work with some non-English (e.g.
+  Estonian) locales and to allow spaces in lease file (bnc#488257).
 - Applied fix for the obsolete hwup utility to work with ccwgroup
   (qeth,lcs,ctc) devices on s390x (bnc#483774).
 
