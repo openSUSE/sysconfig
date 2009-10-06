@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Feb 20 09:59:14 CET 2009 - mt@suse.de
+
+- Fixed ifup-dhcp status code in case the "-o rc" option was not
+  used, causing e.g. a yast2 internet test failure (bnc#460093).
+- Appended bug number and .diff suffix to patch files without.
+
+-------------------------------------------------------------------
 Thu Feb 19 16:01:45 CET 2009 - hare@suse.de
 
 - Initiate conversion of iucv rules (bnc#440570)
