@@ -9,6 +9,9 @@ Tue Sep  1 12:45:51 CEST 2009 - mt@suse.de
 - Marked tap interfaces as supported in rcnetwork localfs flow,
   to start a bridge with tap port in localfs flow (bnc#522225).
 - Fixed dhclient6 variable typos in ifup-dhcp (bnc#524691).
+- Fixed spec file to remove the HOTPLUG_CHECK_FILESYSTEMS and
+  HOTPLUG_MOUNT_FSTAB variables from /etc/sysconfig/storage
+  instead of removing of the complete file (bnc#528759).
 
 -------------------------------------------------------------------
 Fri Jul 10 10:32:45 CEST 2009 - mt@suse.de
