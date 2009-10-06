@@ -602,19 +602,19 @@ int check_dev(void)
 
 	if (stat(dev, &stbuf) < 0) {
 		fprintf(stderr,"Cannot stat '%s': %d\n", dev, errno);
-		return -1;
+		return -ENODEV;
 	}
 
 	if (!S_ISBLK(stbuf.st_mode)) {
 		fprintf(stderr,"Not a block device\n");
-		return -1;
+		return -ENOTBLK;
 	}
 
 	if (stbuf.st_rdev != makedev(major,minor)) {
 		fprintf(stdout, "Invalid device (fstab %d:%d, event %d:%d)\n",
 			major(stbuf.st_rdev), minor(stbuf.st_rdev),
 			major, minor);
-		return 1;
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -783,8 +783,13 @@ int main(int argc, char **argv, char **envp)
 
 	/* Check for matching device */
 	err = check_dev();
-	if (err != 0)
-		return err < 0? EINVAL : ENODEV;
+	if (err < 0) {
+		if (err == -ENODEV && op == MOUNT_CHECK) {
+			fprintf(stdout,"FSCK_STATE=unknown\n");
+			return 0;
+		}
+		return -err;
+	}
 
 	/* Check if the device is mounted */
 	err = check_mnt();

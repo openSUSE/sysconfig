@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Feb  6 14:33:18 CET 2009 - hare@suse.de
+
+- Automount of iSCSI devices doesn't work (bnc#457252)
+
+-------------------------------------------------------------------
 Wed Feb  4 15:58:13 CET 2009 - hare@suse.de
 
 - Fixup zfcp conversion rules (bnc#471400)
