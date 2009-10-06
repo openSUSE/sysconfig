@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Feb 26 15:58:54 CET 2009 - hare@suse.de
+
+- ctc device has been renamed to ctcm (bnc#440570)
+
+-------------------------------------------------------------------
 Wed Feb 25 09:47:17 CET 2009 - mt@suse.de
 
 - Fixed to use exact match for networkmanager generation info
