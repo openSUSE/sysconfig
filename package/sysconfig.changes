@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Feb 20 14:56:40 CET 2009 - mt@suse.de
+
+- Fixed to use absolute /sbin/modprobe in iucv rule (bnc#440570).
+
+-------------------------------------------------------------------
 Fri Feb 20 09:59:14 CET 2009 - mt@suse.de
 
 - Fixed ifup-dhcp status code in case the "-o rc" option was not

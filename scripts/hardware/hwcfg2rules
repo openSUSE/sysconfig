@@ -43,7 +43,7 @@ write_iucv_rules () {
 
     echo "# Rules converted from $cfgname" > $file
     cat >> $file <<EOF
-ACTION=="add", SUBSYSTEM=="subsystem", KERNEL=="iucv", RUN+="modprobe netiucv"
+ACTION=="add", SUBSYSTEM=="subsystem", KERNEL=="iucv", RUN+="/sbin/modprobe netiucv"
 ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="netiucv", ATTR{connection}="$id"
 EOF
 }
