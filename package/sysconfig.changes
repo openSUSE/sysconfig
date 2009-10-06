@@ -1,6 +1,7 @@
 -------------------------------------------------------------------
-Mon Oct  5 17:04:55 CEST 2009 - mt@suse.de
+Tue Oct  6 16:06:04 CEST 2009 - mt@suse.de
 
+- version 0.73.0
 - Implemented netconfig update -m <module|prefix> filter
   (fate#306274)
 
