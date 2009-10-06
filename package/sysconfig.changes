@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Tue Sep 15 12:07:46 CEST 2009 - mt@suse.de
+
+- Fixed typo in md-on-iscsi-automount 81-mount.rules (bnc#509495).
+
+-------------------------------------------------------------------
 Tue Sep  1 12:45:51 CEST 2009 - mt@suse.de
 
 - Fixed waiting for successful connection in NetworkManager in
