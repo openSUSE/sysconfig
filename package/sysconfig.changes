@@ -1,4 +1,28 @@
 -------------------------------------------------------------------
+Fri Oct  2 13:27:02 CEST 2009 - mt@suse.de
+
+- Fixed to check for 'iw' utility only when it is required to set
+  the wireless regulatory domain (bnc#539669).
+
+-------------------------------------------------------------------
+Fri Oct  2 11:25:17 CEST 2009 - mt@suse.de
+
+- Fixed typo in ifstatus causing to return bad code (bnc#542230).
+- Blacklisted mISDN modules in /etc/modprobe.d/50-blacklist.conf
+  (bnc#537052).
+
+-------------------------------------------------------------------
+Mon Sep 28 14:17:16 CEST 2009 - crrodriguez@suse.de
+
+- build with -fno-strict-aliasing 
+
+-------------------------------------------------------------------
+Tue Sep 22 15:57:15 CEST 2009 - mt@suse.de
+
+- Fixed to just reload bind instead of try-restart in netconfig
+  (bnc#541035).
+
+-------------------------------------------------------------------
 Tue Sep 15 12:07:46 CEST 2009 - mt@suse.de
 
 - version 0.72.4

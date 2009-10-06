@@ -1056,7 +1056,7 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						message "`printf "    %-9s IP address: %s" "$i" "$d"`"
 					done < <(ip -o -4 addr show $INTERFACE)
 					ifstatus-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-					retcode=$R_SUCCESSa
+					retcode=$R_SUCCESS
 				else
 					# message_if_not_run_from_rc "$INTERFACE is down"
 					message "`printf "    %-9s is down" $INTERFACE`"
