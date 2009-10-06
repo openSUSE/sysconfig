@@ -29,6 +29,7 @@ blacklist aty128fb
 blacklist atyfb
 blacklist clgenfb
 blacklist cyber2000fb
+# cyblafb, bug 466280
 blacklist cyblafb
 blacklist encode-big5
 blacklist encode-gb
@@ -90,6 +91,18 @@ blacklist macmodes
 blacklist nvidiafb
 blacklist s1d13xxxfb
 blacklist savagefb
+# additional modules since SLE11, bug 468964
+blacklist arkfb
+blacklist carminefb
+blacklist gxfb
+blacklist hecubafb
+blacklist lxfb
+blacklist s3fb
+blacklist sm501fb
+blacklist viafb
+blacklist vmlfb
+blacklist vt8623fb
+
 
 # ISDN modules are load from /lib/udev/isdn.sh
 blacklist fcusb
