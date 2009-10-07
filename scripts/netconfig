@@ -232,6 +232,7 @@ function get_new_cfgname() {
 }
 
 function run_modules() {
+    local mfilter="$1"
     local errors=()
     local msg=""
     local ret=0
@@ -245,6 +246,10 @@ function run_modules() {
 
     debug "Module order: $NETCONFIG_MODULES_ORDER"
     for plg in $NETCONFIG_MODULES_ORDER; do
+        if test "x$mfilter" != "x" ; then
+             test "x$mfilter" = "x${plg}"     -o \
+                  "x$mfilter" = "x${plg%%-*}" || continue
+        fi
 	case $plg in
 	  -*) continue ;;
 	esac
@@ -272,33 +277,39 @@ function run_modules() {
 function usage () 
 {
     cat << EOT >&2
-  usage:   $PROGNAME <action> <options>
-  action:  modify, update, remove
-  options:                               mandatory for:
-    -s|--service <service>               modify, remove
-    -i|--interface <interface>           remove
-    -l|--lease-file <path>
-    -F|--input-format <format>
-    -f|--force-replace
-    -v|--verbose
-    -h|--help                            (does not need an action)
+usage:
+ $PROGNAME <global options>
+ $PROGNAME <action> <action options>
 
+ actions:
+  modify    Requires an interface and service specific settings via STDIN
+            or as file using the --input-file or --lease-file option.
+            Already existing settings for this interface and service will
+            be replaced with the new one, otherwise netconfig creates a
+            new state file. Finaly, netconfig updates the managed files.
+  remove    Removes the interface and service specific settings and
+            updates the managed files.
+  update    Updates the managed files with the current set of settings.
 
-  --force_replace tell the modules to do file changes even if the user
-                  touched them.
-  --input-format  specifies the modify lease / input format; currently
-                  only dhcpcd compatible input format is supported.
+ modify options:
+  [ -I|--input-file <file name> ]       file name to read, stdin by default
+  [ -l|--lease-file <file name> ]       alias for --input-file
+  [ -F|--input-format <input format> ]  currently 'dhcpcd' supported only
+  {remove options}
 
-  modify requires an interface and service specific settings via STDIN
-         or as file using the --lease-file option.
-         Already existing settings for this interface and service will
-	 be replaced with the new one, otherwise netconfig creates a
- 	 new state file. Finaly, netconfig updates the managed files.
+ remove options:
+  < -s|--service <service name> >       service providing settings
+  [ -i|--interface <interface name> ]   interface providing settings
+  {update options}
 
-  update updates the managed files with the current set of settings.
+ update options:
+  [ -f|--force-replace ]                generate files, even user modified
+  [ -m|--module-only ]                  update module name or prefix only
+  [ -v|--verbose ]                      enable debug and be verbose
 
-  remove removes the interface and service specific settings.
- 
+ global options:
+  <-h|--help>                           show this help text
+
 EOT
   if [ -n "$1" ] ; then
      echo "" >&2
@@ -316,20 +327,24 @@ ACTION=""
 SERVICE=""
 INTERFACE=""
 VARIABLE=""
+MODFILTER=""
 while true ; do
     # Interface is checked against sysfs before the data is used;
     # reject just the most the ugliest characters...
     REGEX=''
+    VARIABLE=''
     case "$1" in
-        -s|--service)   VARIABLE=SERVICE ;
-                        REGEX='^[[:alnum:]_-]+$' ;;
-        -i|--interface) VARIABLE=INTERFACE ;
-                        REGEX='^[^'"'"'`"\\/[:space:][:cntrl:]]+$' ;;
-        -l|--lease-file) VARIABLE=LEASEFILE;;
-        -F|--input-format) VARIABLE=INPUTFORMAT;;
+        -s|--service)       VARIABLE=SERVICE ;
+                            REGEX='^[[:alnum:]_-]+$' ;;
+        -i|--interface)     VARIABLE=INTERFACE ;
+                            REGEX='^[^'"'"'`"\\/[:space:][:cntrl:]]+$' ;;
+        -l|--lease-file)    VARIABLE=LEASEFILE;;
+        -I|--input-file)    VARIABLE=LEASEFILE;;
+        -F|--input-format)  VARIABLE=INPUTFORMAT;;
         -f|--force-replace) FORCE_REPLACE="true";;
-        -v|--verbose) VERBOSE="yes";;
-        -h|--help) usage;;
+        -v|--verbose)       VERBOSE="yes";;
+        -m|--module-only)   VARIABLE=MODFILTER;;
+        -h|--help)          usage;;
         "") break ;;
         --)
             shift
@@ -341,9 +356,9 @@ while true ; do
             break
             ;;
         *)
-        test -n "$ACTION" && usage "Exactly one action may be given.\n"\
-            "Currently given actions: $ACTION $1"
-        ACTION="$1"
+            test -n "$ACTION" && usage "Exactly one action may be given.\n"\
+                                       "Currently given actions: $ACTION $1"
+            ACTION="$1"
         ;;
         -*) usage Unknown option $1;;
     esac
@@ -358,7 +373,6 @@ while true ; do
         fi
         eval $VARIABLE=\$2
         shift
-        VARIABLE=""
     fi
     shift
 done
@@ -407,17 +421,17 @@ case "$ACTION" in
     modify)
            modify
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
-           run_modules
-           if [ "$?" != "0" ]; then EXITVAL=$?; fi
-           ;;
-    update)
-           run_modules
+           run_modules "$MODFILTER"
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
            ;;
     remove)
            remove
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
-           run_modules
+           run_modules "$MODFILTER"
+           if [ "$?" != "0" ]; then EXITVAL=$?; fi
+           ;;
+    update)
+           run_modules "$MODFILTER"
            if [ "$?" != "0" ]; then EXITVAL=$?; fi
            ;;
     *)
