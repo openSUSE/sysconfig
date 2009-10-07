@@ -292,9 +292,9 @@ usage:
   update    Updates the managed files with the current set of settings.
 
  modify options:
+  [ -F|--input-format <input format> ]  currently 'dhcpcd' supported only
   [ -I|--input-file <file name> ]       file name to read, stdin by default
   [ -l|--lease-file <file name> ]       alias for --input-file
-  [ -F|--input-format <input format> ]  currently 'dhcpcd' supported only
   {remove options}
 
  remove options:
