@@ -303,8 +303,8 @@ usage:
   {update options}
 
  update options:
+  [ -m|--module-only <name | prefix> ]  module or module group updates only
   [ -f|--force-replace ]                generate files, even user modified
-  [ -m|--module-only ]                  update module name or prefix only
   [ -v|--verbose ]                      enable debug and be verbose
 
  global options:
