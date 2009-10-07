@@ -14,9 +14,13 @@ netconfig \- modular tool to modify network configuration
 .P
 .RB " [ " \-i " | " \-\-interface " <interface name> ] "
 .P
-.RB " [ " \-l " | " \-\-lease\-file " <file name> ] "
+.RB " [ " \-F " | " \-\-input\-format " <input/lease file format> ] "
 .P
-.RB " [ " \-F " | " \-\-input\-format " <lease/input file format> ] "
+.RB " [ " \-I " | " \-\-input\-file " <input/lease file name> ] "
+.P
+.RB " [ " \-l " | " \-\-lease\-file " <input/lease file name> ] "
+.P
+.RB " [ " \-m " | " \-\-module\-only " < name | prefix > ] "
 .P
 .RB " [ " \-f " | " \-\-force\-replace " ] "
 .P
@@ -28,9 +32,11 @@ netconfig \- modular tool to modify network configuration
 .RS
 .PD 0
 .P
-.RB " < " \-i " | " \-\-interface " <interface name> > "
-.P
 .RB " < " \-s " | " \-\-service " <service name> > "
+.P
+.RB " [ " \-i " | " \-\-interface " <interface name> ] "
+.P
+.RB " [ " \-m " | " \-\-module\-only " < name | prefix > ] "
 .P
 .RB " [ " \-f " | " \-\-force\-replace " ] "
 .P
@@ -41,6 +47,8 @@ netconfig \- modular tool to modify network configuration
 .B netconfig update
 .RS
 .PD 0
+.P
+.RB " [ " \-m " | " \-\-module\-only " < name | prefix > ] "
 .P
 .RB " [ " \-f " | " \-\-force\-replace " ] "
 .P
@@ -67,7 +75,7 @@ Modify the current \fIinterface\fR and \fIservice\fR specific dynamic settings
 and update the network configuration.
 
 Netconfig reads these settings on its standard input or from the file specified
-by the \fI\-\-lease\-file\fR option and stores them internally until a system
+by the \fI\-\-input\-file\fR option and stores them internally until a system
 reboot or the next modify or remove action. Already existing settings for the
 same interface and service combination will be overwritten.
 See the \fIMODIFY INPUT FORMAT\fR section for input format description.
@@ -84,9 +92,14 @@ combination and update the network configuration.
 
 .TP
 .B update
-Update the network configuration using current settings. This is useful when
-the policy or the static configuration changed.
+Update the network configuration using current settings. This also required when
+the policy or the static configuration in sysconfig/network/config changed.
 
+The update can be limited to a group of modules with a common prefix or to a
+single module name using the \fI-m name-or-prefix\fR option, for example use
+\fI-m dns\fR to apply all dns settings or \fI-m dns-resolver\fR to apply only
+settings handled in the dns-resolver module.
+Note: Especially the second call may cause inconsistent system configuration!
 .PP
 The netconfig policy and the static configuration settings are defined in
 .I /etc/sysconfig/network/config
