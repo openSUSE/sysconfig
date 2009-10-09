@@ -4,8 +4,7 @@
 # All rights reserved.
 #
 # Author: Olaf Kirch <okir@suse.de>, 2002
-#
-# $Id$
+#         Marius Tomaschewski <mt@suse.de>, 2007-2009
 #
 
 usage () {
@@ -62,12 +61,12 @@ done
 #
 vconfig=/sbin/vconfig
 if [ ! -x $vconfig ] ; then
-  # check compatibility path
-  if [ ! -x /usr/sbin/vconfig ] ; then
-	logerror "VLAN utilities not installed"
-	exit $R_INTERNAL
-  fi
-  vconfig=/usr/sbin/vconfig 
+	# check compatibility path
+	if [ ! -x /usr/sbin/vconfig ] ; then
+		err_mesg "VLAN utilities not installed"
+		exit $R_INTERNAL
+	fi
+	vconfig=/usr/sbin/vconfig 
 fi
 
 ######################################################################
@@ -78,44 +77,139 @@ test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
 ######################################################################
 # get the base interface and check if it is available or up
 #
-# ETHERDEVICE may contain a device description which must first be
-# converted to the current interface name of that device
 if [ "$ACTION" = start ] ; then
-	if ! is_iface_available  $ETHERDEVICE ; then
-		logerror "interface ${ETHERDEVICE} is not available"
+	if ! is_iface_available  "$ETHERDEVICE" ; then
+		err_mesg "interface '$ETHERDEVICE' is not available"
 		exit $R_NODEV
 	fi
-	if ! is_iface_up $ETHERDEVICE ; then
-		#logerror "interface ${ETHERDEVICE} is not up"
-		#exit $R_NOTRUNNING
-		ip link set up dev $ETHERDEVICE
+	if ! is_iface_up "$ETHERDEVICE" ; then
+		ip link set dev "$ETHERDEVICE" up || {
+			err_mesg "interface '$ETHERDEVICE' is not up"
+			exit $R_NOTRUNNING
+		}
 	fi
 fi
 
+
+######################################################################
+# helper functions
+#
+get_proc_name_type()
+{
+	awk -- '/^Name-Type:/ { print $2;}' /proc/net/vlan/config 2>/dev/null
+}
+map_proc_to_vconfig()
+{
+	case $1 in
+	VLAN_NAME_TYPE_RAW_PLUS_VID)        echo DEV_PLUS_VID         ;;
+	VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD) echo DEV_PLUS_VID_NO_PAD  ;;
+	VLAN_NAME_TYPE_PLUS_VID)            echo VLAN_PLUS_VID        ;;
+	VLAN_NAME_TYPE_PLUS_VID_NO_PAD)     echo VLAN_PLUS_VID_NO_PAD ;;
+	esac
+}
+get_vlan_iface_name()
+{
+	awk -v vid="$1" -- 'BEGIN{ nt=0; }
+		/^Name-Type:/   { nt=1; next; }
+		nt && $3 == vid { print $1;   }' \
+		/proc/net/vlan/config 2>/dev/null
+}
+del_pad()
+{
+	local no_pad rx_pad='^[0]+'
+	LANG=C ; LC_ALL=C
+	if [[ ${1} =~ ${rx_pad} ]] ; then
+		no_pad="${1#${BASH_REMATCH[0]}}"
+		echo "${no_pad:-0}"
+  	else
+		echo "${1}"
+	fi
+}
+get_num()
+{
+	local rx_num='[0-9]+$'
+	LANG=C ; LC_ALL=C
+	if [[ ${1} =~ ${rx_num} ]] ; then
+		echo "${BASH_REMATCH[0]}"
+	fi
+}
+
 ######################################################################
 case $ACTION in
-start)	/sbin/modprobe 8021q
-	# Switches the naming type to vlan<N>
-	# The default is ethN.M but that's hard to reconcile
-	# with the network script framework
-	$vconfig set_name_type vlan_plus_vid_no_pad >/dev/null
-	#$vconfig set_bind_type per_kernel
+start)
+	if test "$INTERFACE" = "$ETHERDEVICE" ; then
+		err_mesg "ERROR: vlan interface is same with ethernet interface"
+		exit $R_USAGE
+	elif test -d "/sys/class/net/$INTERFACE" ; then
+		exit $R_SUCCESS
+	fi
+
+	# load the module...
+	/sbin/modprobe 8021q
+
+	# get vlan id
+	id=""
+	nr=""
+	case $INTERFACE in
+	*.*)	id=${INTERFACE##*.}
+	        nr=$(del_pad "$id")
+		test "x${id}" != "x${nr}" && \
+		name_type=DEV_PLUS_VID    || \
+		name_type=DEV_PLUS_VID_NO_PAD
+	;;
+	vlan*)	id=${INTERFACE#vlan}
+	        nr=$(del_pad "$id")
+		test "x${id}" != "x${nr}" && \
+		name_type=VLAN_PLUS_VID   || \
+		name_type=VLAN_PLUS_VID_NO_PAD
+	;;
+	*)	id=$(get_num "$INTERFACE")
+		nr=$(del_pad "$id")
+	;;
+	esac
+
+	# Check vlan id we found
+	if test "$INTERFACE" = "$id" -o "x$id" = x -o "x$nr" = x ; then
+		err_mesg "ERROR: interface '$INTERFACE' is not in vlan<VID> or *.<VID> format"
+		exit $R_USAGE
+	fi
+
+	# Set the name type to avoid rename
+	if test "x$name_type" != x ; then
+		$vconfig set_name_type $name_type >/dev/null
+	fi
 
 	# Now create the VLAN interface
-	id=${INTERFACE#vlan}
-	if [ "$INTERFACE" = "$id" ]; then
-		logerror "interface $INTERFACE not named vlanNNN"
-		exit $R_INTERNAL
+	err=`$vconfig add $ETHERDEVICE $id 2>&1 1>/dev/null`
+	ret=$?
+	if test "$ret" != "0" ; then
+		err_mesg "$err"
+		exit $R_ERROR
 	fi
 
-	if [ ! -d /sys/class/net/$INTERFACE ] ; then
-		$vconfig add $ETHERDEVICE $id >/dev/null
+	# Don't hurry too much
+	udevadm settle
+
+	viface=`get_vlan_iface_name "$nr"`
+	if test "x$viface" = x ; then
+		err_mesg "ERROR: unable to find create vlan $id interface '$INTERFACE'"
+		exit $R_ERROR
+	elif test "x$INTERFACE" != "x$viface" ; then
+		err=`ip link set dev "$viface" name "$INTERFACE" 2>&1` || {
+		  err_mesg "ERROR: unable to rename vlan interface '$viface' to '$INTERFACE': $err"
+		  $vconfig rem "$viface"
+		  exit $R_ERROR
+		}
 	fi
-	;;
+;;
 stop)
-	if [ -d /sys/class/net/$INTERFACE ] ; then
-		$vconfig rem $INTERFACE >/dev/null
+	if test -d "/sys/class/net/$INTERFACE" ; then
+		if test -f "/proc/net/vlan/$INTERFACE" ; then
+			vconfig rem $INTERFACE >/dev/null
+		else
+			err_mesg "ERROR: '$INTERFACE' is not a vlan interface"
+		fi
 	fi
-	;;
+;;
 esac
 
