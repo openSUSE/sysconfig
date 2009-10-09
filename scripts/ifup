@@ -213,12 +213,6 @@ if [ -n "$CONFIG" -a -r ifcfg-$CONFIG ] ; then
 fi
 
 ######################################################################
-# Normalize some values in the config
-#
-BOOTPROTO=$(echo "${BOOTPROTO}" | awk '{print tolower($0);}')
-
-
-######################################################################
 # Check if the interface is available
 #
 if ! is_iface_available $INTERFACE; then
@@ -237,52 +231,33 @@ fi
 
 
 ######################################################################
-# Check if NetworkManager is running and inform both NM and the user
+# Check if NetworkManager is running, inform the user and exit
 # 
-case "$INTERFACETYPE" in
-		wlan|eth|tr) : ;;
-		*) : ${NM_CONTROLLED:=no} ;;
-esac
-if nm_running && [ "$NM_CONTROLLED" != no ] ; then
-	mesg "Network interface is managed from NetworkManager"
-	retcode=$R_SUCCESS
-	case $SCRIPTNAME in
-		ifup)
-			mesg "NetworkManager will be advised to set up $INTERFACE" \
-			     "\nbut it cannot be assured from here."
-			/bin/dbus-send --system --dest='org.freedesktop.NetworkManager' \
-			        '/org/freedesktop/NetworkManager' \
-			        'org.freedesktop.NetworkManager.setActiveDevice' \
-			        objpath:'/org/freedesktop/NetworkManager/Devices/'$INTERFACE
-			;;
-		ifdown)
-			mesg "NetworkManager cannot be advised to take down an interface." \
-			     "\nSet up another interface instead."
-			retcode=$R_NOTIMPL
-			;;
-		ifstatus)
-				if is_iface_up $INTERFACE ; then
-					message_if_not_run_from_rc "$INTERFACE is up"
-					message_if_not_run_from_rc "$(ip addr show $INTERFACE)"
-					while read a b c d e f g h i; do
-						message "`printf "    %-9s IP address: %s" "$i" "$d"`"
-					done < <(ip -o -4 addr show $INTERFACE)
-					message_if_not_run_from_rc "$(ip route show dev $INTERFACE)"
-				else
-					message "`printf "    %-9s is down" $INTERFACE`"
-					retcode=$R_INACTIVE
-				fi
-				E="`iwconfig eth0 2>/dev/null \
-				    | sed -n 's/^.*ESSID:\"\(.*\)\"/\1/p'`"
-				scripts/ifstatus-services "${INTERFACE}${E:+-$E}"
-			;;
-		*)
-			mesg "unknown command"
-			retcode=$R_USAGE
-			;;
-	esac
-	exit $retcode
+if nm_running ; then
+	mesg "Network interface is managed by the NetworkManager -> skipping"
+	exit $R_NOTIMPL
+elif [ "$NETWORKMANAGER" = yes ] && ! netcontrol_running ; then
+	if [ "$SCRIPTNAME" != ifdown ] ; then
+		mesg "Network interface is managed by the NetworkManager -> skipping"
+		exit $R_NOTIMPL
+	fi
 fi
+
+######################################################################
+# Check if service network was started and skip ifup in auto mode
+#
+if [ "$SCRIPTNAME" = ifup -a "$MODE" = auto ] ; then
+	if ! netcontrol_running ; then
+		message "Service network not started and mode 'auto' -> skipping"
+		exit $R_SUCCESS
+	fi
+fi
+
+
+######################################################################
+# Normalize some values in the config
+#
+BOOTPROTO=$(echo "${BOOTPROTO}" | awk '{print tolower($0);}')
 
 
 ######################################################################
@@ -294,17 +269,6 @@ if [ "${BOOTPROTO:0:4}" != dhcp -a "$DHCP" = yes ] ; then
 	logerror "Interface $INTERFACE is not configured for dhcp." \
 		 "So don't use '-o dhcp'."
 	exit $R_USAGE
-fi
-
-
-######################################################################
-# check if service network was started and skip ifup in auto mode
-#
-if [ "$SCRIPTNAME" = ifup -a "$MODE" = auto ] ; then
-	if [ ! -f "$NETWORK_RUNFILE" ] ; then
-		message "Service network not started and mode 'auto' -> skipping"
-		exit $R_SUCCESS
-	fi
 fi
 
 
