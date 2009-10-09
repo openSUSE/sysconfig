@@ -7,7 +7,7 @@
 
 SCRIPT=${0##*/}
 
-. /etc/sysconfig/network/scripts/functions.common
+{set +vx ; . /etc/sysconfig/network/scripts/functions.common ; } >&2
 test -d $RUN_FILES_BASE && dir=$RUN_FILES_BASE || dir=/
 exec 2> $dir/exdeb.${SCRIPT}_$$.$PPID.${SEQNUM}_$1.$2
 
@@ -18,12 +18,13 @@ ps axhwfu >&2
 ps axhwwfu | grep -C3 "$$\|ifplugd\|dhcp\|ifup\|ifdown\|ifstatus" | \
 	sed "s/ $$ /#$$#/" >&2
 echo -------------------------------------------------- >&2
-ls -ltr --full-time /sys/class/net /dev/shm/sysconfig >&2
+ls -ltr --full-time /sys/class/net $RUN_FILES_BASE >&2
 echo >&2
-grep -H "" $(ls -1d /dev/shm/sysconfig/* | grep -v "[/]exdeb") >&2
+{set +vx ; grep -H "" $(ls -1d $RUN_FILES_BASE/* | grep -v "[/]exdeb") ; } >&2
 echo -------------------------------------------------- >&2
 ip a >&2
-ip r >&2
+ip -4 r >&2
+ip -6 r >&2
 echo >&2
 iwconfig >&2
 echo >&2
