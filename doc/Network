@@ -76,42 +76,7 @@ Config files
 Common variables
 ----------------
 
-NAME		"Internal network"
-- interface name, useless so far ;-)
-
-BOOTPROTO	"static"|"dhcp"
-- setup protocol, if missing or "static", fixed address is used
-
-STARTMODE	"onboot"|"hotplug"|"manual"|"off"
-- mode of the device setup, missing means "onboot"
-
-IPADDR		"10.20.1.29" or
-IPADDR		"fec0:1:2:0:200:1cff:feb5:a7ea/64"
-- The IPv4 or IPv6 address
-
-NETMASK		"255.255.240.0"
-- network mask
-
-NETWORK		"10.20.0.0"
-- network address
-
-BROADCAST	"10.20.15.255"
-- broadcast address
-
-GATEWAY		"10.20.0.1"
-- default gateway IP address
-
-REMOTE_IPADDR	"1.2.3.9"
-- the other end of the PPP connection
-
-IP_OPTIONS	""
-- additional ip options
-
-MTU		""
-- set the maximum transfer unit (MTU)
-
-MRU		""
-MSS		""
+See ifcfg(5) manual page.
 
 Additional modem configuration variables
 ----------------------------------------
@@ -240,43 +205,5 @@ DSLSUPPORTED	"yes"
 
 COUNTRY		"Germany"
 - provider country
-
-Example of a little bit complex configuration
----------------------------------------------
-
-ifcfg-eth0
-IPADDRESS="1.2.3.4"
-NETMASK="255.255.255.0"
-BROADCAST="1.2.3.255"
-STARTMODE="onboot"
-
-ifcfg-eth0:0
-IPADDRESS="4.3.2.1"
-NETMASK="255.255.255.0"
-BROADCAST="4.3.2.255"
-STARTMODE="off"
-
-ifcfg-eth0:1
-IPADDRESS="4.3.2.1"
-NETMASK="255.255.255.0"
-BROADCAST="4.3.2.255"
-STARTMODE="onboot"
-
-ifcfg-eth1
-IPADDRESS="4.3.2.1"
-NETMASK="255.255.255.0"
-BROADCAST="4.3.2.255"
-STARTMODE="off"
-
-ifcfg-eth1:2
-IPADDRESS="4.3.2.1"
-NETMASK="255.255.255.0"
-BROADCAST="4.3.2.255"
-STARTMODE="onboot"
-
-bash# rcnetwork start	-> set up eth0 eth0:1
-bash# ifdown eth0:1	-> shut down eth0:1
-bash# ifup eth0:0	-> set up eth0:0
-bash# rcnetwork stop	-> shut down eth0 eth0:0
 
 EOF
