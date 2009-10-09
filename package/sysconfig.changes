@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Oct  9 15:33:27 CEST 2009 - mt@suse.de
+
+- version 0.72.6
+- Fixed support of eth0.VLAN interface name schema as well as custom
+  names, documented it in the ifcfg-vlan(5) manual page (bnc#534032,
+  fate#305947).
+
+-------------------------------------------------------------------
 Tue Oct  6 16:32:56 CEST 2009 - mt@suse.de
 
 - version 0.72.5
