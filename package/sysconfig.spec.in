@@ -127,9 +127,19 @@ if [ ${1:-0} -gt 1 ]; then
 	# if oldversion < 0.70.0
 	touch etc/sysconfig/network/__convert_hwdesc_to_iface__
 	# fi
+	# update to >= 0.71.20/0.72.1 (sle11-sp1/11.2)
+	if [ ! -f etc/sysconfig/network/scripts/move_shm_sysconfig.sh ] ; then
+		touch etc/sysconfig/network/__move_shm_sysconfig__
+	fi
 fi
 
 %post 
+# * update to >= 0.71.20/0.72.1: before anything else, move state
+#   files from dev/shm/sysconfig to dev/.sysconfig/network
+if [ -f etc/sysconfig/network/__move_shm_sysconfig__ ] ; then
+	etc/sysconfig/network/scripts/move_shm_sysconfig.sh .
+	rm -f etc/sysconfig/network/__move_shm_sysconfig__
+fi
 pushd etc/sysconfig/network >/dev/null
 for i in ifcfg-ppp* ifcfg-ippp* ifcfg-dsl* ifcfg-modem* ; do
     case $i in 

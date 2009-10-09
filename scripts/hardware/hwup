@@ -119,7 +119,7 @@ while [ $# -gt 0 ]; do
 	shift
 done
 
-FILE=/dev/shm/sysconfig/hw-${HWDESC//\//_}
+FILE=/dev/.sysconfig/network/hw-${HWDESC//\//_}
 DEVPATH=`get_devpath $HWDESC` 
 gdp_ret=$?
 
