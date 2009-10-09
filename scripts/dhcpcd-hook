@@ -71,6 +71,9 @@ state="$2"
 debug="$3"
 action=""
 
+if [ -r /etc/sysconfig/network/scripts/functions ] ; then
+	. /etc/sysconfig/network/scripts/functions
+fi
 if [ -r /etc/sysconfig/network/config ] ; then
 	. /etc/sysconfig/network/config
 fi
@@ -110,6 +113,23 @@ while read line; do
 	esac
 done < $leaseinfo
 
+hostname_changed()
+{
+	# check regardless the DHCLIENT_SET_HOSTNAME setting,
+	# because if it changed, we've to handle it anyway...
+
+	# read the previous hostname from state file, when it
+	# differs with current one, update the state and report.
+	OLD_HOSTNAME=`read_cached_config_data hostname $INTERFACE`
+	CUR_HOSTNAME=`hostname 2>/dev/null`
+	if test "x$OLD_HOSTNAME" != "x$CUR_HOSTNAME" ; then
+		write_cached_config_data hostname "$CUR_HOSTNAME" $INTERFACE
+		commit_cached_config_data $INTERFACE
+		return 0
+	else
+		return 1
+	fi
+}
 
 case $state in
 up)
@@ -121,8 +141,10 @@ up)
 		-i $INTERFACE $NC_OPTIONS  \
 		-l $leaseinfo 2>&1 | $log_dbg
 
-	# reload syslog so it knows the new hostname
-	/etc/init.d/syslog reload
+	if hostname_changed ; then
+		# reload syslog so it knows the new hostname
+		/etc/init.d/syslog reload
+	fi
 	;;
 down)
 	# We now call PRE_DOWN_SCRIPT directly from ifdown, because it was called
@@ -143,8 +165,10 @@ new)
 		-i $INTERFACE $NC_OPTIONS  \
 		< $leaseinfo 2>&1 | $log_dbg
 
-	# reload syslog so it knows the new hostname
-	/etc/init.d/syslog reload
+	if hostname_changed ; then
+		# reload syslog so it knows the new hostname
+		/etc/init.d/syslog reload
+	fi
 
 	$debug && $log_dbg "Running ifdown $INTERFACE -o dhcp"
 	ifdown $INTERFACE -o dhcp
