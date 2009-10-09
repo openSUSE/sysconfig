@@ -712,7 +712,7 @@ netcontrol_running() {
 
 # returns 0 if ifup is currently working on this interface
 ifup_on_iface() {
-	ps axww | grep -qs "[i]fup.* $INTERFACE\>"
+	ps axhww | grep -qs "[i]fup.* $INTERFACE\>"
 }
 
 # returns 0 if there is a dhcp client running on this interface
@@ -728,7 +728,7 @@ dhcpc4_on_iface() {
 			retval=0
 			test "x$1" == "x-q" && break
 			echo $pid
-		done < <(ps axww | grep -Es "[ /]$DHCLIENT\>.*\<$INTERFACE\>$")
+		done < <(ps axhww | grep -Es "[ /]$DHCLIENT\>.*\<$INTERFACE\>$")
 	fi
 	return $retval
 }
@@ -740,7 +740,7 @@ dhcpc6_on_iface() {
 			retval=0
 			test "x$1" == "x-q" && break
 			echo $pid
-		done < <(ps axww | grep -Es "[ /]$DHCLIENT6\>.*\<$INTERFACE\>$")
+		done < <(ps axhww | grep -Es "[ /]$DHCLIENT6\>.*\<$INTERFACE\>$")
 	fi
 	return $retval
 }
@@ -753,7 +753,7 @@ dhcpc_on_iface() {
 			retval=0
 			test "$1" == "-q" && break
 			echo $pid
-		done < <(ps axww | grep -Es "[ /]($DHCLIENT|$DHCLIENT6)\>.*\<$INTERFACE\>$")
+		done < <(ps axhww | grep -Es "[ /]($DHCLIENT|$DHCLIENT6)\>.*\<$INTERFACE\>$")
 	fi
 	return $retval
 }
@@ -787,7 +787,7 @@ any_dhcpc_on_iface()
 				retval=0
 				test "$1" == "-q" && break
 				echo $pid
-			done < <(ps axww | grep -Es "[ /]($dhclients)\>.*\<$INTERFACE\>$")
+			done < <(ps axhww | grep -Es "[ /]($dhclients)\>.*\<$INTERFACE\>$")
 		fi
 	fi
 	return $retval

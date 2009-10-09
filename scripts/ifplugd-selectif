@@ -34,8 +34,14 @@ test -f ./config && . ./config
 # . scripts/extradebug
 
 get_carrier() {
-	test "`cat /sys/class/net/${1}/carrier 2>/dev/null`" != 1 && sleep 1
-	cat /sys/class/net/${1}/carrier 2>/dev/null
+	local -i carrier=0 count=40
+	local check=/sys/class/net/${1}/carrier
+	while ((count-- > 0)) ; do
+		test -e $check && read -t 1 carrier < $check
+		((carrier == 1)) && break
+		usleep 25000
+	done
+	echo $carrier
 }
 
 debug $0 $*

@@ -557,9 +557,9 @@ case "$ACTION" in
 			if ! is_iface_up $INTERFACE ; then
 				ip link set $INTERFACE up ${MTU:+mtu $MTU} \
 				   ${LLADDR:+address $LLADDR} $LINK_OPTIONS
-				for a in 1 2 3 4 5; do
+				for ((count=200; count >= 0; count--)) ; do
 					is_iface_up $INTERFACE && break
-					sleep 1
+					usleep 25000
 				done
 
 				# (optionally) wait until a device is really configured
@@ -629,8 +629,9 @@ case "$ACTION" in
 			#
 			# TODO: does one the actual clients still exit on infinite lease??
 			#       (dhcpcd does not do this any more)
-			show_dots=true
-			for ((wab_cnt=0; wab_cnt<=${DHCLIENT_WAIT_AT_BOOT:-15}; wab_cnt++)); do
+			typeset -i wab_max=${DHCLIENT_WAIT_AT_BOOT:-15};
+			let wab_max\*=10
+			for ((wab_cnt=0; wab_cnt<=wab_max; wab_cnt++)); do
 				for BOOTPROTO in ${BOOTPROTOS[@]} ; do
 					case "$BOOTPROTO" in
 					(dhcp4)
@@ -640,7 +641,7 @@ case "$ACTION" in
 							info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
 
 							if ! dhcpc4_on_iface -q ; then
-								[ $wab_cnt -lt 2 ] && message_n .\ .\ 
+								((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
 								DHCP4_MESSAGE="DHCP4 client NOT running"
 								DHCP4_STATUS=$R_NOTRUNNING
 								continue
@@ -672,7 +673,7 @@ case "$ACTION" in
 						(dhclient)
 							# TODO: parse the lease?!
 							if ! dhcpc4_on_iface -q ; then
-								[ $wab_cnt -lt 2 ] && message_n .\ .\ 
+								((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
 								DHCP4_MESSAGE="DHCP4 client NOT running"
 								DHCP4_STATUS=$R_NOTRUNNING
 								continue
@@ -697,7 +698,7 @@ case "$ACTION" in
 					;;
 					(dhcp6)
 						if ! dhcpc6_on_iface -q ; then
-							[ $wab_cnt -lt 2 ] && message_n .\ .\ 
+							((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
 							DHCP6_MESSAGE="DHCP6 client NOT running"
 							DHCP6_STATUS=$R_NOTRUNNING
 							continue
@@ -724,8 +725,8 @@ case "$ACTION" in
 					esac
 				done
 				if [ -z "$DHCP4_STATUS" -o -z "$DHCP6_STATUS" ] ; then
-					$show_dots && { show_dots=false ; message_n .\ ; } || show_dots=true
-					sleep 1
+					((wab_cnt % 20 == 1)) && message_n .\ 
+					usleep 100000
 				fi
 			done
 			message " "

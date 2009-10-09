@@ -358,13 +358,13 @@ if [ "$CONTROL_IFPLUGD" == yes ] ; then
 				# Additionally ifdown must not return before ifplugd has terminated
 				# so that a new ifplugd may be started when calling 'rcnetwork
 				# restart' (See bug 129648).
-				for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+				for ((count=0; count<800; count++)) ; do
 					if [ ! -f /var/run/ifplugd.$INTERFACE.pid ] ; then
 						debug "ifplugd terminated"
 						break
 					fi
-					debug "waiting for ifplugd to terminate ($i)"
-					sleep 1
+					((count%40 == 1)) && debug "waiting for ifplugd to terminate ($((count/40+1)))"
+					usleep 25000
 				done
 			fi
 			;;

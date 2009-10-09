@@ -104,7 +104,10 @@ case "$ACTION" in
 		if test -n "$PREPARE" ; then
 		    test "$status" = BEATEN -o "$status" = CHOOSING -o "$status" = DEFENDING && exit $R_SUCCESS
 		    ip link set $INTERFACE up
-		    for a in 1 2 3 4 5; do is_iface_up $INTERFACE && break; sleep 1; done
+		    for ((count=200; count >= 0; count--)) ; do
+			is_iface_up $INTERFACE && break
+			usleep 25000
+		    done
 		    # three seconds grace period
 		    /sbin/autoip -B -g 3 $INTERFACE || exit $R_ERROR
 		    exit $R_SUCCESS
@@ -112,7 +115,10 @@ case "$ACTION" in
 
 		ip link set $INTERFACE up ${MTU:+mtu $MTU} \
 		                          ${LLADDR:+address $LLADDR} $LINK_OPTIONS
-		for a in 1 2 3 4 5; do is_iface_up $INTERFACE && break; sleep 1; done
+		for ((count=200; count >= 0; count--)) ; do
+		    is_iface_up $INTERFACE && break
+		    usleep 25000
+		done
 
 		if test "$RUN_FROM_RC" = yes; then 
 			message_n "(autoip) " 
@@ -128,7 +134,7 @@ case "$ACTION" in
 		    /sbin/autoip -B $INTERFACE || exit $R_ERROR
 		fi
 
-		for ((i=0; i<30; i++)); do 
+		for ((count=0; count<1200; count++)); do 
 			pid= status= ipaddr=
 			if test -e $info ; then
 			    while read l ; do
@@ -144,7 +150,8 @@ case "$ACTION" in
 			    status=FAILED
 			    break
 			}
-			message_n .\ ; sleep 1
+			((count%40 == 1)) && message_n ". "
+			usleep 25000
 		done
 		if test "$status" = BEATEN ; then
 			message_n "already configured"

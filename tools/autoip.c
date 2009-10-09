@@ -456,7 +456,7 @@ main(int argc, char **argv)
   int background = 0;
   int pid = 0;
   int query = 0;
-  int grace = 0;
+  unsigned long int grace = 0;
 
   myprgname = strrchr(argv[0], '/');
   if (!myprgname || *++myprgname == 0)
@@ -484,7 +484,12 @@ main(int argc, char **argv)
 	  background = 2;
 	  break;
 	case 'g':
-	  grace = atoi(optarg);
+	  {
+	    char *endptr;
+	    grace = strtoul(optarg, &endptr, 10);
+	    if (*endptr != '\0')
+	      usage();
+	  }
 	  break;
 	case 'm':
 	  probe_min = atoi(optarg);
@@ -545,6 +550,15 @@ main(int argc, char **argv)
       pid = getpid();
     }
 
+#if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 199309L)
+  grace *= 40;
+  if (!force) while (grace-- > 0)
+    {
+      const struct timespec req = {0, 25000000};
+      check_if_good(sock4, myifname, 0);
+      nanosleep(&req, NULL);
+    }
+#else
   while (grace > 0)
     {
       if (!force)
@@ -552,6 +566,7 @@ main(int argc, char **argv)
       sleep(1);
       grace--;
     }
+#endif
     
   if (!force)
     check_if_good(sock4, myifname, 0);
