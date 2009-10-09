@@ -184,8 +184,9 @@ the NetworkManager!
 Defines the DNS merge policy.
 .TP
 .B NETCONFIG_DNS_FORWARDER
-The type of the forwarder type to configure. Default value is "resolver"
-activating the "dns-resolver" module.
+The type of the forwarder type to configure. Valid settings are "resolver",
+"bind" and "dnsmasq". The default setting is "resolver" activating the
+"dns-resolver" module.
 .TP
 .B NETCONFIG_DNS_STATIC_SEARCHLIST
 List of DNS domain names used for host-name lookup.
