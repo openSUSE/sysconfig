@@ -1,4 +1,38 @@
 -------------------------------------------------------------------
+Fri Oct  9 17:04:42 CEST 2009 - mt@suse.de
+
+- version 0.71.21
+- Fixed support of eth0.VLAN interface name schema as well as custom
+  names, documented it in the ifcfg-vlan(5) manual page (bnc#534032,
+  fate#305947).
+- Implemented netconfig update -m <module|prefix> filter, updated
+  netconfig.8 manual page(fate#306274).
+- Added check for hostname changes to avoid a syslog reload in
+  dhcpcd-hook when it didn't changed (fate#305702, bnc#466198).
+- Disabled installation of obsolete README.storage, README.s390,
+  getcfg.8, hwup.8 and modify_resolvconf.8 man pages. Updated and
+  moved README.hwcfg_and_device_initialisation to package doc dir.
+  Disabled installation of the obsolete hwup script (bnc#483774,
+  fate#306215).
+- Fixed remove_bond function to remove the bond properly
+- Changed to use /dev/.sysconfig/network instead of the POSIX shm
+  path /dev/shm/sysconfig, that may be a dedicated file system
+  (bnc#335486).
+- Changed is_iface_available() to use interface type only
+  (fate#305947).
+- Improved the NETCONFIG_DNS_FORWARDER documentation to list the
+  valid settings in netconfig(8) man page (bnc#507979).
+- Improved IFPLUGD_PRIORITY documentation in ifcfg(5) man page.
+- Fixed scripts/extradebug to avoid huge files it created.
+- Applied fastboot patch from Moblin:Factory to avoid a sleep 3.
+- Applied patch by ro@suse.de removing unused libsysfs checks.
+- Improved ifup -o hotplug to filter by interface type, updated
+  77-network.rules udev rule (fate#305947).
+- Changed to exit in ifup when network manager is enabled/active.
+- Removed obsolete nm "up" notification and NM_CONTROLLED variable.
+- Applied patch by werner@suse.de to use usleep for more often.
+
+-------------------------------------------------------------------
 Tue Oct  6 15:04:51 CEST 2009 - mt@suse.de
 
 - version 0.71.20
