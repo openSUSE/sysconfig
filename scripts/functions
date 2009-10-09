@@ -172,7 +172,7 @@ get_iface_type () {
 		      	;;
 		  512)	TYPE=ppp ;;
 		  768)	TYPE=ipip ;; # IPIP tunnel
-		  769)	TYPE= ;; # IP6IP6 tunnel
+		  769)	TYPE=ip6tnl ;; # IP6IP6 tunnel
 		  772)	TYPE=lo ;;
 		  776)	TYPE=sit ;; # sit0 device - IPv6-in-IPv4
 		  778)	TYPE=gre ;; # GRE over IP
@@ -184,7 +184,6 @@ get_iface_type () {
 	# which does not rely on the interface names.
 	case $IF in
 		ippp*|isdn*) TYPE=isdn;;
-		ip6tnl*)     TYPE=ip6tnl;; # This might be type 769 ...
 		mip6mnha*)   TYPE=mip6mnha;;
 	esac
 	test -n "$TYPE" && echo $TYPE && return 0
