@@ -318,10 +318,11 @@ if [ "$CONTROL_IFPLUGD" == yes ] ; then
 					$IFPLUGD -i $INTERFACE $IFPLUGSCRIPT \
 						${IFPLUGD_OPTIONS:- -f -I}
 				fi
+
+				# We need this flag later for ifstatus, because we must avoid that
+				# connection state is checked to early
+				( sleep 3; touch $RUN_FILES_BASE/ready-$INTERFACE; ) &
 			fi
-			# We need this flag later for ifstatus, because we must avoid that
-			# connection state is checked to early
-			( sleep 3; touch $RUN_FILES_BASE/ready-$INTERFACE; ) &
 			;;
 		ifdown)
 			if [ "$INTERFACETYPE" != "wlan" -a -f /var/run/ifplugd.$INTERFACE.pid ]; then
