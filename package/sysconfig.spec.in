@@ -214,10 +214,8 @@ popd > /dev/null
 #
 %{fillup_and_insserv -fY network}
 %{fillup_and_insserv -fY network-remotefs}
-if test -f etc/sysconfig/network/dhcp ; then
-    # remove first, we need the new default value
-    sysconfig_remove_and_set network/dhcp DHCLIENT_TIMEOUT
-fi
+# remove first, we need the new default value
+sysconfig_remove_and_set network/dhcp DHCLIENT_TIMEOUT
 %{fillup_only -dns dhcp network network}
 %{fillup_only -dns config network network}
 /sbin/ldconfig
