@@ -98,18 +98,17 @@ is_iface_available () {
 	local IFTYPE=${2:-$INTERFACETYPE}
 	test -z "$IFNAME"              &&       return 1
 	test -d /sys/class/net/$IFNAME &&       return 0
-	case $IFNAME in
-		ippp*|isdn*|modem*|dsl*|ppp*)   return 0 ;;
-		ipip*|sit*|gre*|tun*|tap*)      return 0 ;;
-		ib*.*|vlan*)                    return 0 ;;
-		dummy*)                         return 0 ;;
-	esac
-	test "${SCRIPTNAME%%-*}" = ifdown -a \
+	test "${SCRIPTNAME%%-*}" = ifdown -a    \
 	     "$MODE" = hotplug               && return 0
-	test "${SCRIPTNAME%%-*}" = ifup      && \
-	case ${IFTYPE:-$(get_iface_type $IFNAME)} in
+	: ${IFTYPE:=$(get_iface_type             "$IFNAME")}
+	: ${IFTYPE:=$(get_iface_type_from_config "$IFNAME")}
+	test "${SCRIPTNAME%%-*}" = ifup      && { \
+	    case ${IFTYPE} in
 		bond|bridge|vlan|ibchild)       return 0 ;;
-	esac
+		ppp|isdn|dummy|tun|tap)		return 0 ;;
+		ipip|ip6tnl|sit|gre|mip6mnha)	return 0 ;;
+	    esac
+	}
 	test -d /sys/class/net/$IFNAME
 }
 
