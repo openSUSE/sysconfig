@@ -224,7 +224,7 @@ remove_bond () {
 		return 1 # Interface is not a bonding master
 	fi
 	ip link set down dev $INTERFACE &>/dev/null
-	echo "-$INTERFACE" > "$sysfs_npath/bonding_masters" &>/dev/null
+	{ echo "-$INTERFACE" > "$sysfs_npath/bonding_masters" ; } &>/dev/null
 }
 
 
