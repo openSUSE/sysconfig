@@ -148,25 +148,27 @@ start)
 	/sbin/modprobe 8021q
 
 	# get vlan id
-	id=""
-	nr=""
-	case $INTERFACE in
-	*.*)	id=${INTERFACE##*.}
-	        nr=$(del_pad "$id")
-		test "x${id}" != "x${nr}" && \
-		name_type=DEV_PLUS_VID    || \
-		name_type=DEV_PLUS_VID_NO_PAD
-	;;
-	vlan*)	id=${INTERFACE#vlan}
-	        nr=$(del_pad "$id")
-		test "x${id}" != "x${nr}" && \
-		name_type=VLAN_PLUS_VID   || \
-		name_type=VLAN_PLUS_VID_NO_PAD
-	;;
-	*)	id=$(get_num "$INTERFACE")
-		nr=$(del_pad "$id")
-	;;
-	esac
+	id="$VLAN_ID"
+	nr=$(del_pad "$id")
+	if test "x$nr" = x ; then
+		case $INTERFACE in
+		*.*)	id=${INTERFACE##*.}
+		        nr=$(del_pad "$id")
+			test "x${id}" != "x${nr}" && \
+			name_type=DEV_PLUS_VID    || \
+			name_type=DEV_PLUS_VID_NO_PAD
+		;;
+		vlan*)	id=${INTERFACE#vlan}
+		        nr=$(del_pad "$id")
+			test "x${id}" != "x${nr}" && \
+			name_type=VLAN_PLUS_VID   || \
+			name_type=VLAN_PLUS_VID_NO_PAD
+		;;
+		*)	id=$(get_num "$INTERFACE")
+			nr=$(del_pad "$id")
+		;;
+		esac
+	fi
 
 	# Check vlan id we found
 	if test "$INTERFACE" = "$id" -o "x$id" = x -o "x$nr" = x ; then
