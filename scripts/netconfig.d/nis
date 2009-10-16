@@ -18,8 +18,7 @@
 # Author: Michael Calmer <mc@suse.de>
 #         Marius Tomaschewski <mt@suse.de>
 #
-# $Id: $
-#
+##
 
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
     echo "You must be root to start $0." >&2
@@ -33,7 +32,7 @@ r="$ROOT"
 . "$r/etc/sysconfig/network/scripts/functions.netconfig"
 
 PROGNAME="${0##*/}"
-STATEDIR="$r/var/run/netconfig/"
+STATEDIR="$r/var/run/netconfig"
 
 debug "$PROGNAME Module called"
 
@@ -126,6 +125,30 @@ function format_yp_conf()
     return 0
 }
 
+function format_static()
+{
+    local force=$1
+
+    debug "format_static[${force:-0}] called"
+
+    if [ "x$NETCONFIG_NIS_STATIC_DOMAIN"  != "x" -o \
+         "x$NETCONFIG_NIS_STATIC_SERVERS" != "x" ]; then
+        set_nisdomainname "$NETCONFIG_NIS_STATIC_DOMAIN" "" "$force"
+        format_yp_conf "$NETCONFIG_NIS_STATIC_DOMAIN" \
+                       "$NETCONFIG_NIS_STATIC_SERVERS"
+    fi
+
+    for i in {0..99} ; do
+        nis_dom="NETCONFIG_NIS_STATIC_DOMAIN_$i"
+        nis_srv="NETCONFIG_NIS_STATIC_SERVERS_$i"
+
+        if [ "x${!nis_dom}" != "x" -o "x${!nis_srv}" != "x" ]; then
+            set_nisdomainname "${!nis_dom}" "" "$force"
+            format_yp_conf "${!nis_dom}" "${!nis_srv}"
+        fi
+    done
+}
+
 function write_yp_conf()
 {
     # DESTFILE may be a symlink on a read only /-fs
@@ -196,79 +219,6 @@ EOT
 
     netconfig_check_md5_and_move "$TMP_FILE" "$DESTFILE" ".netconfig" TMP_FILE
     return $?
-}
-
-function format_static() {
-    local force=$1
-
-    debug "format_static[${force:-0}] called"
-
-    if [ "x$NETCONFIG_NIS_STATIC_DOMAIN"  != "x" -o \
-         "x$NETCONFIG_NIS_STATIC_SERVERS" != "x" ]; then
-        set_nisdomainname "$NETCONFIG_NIS_STATIC_DOMAIN" "" "$force"
-        format_yp_conf "$NETCONFIG_NIS_STATIC_DOMAIN" \
-                       "$NETCONFIG_NIS_STATIC_SERVERS"
-    fi
-
-    for i in {0..99} ; do
-        nis_dom="NETCONFIG_NIS_STATIC_DOMAIN_$i"
-        nis_srv="NETCONFIG_NIS_STATIC_SERVERS_$i"
-
-        if [ "x${!nis_dom}" != "x" -o "x${!nis_srv}" != "x" ]; then
-            set_nisdomainname "${!nis_dom}" "" "$force"
-            format_yp_conf "${!nis_dom}" "${!nis_srv}"
-        fi
-    done
-}
-
-function get_nis_settings() {
-    debug "exec get_nis_settings: $1"
-    test -z "$1" && return 1
-
-    # clear the variables first
-    NISDOMAIN=""
-    NISSERVERS=""
-    INTERFACE=""
-    CREATETIME=""
-
-    get_variable "NISDOMAIN" "$1"
-    get_variable "NISSERVERS" "$1"
-    get_variable "INTERFACE" "$1"
-    get_variable "CREATETIME" "$1"
-    [ $(($CREATETIME)) -le 0 ] && CREATETIME=""
-
-    debug "exit get_nis_settings"
-    return 0
-}
-
-function manage_interfaceconfig() {
-
-    debug "manage_interfaceconfig: $1"
-
-    test -z "$1" && return 1
-
-    if [ ! -d "$1" ]; then
-        return 1
-    fi
-
-    for CFG in `ls -X -r $1/`; do
-        debug "CFG=$CFG"
-
-        get_nis_settings "$1/$CFG"
-
-        if [ "x$NISDOMAIN" = "x" -a "x$NISSERVERS" = "x" ]; then
-            continue;
-        fi
-
-        if [ "x$NISDOMAIN"  != "x" -a "x$NISSERVERS"  = "x" ]; then
-            NISSERVERS="broadcast"
-        fi
-
-        set_nisdomainname "$NISDOMAIN" "$INTERFACE" "$CREATETIME"
-        format_yp_conf "$NISDOMAIN" "$NISSERVERS"
-    done
-
-    return 0
 }
 
 function get_uptime()
@@ -349,13 +299,64 @@ function write_nisdomainname()
     return 2
 }
 
+function get_nis_settings()
+{
+    local cfg=$1 ; shift
+    test "x$cfg" = x && return 1
+
+    debug "exec get_nis_settings: $cfg"
+
+    # clear the variables first
+    NISDOMAIN=""
+    NISSERVERS=""
+    INTERFACE=""
+    CREATETIME=""
+
+    get_variable "NISDOMAIN" "$cfg"
+    get_variable "NISSERVERS" "$cfg"
+    get_variable "INTERFACE" "$cfg"
+    get_variable "CREATETIME" "$cfg"
+    [ $(($CREATETIME)) -le 0 ] && CREATETIME=""
+
+    debug "exit get_nis_settings: $cfg"
+    return 0
+}
+
+function manage_interfaceconfig()
+{
+    local cfg dir="$1" ; shift
+    test "x$dir" != x -a -d "$dir" || return 1
+
+    debug "exec manage_interfaceconfig: $dir"
+    for cfg in `ls -X -r "$dir/" 2>/dev/null`; do
+
+        get_nis_settings "$dir/$cfg"
+
+        if [ "x$NISDOMAIN" = "x" -a "x$NISSERVERS" = "x" ]; then
+            continue;
+        fi
+
+        if [ "x$NISDOMAIN"  != "x" -a "x$NISSERVERS"  = "x" ]; then
+            NISSERVERS="broadcast"
+        fi
+
+        set_nisdomainname "$NISDOMAIN" "$INTERFACE" "$CREATETIME"
+        format_yp_conf "$NISDOMAIN" "$NISSERVERS"
+    done
+    debug "exit manage_interfaceconfig: $dir"
+
+    return 0
+}
+
+
 # *********************
 # EXECUTION STARTS HERE
 # *********************
 
+
 # just for the case we need the original value...
 _NETCONFIG_NIS_POLICY="$NETCONFIG_NIS_POLICY"
-if [ "$_NETCONFIG_NIS_POLICY" = "auto" ]; then
+if [ "x$_NETCONFIG_NIS_POLICY" = "xauto" ]; then
     if [ "x$NETWORKMANAGER" = "xyes" ] ; then
         #
         # Use NetworkManager policy merged data
@@ -376,27 +377,21 @@ elif [ "x$_NETCONFIG_NIS_POLICY" = "x" ]; then
     exit 0;
 fi
 
-#
-# A * or ? is evaluated in the "for loop", so we need to replace it  
-#
-_NETCONFIG_NIS_POLICY=`echo "$_NETCONFIG_NIS_POLICY" | \
-        sed 's/\*/__ALL__/g' | sed 's/\?/__ONE__/g'`
-
-sd=0
 sf=0
-nm=0
-
-
+_g=1
+# disable filename glob expansion if needed
+shopt -o -q noglob || _g=0
+[ $_g ] && shopt -o -s noglob
 for POL in $_NETCONFIG_NIS_POLICY; do
+    shopt -o -u noglob
     case "$POL" in
     (NetworkManager)
         if [ "x$NETWORKMANAGER" = "xyes" ] ; then
-            nm=1
             debug "Use NetworkManager policy merged settings"
-            CFG="$STATEDIR/NetworkManager.netconfig"
-            if [ -r "$CFG" ] ; then
+            cfg="$STATEDIR/NetworkManager.netconfig"
+            if [ -r "$cfg" ] ; then
 
-                get_nis_settings "$CFG"
+                get_nis_settings "$cfg"
 
                 if [ "x$NISDOMAIN" != "x" -a "x$NISSERVERS" = "x" ]; then
                     NISSERVERS="broadcast"
@@ -413,16 +408,11 @@ for POL in $_NETCONFIG_NIS_POLICY; do
         format_static $(($sf - 1))
     ;;
     (STATIC_FALLBACK)
-        debug "Overwrite Static"
+        debug "Static Fallback"
         sf=1
     ;;
     (*)
-        #
-        # revert the replacement; now we want the evaluation
-        #
-        POL=`echo "$POL" | sed 's/__ALL__/*/g' | sed 's/__ONE__/?/g'`
         debug "Other: $POL"
-
         for IFDIR in $STATEDIR/$POL; do
             IFNAME="${IFDIR##*/}"
             test -n "$IFNAME" -a -d "$IFDIR" -a \
@@ -434,6 +424,7 @@ for POL in $_NETCONFIG_NIS_POLICY; do
     ;;
     esac
 done
+[ $_g ] && shopt -o -u noglob
 
 if [ $sf -eq 1 -a \
      ${#NIS_YPSRV_ENTRIES[@]}    -eq 0 -a \
