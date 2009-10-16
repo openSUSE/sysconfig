@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Fri Oct 16 21:00:39 CEST 2009 - mt@suse.de
+
+- Implemented if-up.d/ndp-proxy plugin required to set proxy-ndp
+  (ipv6) and proxy-arp (ipv4) adresses in a xen routed setup
+  (fate#304415).
+- Changed to use NM_ONLINE_TIMEOUT="30" by default (fate#307610).
+- Improved netconfig update -m filter/usage text (fate#306274).
+
+-------------------------------------------------------------------
 Fri Oct 16 12:16:54 CEST 2009 - mt@suse.de
 
 - version 0.71.22
