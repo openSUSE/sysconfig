@@ -244,17 +244,17 @@ function run_modules() {
 
     debug "Module order: $NETCONFIG_MODULES_ORDER"
     for plg in $NETCONFIG_MODULES_ORDER; do
-        if test "x$mfilter" != "x" ; then
-             test "x$mfilter" = "x${plg}"     -o \
-                  "x$mfilter" = "x${plg%%-*}" || continue
-        fi
-	case $plg in
-	  -*) continue ;;
-	esac
-        if [ ! -x $MODULEDIR/$plg ]; then
+        case $plg in
+          -*) continue ;;
+        esac
+        case "x$mfilter" in
+            "x"|"x${plg}"|"x${plg%%-*}") ;;
+            *) continue                  ;;
+        esac
+        if [ ! -x "$MODULEDIR/$plg" ]; then
             continue
         fi
-        msg=`$MODULEDIR/$plg 2>&1`
+        msg=`"$MODULEDIR/$plg" 2>&1`
         if [ "x$msg" != x ]; then
             errors[${#errors[@]}]="$msg"
         fi
