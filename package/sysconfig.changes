@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Oct 16 12:16:54 CEST 2009 - mt@suse.de
+
+- version 0.71.22
+- First implementation of netconfig DNS service ranking allowing
+  to specify which service provide preffered, e.g. vpn, and which
+  fallback settings, e.g. avahi (fate#306342).
+
+-------------------------------------------------------------------
 Fri Oct  9 17:04:42 CEST 2009 - mt@suse.de
 
 - version 0.71.21
