@@ -37,7 +37,7 @@ debug "$PROGNAME Module called"
 
 . "$r/etc/sysconfig/network/config"
 
-unset NTP_SERVER_LIST ${!NTP_SERVER_LIST_*}
+NTP_SERVER_LIST=()
 
 DESTFILE="$r/var/run/ntp/servers-netconfig"
 TMP_FILE=""
@@ -116,23 +116,16 @@ function get_ntp_settings()
 {
     local cfg=$1 ; shift
     test "x$cfg" = x && return 1
-    local SERVICE NTPSERVERS
-    local var idx NTP_SERVER_LIST
+    local NTPSERVERS
+
     debug "exec get_ntp_settings: $cfg"
 
-    get_variable "SERVICE" "$cfg"
-    idx=`get_ranking_idx "$SERVICE" "$@"`
-    debug "     get_ntp_settings: service '$SERVICE' => rank '$idx'"
-
-    var="NTP_SERVER_LIST_$idx"
-    NTP_SERVER_LIST=(${!var})
     get_variable "NTPSERVERS" "$cfg"
     if [ "x$NTPSERVERS" != "x" ]; then
         NTP_SERVER_LIST=(${NTP_SERVER_LIST[@]} $NTPSERVERS)
     fi
     unset NTPSERVERS
-    eval "${var}='${NTP_SERVER_LIST[@]}'"
-    debug "     get_ntp_settings: ${var}='${!var}'"
+    debug "     get_ntp_settings: NTP_SERVER_LIST='${NTP_SERVER_LIST[@]}'"
 
     debug "exit get_ntp_settings: $cfg"
     return 0
@@ -145,25 +138,19 @@ function manage_interfaceconfig()
 
     debug "exec manage_interfaceconfig: $dir"
     for cfg in `ls -X -r "$dir/" 2>/dev/null`; do
-        get_ntp_settings "$dir/$cfg" "$@"
+        get_ntp_settings "$dir/$cfg"
     done
     debug "exit manage_interfaceconfig: $dir"
     return 0
 }
 
+
 # *********************
 # EXECUTION STARTS HERE
 # *********************
 
-# just for the case we need the original value...
-_NETCONFIG_NTP_RANKING="$NETCONFIG_NTP_RANKING"
-if [ "x$_NETCONFIG_NTP_RANKING" = "x" ] ; then
-    _NETCONFIG_NTP_RANKING="$NETCONFIG_NTP_RANKING_DEFAULT"
-fi
-
-# just for the case we need the original value...
 _NETCONFIG_NTP_POLICY="$NETCONFIG_NTP_POLICY"
-if [ "$_NETCONFIG_NTP_POLICY" = "auto" ]; then
+if [ "x$_NETCONFIG_NTP_POLICY" = "xauto" ]; then
     if [ "x$NETWORKMANAGER" = "xyes" ] ; then
         #
         # Use NetworkManager policy merged data
@@ -189,7 +176,7 @@ _g=1
 # disable filename glob expansion if needed
 shopt -o -q noglob || _g=0
 [ $_g ] && shopt -o -s noglob
-for POL in $_NETCONFIG_NTP_POLICY; do 
+for POL in $_NETCONFIG_NTP_POLICY; do
     shopt -o -u noglob
     case "$POL" in
     (NetworkManager)
@@ -197,14 +184,14 @@ for POL in $_NETCONFIG_NTP_POLICY; do
             debug "Use NetworkManager policy merged settings"
             cfg="$STATEDIR/NetworkManager.netconfig"
             if [ -r "$cfg" ] ; then
-                get_ntp_settings "$cfg" "$_NETCONFIG_NTP_RANKING"
+                get_ntp_settings "$cfg"
             fi
             break
         fi
     ;;
     (STATIC)
         debug "Keep Static"
-        NTP_SERVER_LIST_1="$NTP_SERVER_LIST_1 $NETCONFIG_NTP_STATIC_SERVERS"
+        NTP_SERVER_LIST=(${NTP_SERVER_LIST[@]} $NETCONFIG_NTP_STATIC_SERVERS)
         ;;
         (STATIC_FALLBACK)
         debug "Static Fallback"
@@ -216,19 +203,18 @@ for POL in $_NETCONFIG_NTP_POLICY; do
             test -d "$IFDIR" -a \
                  -d "/sys/class/net/${IFDIR##*/}" || continue
             # proceed every interface we find with this match
-            manage_interfaceconfig  "$IFDIR" "$_NETCONFIG_NTP_RANKING"
+            manage_interfaceconfig  "$IFDIR"
         done
     ;;
     esac
 done
 [ $_g ] && shopt -o -u noglob
 
-if [ $sf -eq 1 -a -z "$NTP_SERVER_LIST_0" \
-               -a -z "$NTP_SERVER_LIST_1" ]; then
-    NTP_SERVER_LIST_2="$NTP_SERVER_LIST_2 $NETCONFIG_NTP_STATIC_SERVERS"
+if [ $sf -eq 1 -a ${#NTP_SERVER_LIST[@]} -eq 0 ]; then
+    NTP_SERVER_LIST=($NETCONFIG_NTP_STATIC_SERVERS)
 fi
 
-write_ntp_servers "$NTP_SERVER_LIST_0 $NTP_SERVER_LIST_1 $NTP_SERVER_LIST_2"
+write_ntp_servers "${NTP_SERVER_LIST[*]}"
 RET=$?
 
 if [ $RET -eq 1 ]; then
