@@ -1,0 +1,209 @@
+#!/bin/bash
+#
+# Copyright (c) 2009 SUSE LINUX Products GmbH, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Authors: Marius Tomaschewski <mt@suse.de>
+#
+#--
+#
+# Proxy the 'address' of/behind 'address interface' to all
+# 'proxy interfaces' using ip neigh command documented in
+# the ip(8) manual page.
+#
+# Don't forget to set net.ipv6.conf.all.proxy_ndp=1, e.g.
+# in the /etc/sysctl.conf file.
+#
+# Format of ndp-proxy.conf is:
+#   <address> <address interface> <proxy interface list>
+#
+# Format of ndp-proxy.<address interface>.conf is same to
+# the above, but allows also to omit address interface:
+#   <address> -                   <proxy interface list>
+#
+# Example:
+# - Description:
+#     2001:db8:abba::1/64	-- local eth0 address
+#     2001:db8:abba::1001/64	-- address behind tap1
+#     2001:db8:abba::2001/64	-- address behind tap2
+#
+# - ndp-proxy.conf configuration:
+#     2001:db8:abba::1		eth0	tap1 tap2
+#     2001:db8:abba::1001	tap1	eth0 tap2
+#     2001:db8:abba::2001	tap2	eth0 tap1
+#
+#--
+
+usage () {
+    echo $@
+    echo "usage: $0 [<config>] <interface> [-o <options>]"
+    echo ""
+    echo "Options are:"
+    echo "    debug    : be verbose"
+    echo "    rc       : indicates that we are called from rcnetwork"
+    echo ""
+    echo "Any another options are ignored"
+    exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=$0
+debug $*
+case $1 in ""|-h|*help*) usage ;; esac
+CONFIG="$1"
+shift
+if [ "x$1" != x -a "x$1" != "x-o" ] ; then
+    INTERFACE="$1"
+else
+    INTERFACE="$CONFIG"
+fi
+shift
+test "x$1" = "x-o" && shift
+DEBUG=no
+RUN_FROM_RC=no
+while [ $# -gt 0 ]; do
+    case $1 in
+        debug)       DEBUG=yes ;;
+        rc)          RUN_FROM_RC=yes ;;
+        *)           debug unknown option $1 ;;
+    esac
+    shift
+done
+
+
+######################################################################
+# configuration files relative to /etc/sysconfig/network
+ndp_proxy_conf='ndp-proxy.conf'
+ndp_proxy_glob='ndp-proxy.*.conf'
+
+
+######################################################################
+# apply interface from file name when missed in ndp-proxy.$IF.conf
+read_ifname_conf()
+{
+    local iface fname=$1
+    test -s "$fname" || return 1
+
+    iface=${fname%.conf}
+    iface=${iface##*ndp-proxy.}
+    case $iface in
+        ""|"-") return 1 ;;
+    esac
+
+    local iaddr iname pnames
+    while read iaddr iname pnames ; do
+        case $iaddr in
+            ""|\#*) continue ;;
+        esac
+        case $iname in
+            -) iname=$iface  ;;
+        esac
+        echo "${iaddr} ${iname} ${pnames}"
+    done < <(cat "$fname" ; echo "")
+}
+
+######################################################################
+# apply the ndp proxy rules from stdin
+do_ndp_proxy()
+{
+    local cmd=$1
+    test "x$cmd" = x && return 1
+
+    local dir="/sys/class/net"
+    local iaddr iname pnames
+    while read iaddr iname pnames ; do
+        case $iaddr in
+            ""|\#*) continue ;;
+        esac
+        case $iname in
+            -)      continue ;;
+        esac
+
+        for pname in $pnames ; do
+            case $pname in
+                ""|\#*) continue 2 ;;
+            esac
+            #debug "ip neigh $cmd proxy $iaddr dev $pname"
+
+            case $cmd in
+                add)
+                    # add to all pname ifaces, when iname exists
+                    test -d "$dir/$iname" || continue
+                ;;
+                del)
+                    # del $INTERFACE address, when iname exists
+                    test "$iname" = "$INTERFACE" || continue
+                ;;
+                *)  continue ;;
+            esac
+            is_iface_up "$pname" || continue
+
+            x="ip neigh $cmd proxy $iaddr dev $pname"
+            o=`$x 2>&1` ; s=$?
+            case $cmd$s in
+                add0|del0) debug "calling '$x': success"         ;;
+                del2)                                            ;;
+                *)  err_mesg "error reported by '$x': [$s] '$o'" ;;
+            esac
+        done
+    done
+    return 0
+}
+
+######################################################################
+# call do_ndp_proxy for all config files
+call_all_ndp_proxy()
+{
+    local cmd=$1
+    test "x$cmd" = x && return 1
+
+    if test -n "$ndp_proxy_conf" -a -s "$ndp_proxy_conf" ; then
+        do_ndp_proxy "$cmd" < <(cat "$ndp_proxy_conf" 2>/dev/null)
+    fi
+    if test -n "$ndp_proxy_glob" ; then
+        for cfg in $(ls -1 $ndp_proxy_glob 2>/dev/null) ; do
+            test "x$cfg" != x -a -s "$cfg" || continue
+            do_ndp_proxy "$cmd" < <(read_ifname_conf "$cfg")
+        done
+    fi
+}
+
+######################################################################
+# execution via /etc/sysconfig/network/if-<up|down>.d/ndp-proxy link
+case $SCRIPTNAME in
+*if-up.d*)
+        call_all_ndp_proxy add
+;;
+*if-down.d*)
+        call_all_ndp_proxy del
+;;
+*)
+        usage
+;;
+esac
+
+# vim: set ts=8 sts=4 sw=4 ai et:

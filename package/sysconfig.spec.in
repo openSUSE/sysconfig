@@ -87,6 +87,7 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %ghost /etc/sysconfig/network/dhcp
 %config(noreplace) /etc/sysconfig/network/ifcfg-lo
 %config(noreplace) /etc/sysconfig/network/ifroute-lo
+%config(noreplace) /etc/sysconfig/network/ndp-proxy.conf
 %config(noreplace) /etc/ppp/ip-up
 %config(noreplace) /etc/ppp/ip-down
 %config(noreplace) /etc/ppp/ipv6-up
@@ -101,6 +102,8 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %config /etc/modprobe.d/blacklist
 /etc/sysconfig/network/ifcfg.template
 /etc/sysconfig/network/scripts/*
+/etc/sysconfig/network/if-up.d/ndp-proxy
+/etc/sysconfig/network/if-down.d/ndp-proxy
 /etc/sysconfig/hardware
 /etc/netconfig.d
 /etc/ppp/poll.tcpip

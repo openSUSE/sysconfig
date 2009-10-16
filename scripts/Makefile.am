@@ -24,8 +24,9 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					ifup-skel \
 					ifup-wireless \
 					ifup-tunnel \
-					dhcpcd-hook \
 					ifplugd-selectif \
+					if-up.ndp-proxy \
+					dhcpcd-hook \
 					extradebug \
 					hwdesc2iface \
 					move_shm_sysconfig.sh \
@@ -82,7 +83,10 @@ install-data-hook:
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ip-down
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ipv6-up
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ipv6-down
-
+	mkdir -p -m755			$(DESTDIR)$(prefix)@sysconfig_networkdir@/if-up.d
+	mkdir -p -m755			$(DESTDIR)$(prefix)@sysconfig_networkdir@/if-down.d
+	ln -sf ../scripts/if-up.ndp-proxy	$(DESTDIR)/$(sysconfig_networkdir)/if-up.d/ndp-proxy
+	ln -sf ../scripts/if-up.ndp-proxy	$(DESTDIR)/$(sysconfig_networkdir)/if-down.d/ndp-proxy
 
 check: 
 	list='$(sysconfig_network_scripts_SCRIPTS) $(sbin_SCRIPTS) $(init_d_SCRIPTS) $(ppp_SCRIPTS) $(nm_dispatcher_SCRIPTS)'; \
