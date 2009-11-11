@@ -7,7 +7,8 @@ SUBDIRS = hardware
 
 sysconfig_network_DATA =	ifcfg.template \
 				ifcfg-lo \
-				ifroute-lo
+				ifroute-lo \
+				ndp-proxy.conf
 
 udevrules_DATA = 77-network.rules
 
