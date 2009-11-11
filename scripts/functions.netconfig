@@ -21,7 +21,7 @@
 
 r=$ROOT
 
-# builtin default settings
+# builtin dns ranking defaults
 NETCONFIG_DNS_RANKING_DEFAULT="+strongswan +openswan +openvpn -avahi"
 
 test -z "$MD5DIR" && {
