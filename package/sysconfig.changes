@@ -1,4 +1,21 @@
 -------------------------------------------------------------------
+Wed Nov 11 12:02:07 CET 2009 - mt@suse.de
+
+- version 0.73.1
+- Implemented if-up.d/ndp-proxy plugin required to set proxy-ndp
+  (ipv6) and proxy-arp (ipv4) adresses in a xen routed setup
+  (fate#304415).
+- Changed to use NM_ONLINE_TIMEOUT="30" by default (fate#307610).
+- Improved netconfig update -m filter/usage text (fate#306274),
+  improved netconfig usage text to show active modules and module
+  groups and to print debug messges about disabled/skipped modules.
+- First implementation of netconfig DNS service ranking allowing
+  to specify which service provide preffered, e.g. vpn, and which
+  fallback settings, e.g. avahi (fate#306342).
+  Cleaned up netconfig.d/nis and ntp-runtime modules, apply policy
+  with disabled filename glob expansion.
+
+-------------------------------------------------------------------
 Fri Oct  9 15:33:27 CEST 2009 - mt@suse.de
 
 - Fixed support of eth0.VLAN interface name schema as well as custom
