@@ -18,10 +18,11 @@
 # Authors: Michael Calmer <mc@suse.de>
 #          Marius Tomaschewski <mt@suse.de>
 #
-# $Id$
-#
 
 r=$ROOT
+
+# builtin default settings
+NETCONFIG_DNS_RANKING_DEFAULT="+strongswan +openswan +openvpn -avahi"
 
 test -z "$MD5DIR" && {
     MD5DIR=$r/var/adm/netconfig/md5
@@ -29,21 +30,21 @@ test -z "$MD5DIR" && {
 }
 
 debug () {
-  test "$VERBOSE" = "yes" || return
-  echo -e "debug: $*" >&2
+    test "$VERBOSE" = "yes" || return
+    echo -e "debug: $*" >&2
 }
 
 warn () {
-  test "$QUIET" = "yes" && return
-  echo -e "$*" >&2
+    test "$QUIET" = "yes" && return
+    echo -e "$*" >&2
 }
 
 log () {
-  logger -t "$PROGNAME" "$*"
-  debug "$*"
-  if [ "$ACTION" = "cleanup" -a "$QUIET" != "yes" ] ; then
-    echo -e "$*" >&2
-  fi
+    logger -t "$PROGNAME" "$*"
+    debug "$*"
+    if [ "$ACTION" = "cleanup" -a "$QUIET" != "yes" ] ; then
+        echo -e "$*" >&2
+    fi
 }
 
 function get_variable()
@@ -52,6 +53,53 @@ function get_variable()
     while read line; do
         eval $line
     done < <(grep "^[[:space:]]*$1=" $2 2>/dev/null)
+}
+
+get_ranking_idx()
+{
+    # + => 0 (preferred)
+    #   => 1 (normal, default)
+    # - => 2 (fallback)
+    test $# -le 1 && return 1
+    local s="$1" ; shift
+
+    local g=1
+    shopt -o -q noglob || g=0
+    [ $g ] && shopt -o -s noglob
+    for r in $@ ; do
+      case $r in
+      +\/*\/)
+            r=${r:2:$((${#r}-3))}
+            if [[ ${s} =~ ${r} ]] ; then
+                echo "0" ; return 0
+            fi
+      ;;
+      -\/*\/)
+            r=${r:2:$((${#r}-3))}
+            if [[ ${s} =~ ${r} ]] ; then
+                echo "2" ; return 0
+            fi
+      ;;
+      +*)
+            r=${r:1}
+            if [ "x${s}" = "x${r}" ] ; then
+                echo "0" ; return 0
+            fi
+      ;;
+      -*)
+            r=${r:1}
+            if [ "x${s}" = "x${r}" ] ; then
+                echo "2" ; return 0
+            fi
+      ;;
+      *)
+      ;;
+      esac
+    done
+    [ $g ] && shopt -o -u noglob
+
+    # use normal/default ranking
+    echo "1" ; return 0
 }
 
 function read_symlink()
@@ -193,19 +241,19 @@ netconfig_check_md5_and_move()
 
 netconfig_kv_filter()
 {
-	# force portable "C" locale to match valid identifiers
-	LANG=C LC_ALL=C awk -- '/^[[:space:]]*$/ { next; }
-	/^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*='"'"'[^'"'"']*'"'"'[[:space:]]*$/ && \
-	!/^[[:space:]]*_+=/ {
-		sub("^[[:space:]]+", "", $0);
-		sub("[[:space:]]+$", "", $0);
-		equ=index($0, "=");
-		key=substr($0, 1, equ - 1);
-		val=substr($0, equ + 2, length($0) - equ - 2)
-		print key"="val;
-		next;
-	}
-	{ print "="NR; exit(NR); }' "$@"
+    # force portable "C" locale to match valid identifiers
+    LANG=C LC_ALL=C awk -- '/^[[:space:]]*$/ { next; }
+    /^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*='"'"'[^'"'"']*'"'"'[[:space:]]*$/ && \
+    !/^[[:space:]]*_+=/ {
+    	sub("^[[:space:]]+", "", $0);
+    	sub("[[:space:]]+$", "", $0);
+    	equ=index($0, "=");
+    	key=substr($0, 1, equ - 1);
+    	val=substr($0, equ + 2, length($0) - equ - 2)
+    	print key"="val;
+    	next;
+    }
+    { print "="NR; exit(NR); }' "$@"
 }
 
 #
@@ -366,3 +414,5 @@ function find_first_provides() {
     done
     eval "$REQVAR=\"$VALUE\""
 }
+
+# vim: set ts=8 sts=4 sw=4 ai et:

@@ -18,8 +18,7 @@
 # Author: Michael Calmer <mc@suse.de>
 #         Marius Tomaschewski <mt@suse.de>
 #
-# $Id: $
-#
+##
 
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
     echo "You must be root to start $0." >&2
@@ -33,13 +32,13 @@ r="$ROOT"
 . "$r/etc/sysconfig/network/scripts/functions.netconfig"
 
 PROGNAME="${0##*/}"
-STATEDIR="$r/var/run/netconfig/"
+STATEDIR="$r/var/run/netconfig"
 debug "$PROGNAME module called"
 
 . "$r/etc/sysconfig/network/config"
 
-DNS_SEARCHLIST=""
-DNS_SERVERS=""
+unset DNS_SEARCHLIST ${!DNS_SEARCHLIST_*}
+unset DNS_SERVERS ${!DNS_SERVERS_*}
 
 DESTFILE="$r/etc/resolv.conf"
 TMP_FILE=""
@@ -117,9 +116,9 @@ EOT
     done
 
     if [ ${#SEARCHLIST[@]} -gt 0 ]; then
-	{
+        {
             echo "search ${SEARCHLIST[@]}"
-	} >> "$TMP_FILE"
+        } >> "$TMP_FILE"
     fi
 
     for ns in $2; do
@@ -145,48 +144,59 @@ EOT
     return $?
 }
 
-function get_dns_settings() {
-    debug "exec get_dns_settings: $1"
-    test -z "$1" && return 1
+function get_dns_settings()
+{
+    local cfg=$1 ; shift
+    test "x$cfg" = x && return 1
 
-    get_variable "DNSSEARCH" "$1"
+    local SERVICE DNSSEARCH DNSDOMAIN DNSSERVERS
+    local var idx DNS_SEARCHLIST DNS_SERVERS
+
+    debug "exec get_dns_settings: $cfg"
+
+    get_variable "SERVICE" "$cfg"
+    idx=`get_ranking_idx "$SERVICE" "$@"`
+    debug "     get_dns_settings: service '$SERVICE' => rank '$idx'"
+
+    var="DNS_SEARCHLIST_$idx"
+    DNS_SEARCHLIST=(${!var})
+    get_variable "DNSSEARCH" "$cfg"
     if [ "x$DNSSEARCH" != "x" ]; then
-        DNS_SEARCHLIST="$DNS_SEARCHLIST $DNSSEARCH"
-        DNSSEARCH=""
+        DNS_SEARCHLIST=(${DNS_SEARCHLIST[@]} $DNSSEARCH)
     else
-        get_variable "DNSDOMAIN" "$1"
+        get_variable "DNSDOMAIN" "$cfg"
         if [ "x$DNSDOMAIN" != "x" ]; then
-            DNS_SEARCHLIST="$DNS_SEARCHLIST $DNSDOMAIN"
-            DNSDOMAIN=""
+            DNS_SEARCHLIST=(${DNS_SEARCHLIST[@]} $DNSDOMAIN)
         fi
     fi
+    unset DNSSEARCH DNSDOMAIN
+    eval "${var}='${DNS_SEARCHLIST[@]}'"
+    debug "     get_dns_settings: ${var}='${!var}'"
 
-    get_variable "DNSSERVERS" "$1"
+    var="DNS_SERVERS_$idx"
+    DNS_SERVERS=(${!var})
+    get_variable "DNSSERVERS" "$cfg"
     if [ "x$DNSSERVERS" != "x" ]; then
-        DNS_SERVERS="$DNS_SERVERS $DNSSERVERS"
-        DNSSERVERS=""
+        DNS_SERVERS=(${DNS_SERVERS[@]} $DNSSERVERS)
     fi
+    unset DNSSERVERS
+    eval "${var}='${DNS_SERVERS[@]}'"
+    debug "     get_dns_settings: ${var}='${!var}'"
 
-    debug "exit get_dns_settings"
+    debug "exit get_dns_settings: $cfg"
     return 0
 }
 
-function manage_interfaceconfig() {
+function manage_interfaceconfig()
+{
+    local cfg dir="$1" ; shift
+    test "x$dir" != x -a -d "$dir" || return 1
 
-    debug "manage_interfaceconfig: $1"
-
-    test -z "$1" && return 1
-
-    if [ ! -d "$1" ]; then
-        return 1
-    fi
-    for CFG in `ls -X -r $1/`; do
-        debug "CFG=$CFG"
-
-        get_dns_settings "$1/$CFG"
-
+    debug "exec manage_interfaceconfig: $dir"
+    for cfg in `ls -X -r "$dir/" 2>/dev/null`; do
+        get_dns_settings "$dir/$cfg" "$@"
     done
-    debug "exit manage_interfaceconfig"
+    debug "exit manage_interfaceconfig: $dir"
     return 0
 }
 
@@ -195,8 +205,14 @@ function manage_interfaceconfig() {
 # *********************
 
 # just for the case we need the original value...
+_NETCONFIG_DNS_RANKING="$NETCONFIG_DNS_RANKING"
+if [ "x$_NETCONFIG_DNS_RANKING" = "x" ] ; then
+    _NETCONFIG_DNS_RANKING="$NETCONFIG_DNS_RANKING_DEFAULT"
+fi
+
+# just for the case we need the original value...
 _NETCONFIG_DNS_POLICY="$NETCONFIG_DNS_POLICY"
-if [ "$_NETCONFIG_DNS_POLICY" = "auto" ]; then
+if [ "x$_NETCONFIG_DNS_POLICY" = "xauto" ]; then
     if [ "x$NETWORKMANAGER" = "xyes" ] ; then
         #
         # Use NetworkManager policy merged data
@@ -217,56 +233,53 @@ elif [ "x$_NETCONFIG_DNS_POLICY" = "x" ]; then
     exit 0;
 fi
 
-#
-# A * or ? is evaluated in the "for loop", so we need to replace it  
-#
-_NETCONFIG_DNS_POLICY=`echo "$_NETCONFIG_DNS_POLICY" | \
-        sed 's/\*/__ALL__/g' | sed 's/\?/__ONE__/g'`
-
 sf=0
-
-for POL in $_NETCONFIG_DNS_POLICY; do 
+_g=1
+# disable filename glob expansion if needed
+shopt -o -q noglob || _g=0
+[ $_g ] && shopt -o -s noglob
+for POL in $_NETCONFIG_DNS_POLICY; do
+    shopt -o -u noglob
     case "$POL" in
     (NetworkManager)
         if [ "x$NETWORKMANAGER" = "xyes" ] ; then
             debug "Use NetworkManager policy merged settings"
-            CFG="$STATEDIR/NetworkManager.netconfig"
-            if [ -r "$CFG" ] ; then
-                get_dns_settings "$CFG"
+            cfg="$STATEDIR/NetworkManager.netconfig"
+            if [ -r "$cfg" ] ; then
+                get_dns_settings "$cfg" "$_NETCONFIG_DNS_RANKING"
             fi
             break
         fi
     ;;
     (STATIC)
         debug "Keep Static"
-        DNS_SEARCHLIST="$DNS_SEARCHLIST $NETCONFIG_DNS_STATIC_SEARCHLIST"
-        DNS_SERVERS="$DNS_SERVERS $NETCONFIG_DNS_STATIC_SERVERS"
+        DNS_SEARCHLIST_1="$DNS_SEARCHLIST_1 $NETCONFIG_DNS_STATIC_SEARCHLIST"
+        DNS_SERVERS_1="$DNS_SERVERS_1 $NETCONFIG_DNS_STATIC_SERVERS"
     ;;
     (STATIC_FALLBACK)
         debug "Static Fallback"
         sf=1
     ;;
     (*)
-        #
-        # revert the replacement; now we want the evaluation
-        #
-        POL=`echo "$POL" | sed 's/__ALL__/*/g' | sed 's/__ONE__/?/g'`
         debug "Other: $POL"
         for IFDIR in $STATEDIR/$POL; do
             test -d "$IFDIR" -a \
                  -d "/sys/class/net/${IFDIR##*/}" || continue
             # proceed every interface we find with this match
-            manage_interfaceconfig  "$IFDIR"
+            manage_interfaceconfig  "$IFDIR" "$_NETCONFIG_DNS_RANKING"
         done
     ;;
     esac
 done
+[ $_g ] && shopt -o -u noglob
 
-if [ $sf -eq 1 -a -z "$DNS_SEARCHLIST" ]; then
-    DNS_SEARCHLIST="$NETCONFIG_DNS_STATIC_SEARCHLIST"
+if [ $sf -eq 1 -a -z "$DNS_SEARCHLIST_0" \
+	       -a -z "$DNS_SEARCHLIST_1" ] ; then
+    DNS_SEARCHLIST_2="$DNS_SEARCHLIST_2 $NETCONFIG_DNS_STATIC_SEARCHLIST"
 fi
-if [ $sf -eq 1 -a -z "$DNS_SERVERS" ]; then
-    DNS_SERVERS="$NETCONFIG_DNS_STATIC_SERVERS"
+if [ $sf -eq 1 -a -z "$DNS_SERVERS_0" \
+	       -a -z "$DNS_SERVERS_1" ] ; then
+    DNS_SERVERS_2="$DNS_SERVERS_2 $NETCONFIG_DNS_STATIC_SERVERS"
 fi
 
 # check if a nameserver module is used.
@@ -274,10 +287,11 @@ fi
 # the name server on the local machine then ...
 if [ "$NETCONFIG_DNS_FORWARDER" != "resolver" -a \
      "$NETCONFIG_DNS_FORWARDER" != "" ]; then
-    DNS_SERVERS=""
+    unset ${!DNS_SERVERS_*}
 fi
 
-write_resolv_conf "$DNS_SEARCHLIST" "$DNS_SERVERS"
+write_resolv_conf "$DNS_SEARCHLIST_0 $DNS_SEARCHLIST_1 $DNS_SEARCHLIST_2" \
+                  "$DNS_SERVERS_0 $DNS_SERVERS_1 $DNS_SERVERS_2"
 RET=$?
 
 if [ $RET -eq 1 ]; then
@@ -287,7 +301,6 @@ elif [ $RET -eq 2 ]; then
    # user modified the config. Copy aborted
     echo "ATTENTION: You have modified $DESTFILE.  Leaving it untouched..."
     echo "You can find my version in $TMP_FILE ..."
-
     exit 20
 fi
 
@@ -295,3 +308,4 @@ fi
 
 exit 0;
 
+# vim: set ts=8 sts=4 sw=4 ai et:
