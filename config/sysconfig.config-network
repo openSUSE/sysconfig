@@ -191,7 +191,7 @@ IFPLUGD_OPTIONS="-f -I -b"
 NETWORKMANAGER=no
 
 ## Type:	int
-## Default:	0
+## Default:	30
 #
 # When using NetworkManager you may define a timeout to wait for NetworkManager
 # to connect.  Other network services may require the system to have a valid
@@ -199,7 +199,7 @@ NETWORKMANAGER=no
 # 
 # This variable has no effect if NETWORKMANAGER=no
 #
-NM_ONLINE_TIMEOUT="0"
+NM_ONLINE_TIMEOUT="30"
 
 ## Type:        string
 ## Default:     "dns-resolver dns-bind ntp-runtime nis"

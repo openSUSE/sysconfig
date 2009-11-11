@@ -132,6 +132,13 @@ if [ ${1:-0} -gt 1 ]; then
 	if [ ! -f etc/sysconfig/network/scripts/move_shm_sysconfig.sh ] ; then
 		touch etc/sysconfig/network/__move_shm_sysconfig__
 	fi
+	# set a mark when updating from NM_ONLINE_TIMEOUT=0
+	eval NM_ONLINE_TIMEOUT='' \
+		`grep -s '^[[:space:]]*NM_ONLINE_TIMEOUT=' \
+		var/adm/fillup-templates/sysconfig.config-network`
+	if [ "x$NM_ONLINE_TIMEOUT" = "x0" ] ; then
+		touch etc/sysconfig/network/__nm_online_timeout__
+	fi
 fi
 
 %post 
@@ -217,6 +224,15 @@ popd > /dev/null
 %{fillup_and_insserv -fY network-remotefs}
 # remove first, we need the new default value
 sysconfig_remove_and_set network/dhcp DHCLIENT_TIMEOUT
+# remove first when NM_ONLINE_TIMEOUT was 0 in old template
+if [ -f etc/sysconfig/network/__nm_online_timeout__ ] ; then
+	rm -f etc/sysconfig/network/__nm_online_timeout__
+	eval NM_ONLINE_TIMEOUT='' \
+		`grep -s '^[[:space:]]*NM_ONLINE_TIMEOUT=' \
+		etc/sysconfig/network/config`
+	[ "x$NM_ONLINE_TIMEOUT" = "x0" ] && \
+	sysconfig_remove_and_set network/config NM_ONLINE_TIMEOUT
+fi
 %{fillup_only -dns dhcp network network}
 %{fillup_only -dns config network network}
 /sbin/ldconfig
