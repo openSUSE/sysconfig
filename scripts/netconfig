@@ -244,17 +244,23 @@ function run_modules() {
 
     debug "Module order: $NETCONFIG_MODULES_ORDER"
     for plg in $NETCONFIG_MODULES_ORDER; do
-        if test "x$mfilter" != "x" ; then
-             test "x$mfilter" = "x${plg}"     -o \
-                  "x$mfilter" = "x${plg%%-*}" || continue
-        fi
-	case $plg in
-	  -*) continue ;;
-	esac
-        if [ ! -x $MODULEDIR/$plg ]; then
+        case $plg in
+            -*)
+                debug "${plg:1} module is disabled" ;
+                continue
+            ;;
+        esac
+        if [ ! -x "$MODULEDIR/$plg" ]; then
+            debug "$plg module is not executable"
             continue
         fi
-        msg=`$MODULEDIR/$plg 2>&1`
+        case "x$mfilter" in
+            "x"|"x${plg}"|"x${plg%%-*}")   ;;
+            *) debug "$plg module skipped" ;
+               continue                    ;;
+        esac
+
+        msg=`"$MODULEDIR/$plg" 2>&1`
         if [ "x$msg" != x ]; then
             errors[${#errors[@]}]="$msg"
         fi
@@ -274,8 +280,26 @@ function run_modules() {
 
 function usage () 
 {
+    typeset -a MODULES
+    typeset -a MGROUPS
+    local grp g plg
+
+    for plg in $NETCONFIG_MODULES_ORDER; do
+        case $plg in
+          -*) continue ;;
+        esac
+        if [ ! -x "$MODULEDIR/$plg" ]; then
+            continue
+        fi
+        MODULES=(${MODULES[@]} $plg)
+        grp=${plg%%-*}
+        for g in ${MGROUPS[@]} ; do
+            test "x$grp" = "x$g" && continue 2
+        done
+        MGROUPS=(${MGROUPS[@]} $grp)
+    done
     cat << EOT >&2
-usage:
+Usage:
  $PROGNAME <global options>
  $PROGNAME <action> <action options>
 
@@ -308,9 +332,11 @@ usage:
  global options:
   <-h|--help>                           show this help text
 
+Active modules: ${MODULES[@]}
+Module groups : ${MGROUPS[@]}
+
 EOT
   if [ -n "$1" ] ; then
-     echo "" >&2
      ERROR="  ERROR:   "
      echo -e "$*\n" | while read line; do
        echo "${ERROR}${line}" >&2
