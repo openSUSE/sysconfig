@@ -83,8 +83,8 @@ install-data-hook:
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ip-down
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ipv6-up
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ipv6-down
-	mkdir -p -m755			$(DESTDIR)$(prefix)@sysconfig_networkdir@/if-up.d
-	mkdir -p -m755			$(DESTDIR)$(prefix)@sysconfig_networkdir@/if-down.d
+	mkdir -p -m755			$(DESTDIR)$(sysconfig_networkdir)/if-up.d
+	mkdir -p -m755			$(DESTDIR)$(sysconfig_networkdir)/if-down.d
 	ln -sf ../scripts/if-up.ndp-proxy	$(DESTDIR)/$(sysconfig_networkdir)/if-up.d/ndp-proxy
 	ln -sf ../scripts/if-up.ndp-proxy	$(DESTDIR)/$(sysconfig_networkdir)/if-down.d/ndp-proxy
 
