@@ -1,6 +1,16 @@
 -------------------------------------------------------------------
+Thu Nov 12 11:48:04 CET 2009 - mt@suse.de
+
+- version 0.71.24
+- First implementation of BOOTPROTO=ibft (fate#308283,bnc#542225)
+  causing to either start dhcp client or skip any setup -- it is
+  already done in the initrd. Intended to use on systems with iBFT
+  firmware together with STARTMODE=nfsroot.
+
+-------------------------------------------------------------------
 Fri Oct 16 21:00:39 CEST 2009 - mt@suse.de
 
+- version 0.71.23
 - Implemented if-up.d/ndp-proxy plugin required to set proxy-ndp
   (ipv6) and proxy-arp (ipv4) adresses in a xen routed setup
   (fate#304415).
