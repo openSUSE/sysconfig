@@ -737,6 +737,9 @@ case $ACTION in
             at76*)
                 WPA_DRIVER=wext
                 ;;
+            ar9170*)
+                WPA_DRIVER=wext
+                ;;
             *)
                 WPA_DRIVER=unsupported
                 PREFER_WPA_SUPPLICANT=no
