@@ -439,7 +439,7 @@ WIRELESS_ESSID=''
 ## Default:	open
 #
 # Sets authentication mode. The mode depends on the protection technology
-# beeing used, WEP or WPA. WEP (Wired Equivalent Privacy) is a system to
+# being used, WEP or WPA. WEP (Wired Equivalent Privacy) is a system to
 # encrypt wireless network traffic, with an optional authentication on the
 # basis of the used encryption key. In most cases where WEP is used, open
 # mode (no authentication at all) is fine. This does not mean that you can
