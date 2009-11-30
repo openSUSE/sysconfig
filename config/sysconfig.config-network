@@ -165,8 +165,10 @@ IFPLUGD_OPTIONS="-f -I -b"
 ## Type:        yesno
 ## Default:     no
 #
-# Instead of the usual network setup (now called 'NetControl') you may also use
-# 'NetworkManager' to control your interfaces.
+# Instead of the usual network setup (now called 'NetControl') you may also
+# use 'NetworkManager' to control your interfaces. This option is used by
+# the /etc/init.d/network(-remotefs) script to control, which network stack
+# has to be used: NetControl alias ifup or NetworkManager.
 #
 # NetControl is what you were used to in SUSE Linux up to now. It has a wide
 # range of configurations means for setting up any number of different virtual
@@ -175,18 +177,21 @@ IFPLUGD_OPTIONS="-f -I -b"
 # - have many interfaces
 # - need VLAN, bonding, bridging, multiple IP addresses
 # - must restrict network control to root
-# It may also switch interfaces automatically, but lacks a usable GUI for normal
-# users.
+# It may also switch interfaces automatically, but does not provide a GUI.
+# When you want a GUI, try out 'kinternet' using NetControl as backend.
 #
 # NetworkManager lets the user control interfaces and switches automatically if
 # network interfaces lose/gain physical connection. It should be used if you:
 # - move between networks frequently
 # - want a GUI for network control
 # Especially on mobile computers that use mainly one wired and one wireless
-# interface NetworkManager will please you.
+# interface NetworkManager may please you.
 #
-# If you are used to SCPM then you might probably stay with NetControl. But at
+# If you are useing SCPM, then you might probably stay with NetControl. But at
 # least try NetworkManager, because it can replace SCPM in some usage scenarios.
+#
+# Note: NetworkManager is not using any sysconfig settings but its own
+#       configuration files only.
 # 
 NETWORKMANAGER=no
 
@@ -194,10 +199,10 @@ NETWORKMANAGER=no
 ## Default:	30
 #
 # When using NetworkManager you may define a timeout to wait for NetworkManager
-# to connect.  Other network services may require the system to have a valid
-# network setup in order to succeed.
+# to connect in /etc/init.d/network(-remotefs) script.  Other network services
+# may require the system to have a valid network setup in order to succeed.
 # 
-# This variable has no effect if NETWORKMANAGER=no
+# This variable has no effect if NETWORKMANAGER=no.
 #
 NM_ONLINE_TIMEOUT="30"
 

@@ -3,14 +3,18 @@
 #
 # Note: 
 # To configure one or more interfaces for DHCP configuration, you have to
-# change the BOOTPROTO variable in /etc/sysconfig/network/ifcfg-<interface> to
-# 'dhcp' (and possibly set STARTMODE='onboot'). 
+# change the BOOTPROTO variable in /etc/sysconfig/network/ifcfg-<interface>
+# to 'dhcp' (and possibly set STARTMODE='onboot'). 
 #
-# Most of these options are used only by dhcpcd, not by the ISC dhclient (which 
-# uses a config file).
+# Most of these options are used only by dhcpcd, not by the ISC dhclient
+# (which uses a config file).
 #
 # Most of the options can be overridden by setting them in the ifcfg-* files,
 # too.
+#
+# Note: The ISC dhclient started by the NetworkManager is not using any
+# of these options -- NetworkManager is not using any sysconfig settings.
+#
 
 ## Type:	string
 ## Default:	""
