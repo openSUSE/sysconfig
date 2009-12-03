@@ -95,7 +95,7 @@ when the cable is plugged. Note: This is not supported for e.g. bridge interface
 or bridge ports.
 
 .TP 
-.BR BOOTPROTO\  { static* | dhcp | dhcp4 | dhcp6 | autoip | dhcp+autoip | 6to4 | none }
+.BR BOOTPROTO\  { static* | dhcp | dhcp4 | dhcp6 | autoip | dhcp+autoip | 6to4 | none | ibft }
 Setup protocol. If this variable is empty or missing, it defaults to \fBstatic\fR.
 .RS
 .PD 0
@@ -140,6 +140,15 @@ For bonding slaves and bridge ports to skip the interface configuration.
 It is also recommended (instead of static) for interfaces configured with
 STARTMODE=nfsroot (for nfs- and iscsi-root installation), where the setup
 is done in the initrd and inconsistencies could break it.
+.TP
+.br
+.B ibft
+.br
+For interfaces with iSCSI Boot Firmware Table (iBFT) firmware, defined in
+ACPI 3.0b specification, intended to use together with STARTMODE=nfsroot.
+Causes reading of the iBFT settings (/sys/firmware/ibft) for the interface
+and override the BOOTPROTO setting internally to \fBdhcp\fR when the origin
+flag is set to \fIIpPrefixOriginDdhcp\fR (3), otherwise to \fBnone\fR.
 .PD
 .RE
 
