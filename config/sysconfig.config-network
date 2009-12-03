@@ -249,6 +249,19 @@ NETCONFIG_DNS_STATIC_SERVERS=""
 ## Type:        string
 ## Default:     "auto"
 #
+# Allows to specify a custom DNS service ranking list, that is which
+# services provide preferred (e.g. vpn services), and which services
+# fallback settings (e.g. avahi).
+# Preferred service names have to be prepended with a "+", fallback
+# service names with a "-" character. The special default value
+# "auto" enables the current build-in service ranking list -- see the
+# netconfig(8) manual page -- "none" or "" disables the ranking.
+#
+NETCONFIG_DNS_RANKING="auto"
+
+## Type:        string
+## Default:     "auto"
+#
 # Defines the NTP merge policy as documented in netconfig(8) manual page.
 # Set to "" to disable NTP configuration.
 #

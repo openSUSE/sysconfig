@@ -193,6 +193,20 @@ List of DNS domain names used for host-name lookup.
 .TP
 .B NETCONFIG_DNS_STATIC_SERVERS
 List of namserver IP addresses used for host-name lookup.
+.TP
+.B NETCONFIG_DNS_RANKING
+Allows to specify a custom DNS service ranking list, that is which services
+provide preferred (e.g. vpn services), and which services fallback settings
+(e.g. avahi). It causes a per service sorting of the nameservers and search
+list settings.
+Preferred service names have to be prepended with a \fB"+"\fR, fallback
+service names with a \fB"\-"\fR character.
+The special default value \fI"auto"\fR enables the build-in service ranking
+list, currently:
+.nf
+    "+strongswan +openswan +racoon +openvpn -avahi"
+.fi
+the value \fI"none"\fR or \fI""\fR allows to disable the ranking / sorting.
 
 .SS NTP
 .TP
