@@ -81,9 +81,11 @@ a host or a network. The heading
 .B default
 indicates that the route is the default gateway. Do
 .BR not\  use\  0.0.0.0
-for this purpose. A prefix-length can be used; e.g.,
+for this purpose. A prefix-length (CIDR notation) can be used; e.g.,
 .B 10.10.0.0/16
-is valid.
+and also
+.B 10.10/16
+are valid.
 
 The
 .B second column 
@@ -96,30 +98,37 @@ The
 gives the netmask for a remote
 host or remote network behind a gateway.
 For the default route or if you were using
-a prefix-length in the first column, you can omit it.
+a prefix-length (CIDR notation) in the first column, you can omit it.
 
 The 
 .B fourth column 
-gives the name of the interface
-of the local networks (lo, eth0, eth1, isdn0, ppp0, dummy0, ...).
+gives the name of the interface of the local networks (lo, eth0, eth1, isdn0,
+ppp0, dummy0, ...).
 
-If you leave this field empty the result depends on the file you are using. In
+If you leave this field empty the result depends on the file you are using.
+In
 .B /etc/sysconfig/network/routes
 the field is interpreted as no interface information available. That is
 sufficient for the most routes you may set up, but if you have multiple
-interfaces this route is set up
-with every single interface you activate. This may lead to error messages in the
-syslog. If you see such an error message which tells you "... this needs NOT to
-be AN ERROR" then check if you wrote the wrong ip
-addresses or if it occurs because it's being set up with the wrong interface.
+interfaces this route is set up with every single interface you activate.
+This may lead to error messages in the syslog. If you see such an error
+message which tells you "... this needs NOT to be AN ERROR" then check
+if you wrote the wrong ip addresses or if it occurs because it's being
+set up with the wrong interface.
 
 In the latter case you may want to use
 .BI /etc/sysconfig/network/ifroute- config
 instead. Here an empty interface field is always replaced with the interface
 name that is currently being activated. This makes sense because this file is
-only used for one configuration (for one interface). This is even necessary if
-you use several hot-pluggable devices, because you cannot know the name of the
-interface that is used with a configuration for a certain device before.
+only used for one configuration (for one interface).
+
+.I Note:
+.br
+Static routes without explicit interfaces will also replace routes to
+the same destination (network) configured by dhcp clients on any interface!
+.br
+Static routes with explicit interface will also replace routes to the same
+destination (network) configured by dhcp clients on this interface.
 
 
 The
@@ -192,7 +201,7 @@ An example with common network interfaces and some static routes:
 .sp
 .nf
 .ne 7
-# Destination     Dummy/Gateway     Netmask            Device
+# Destination     Dummy/Gateway     Netmask            Interface
 #
 127.0.0.0         0.0.0.0           255.255.255.0      lo
 204.127.235.0     0.0.0.0           255.255.255.0      eth0
@@ -200,7 +209,20 @@ default           204.127.235.41    0.0.0.0            eth0
 207.68.156.51     207.68.145.45     255.255.255.255    eth1
 192.168.0.0       207.68.156.51     255.255.0.0        eth1
 
+# --- same routes as above in CIDR notation:
+# Destination     [Gateway]         -                  Interface
+127.0.0.0/8       -                 -                  lo
+204.127.235.0/24  -                 -                  eth0
+default           204.127.235.41    -                  eth0
+207.68.156.51/32  207.68.145.45     -                  eth1
+192.168.0.0/16    207.68.156.51     -                  eth1
+
+# --- IPv6 routes are always using CIDR notation:
+# Destination     [Gateway]                -           Interface
+2001:DB8:100::/64 -                        -           eth0
+2001:DB8:100::/32 fe80::216:3eff:fe6d:c042 -           eth0
 .fi
+
 .PP
 An example for routing entries for synchronous ppp over a
 .B ISDN
@@ -208,13 +230,29 @@ connection.
 .sp
 .nf
 .ne 5
-# Destination     Dummy/Gateway     Netmask            Device
+# Destination     Dummy/Gateway     Netmask            Interface
 #
 127.0.0.0         0.0.0.0           255.255.255.0      lo
 193.102.150.13    0.0.0.0           255.255.255.255    ippp0
 default           193.102.150.13    0.0.0.0            ippp0
 
 .fi
+
+.PP
+.B Note:
+.br
+Routes to directly connected network are created automatically
+(Linux kernel 2.4 and later) as soon as the IP address is assigned
+to the interface.
+For example, when the eth0 interface IP addresses are
+204.127.235.42/24 and 2001:DB8:100::42/64, the following routes
+from above examples are created automatically:
+.nf
+204.127.235.0/24  -                 -                  eth0
+2001:DB8:100::/64 -                 -                  eth0
+.fi
+and should be omitted.
+
 .PP
 .\"
 .SH NOTES

@@ -21,6 +21,7 @@ see the section
 .\" FIXME: allowed values (see also ## Type:)
 .\" example in the following text
 .\" ---
+
 .TP 
 .BR STARTMODE\  { manual* | auto | hotplug | ifplugd | nfsroot | off }
 Choose when the interface should be set up.
@@ -28,12 +29,14 @@ Choose when the interface should be set up.
 .PD 0
 .TP
 .B manual
+.br
 Interface will be set up if ifup is called manually (without option
 .I boot
 or
 .I hotplug\fP)
 .TP
 .B auto
+.br
 Interface will be set up as soon as it is available (and service network was
 started). This either happens at boot time when network is starting or via
 hotplug when a interface is added to the system (by adding a device or loading a
@@ -46,6 +49,7 @@ are aliases for
 .B auto\fP.
 .TP
 .B hotplug
+.br
 This mode is nearly the same as
 .B auto\fP.
 The difference between
@@ -57,6 +61,7 @@ is that the latter does not make
 fail if the interface cannot be brought up.
 .TP
 .B ifplugd
+.br
 The interface will be controlled from ifplugd. At initial ifup only ifplugd will
 be started for this interface. Then if ifplugd detects a link if calls ifup
 again which finally sets the interface up. See also variable
@@ -64,6 +69,7 @@ again which finally sets the interface up. See also variable
 below.
 .TP
 .B nfsroot
+.br
 Nearly like
 .BR auto , 
 but interfaces with this startmode will never be shut down via 
@@ -73,6 +79,7 @@ but interfaces with this startmode will never be shut down via
 still works. Use this when you use a root filesystem via network.
 .TP
 .B off
+.br
 Will never be activated.
 .PD
 .RE
@@ -86,24 +93,55 @@ of these interfaces is (un)plugged the interface with highest priority (and
 plugged cable) will be set up. Default is IFPLUGD_PRIORITY='0' causing set up as
 when the cable is plugged. Note: This is not supported for e.g. bridge interfaces
 or bridge ports.
-.TP 
-.BR BOOTPROTO\  { static* | dhcp | autoip | dhcp+autoip | 6to4 }
-Setup protocol. If this variable is empty, missing or
-.BR static ,
-a fixed address is used. Fixed addresses may also be configured together with
-dhcp.
-.B autoip
-may be used for a zeroconf setup.
-.B dhcp+autoip
-falls back to autoip if dhcp fails.
 
-Use
+.TP 
+.BR BOOTPROTO\  { static* | dhcp | dhcp4 | dhcp6 | autoip | dhcp+autoip | 6to4 | none }
+Setup protocol. If this variable is empty or missing, it defaults to \fBstatic\fR.
+.RS
+.PD 0
+.TP
+.B static
+.br
+A fixed addresses specified in \fBIPADDR\fR and related variables and static
+routing as defined in \fBroutes\fR and \fBifroute-\fR<\fIinterface name\fR>
+files is configured.
+.TP
+.B dhcp4 dhcp6 dhcp
+.br
+A DHCPv4, DHCPv6 or both clients are started to configure the interface. The
+setup is considered successful, when at least one dhcp client configures the
+interface. Additionally to the dhcp client configuration, fixed addresses and
+routes may also be specified.
+.br
+.I Note:
+.br
+Static routes without explicit interfaces will also replace routes to the same
+destination (network) configured by dhcp clients on any interface!
+.br
+Static routes with explicit interface will also replace routes to the same
+destination (network) configured by dhcp clients on this interface.
+.TP
+.B autoip dhcp+autoip
+.br
+may be used for a IPv6 zeroconf setup or as fall back to autoip if dhcp fails.
+.TP
 .BR 6to4
+.br
 to set up 
 .I IPv6
 tunnel interfaces running in the "6to4" mode. See also
-.B ifcfg-tunnel
-.BR (5) .
+.B ifcfg-tunnel(5)
+manual page.
+.TP
+.br
+.B none
+For bonding slaves and bridge ports to skip the interface configuration.
+It is also recommended (instead of static) for interfaces configured with
+STARTMODE=nfsroot (for nfs- and iscsi-root installation), where the setup
+is done in the initrd and inconsistencies could break it.
+.PD
+.RE
+
 .TP 
 .IR  \fBIPADDR\fR [ suffix ]\ { IPv4 | IPv6 }[ \fB/\fIPREFIXLEN ]
 IP address, either IPv4 or IPv6. You may add
@@ -182,7 +220,7 @@ Set the maximum transfer unit (MTU) for this interface.
 .TP
 .BR IP_OPTIONS [ \fIsuffix\fR ]
 Any other option you may want to give to the
-.B ip add addr ...
+.B ip add add ...
 command. This string is appended to the command.
 .TP
 .B LLADDR
