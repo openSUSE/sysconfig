@@ -161,9 +161,9 @@ while read A B C D E F X; do
 	fi
 	
 	# the DRIVERS key is needed to not match bridges and VLAN sub-interfaces
-	match="DRIVERS==\"?*\", ATTRS{address}==\"$MAC_ADDR\""
+	match="DRIVERS==\"?*\", ATTR{address}==\"$MAC_ADDR\""
 	if [ $basename = "ath" -o $basename = "wlan" ]; then
-		match="$match, ATTRS{type}==\"1\"" # do not match the wifi* interfaces
+		match="$match, ATTR{type}==\"1\"" # do not match the wifi* interfaces
 	fi
 	
 	write_rule "$match" "$INTERFACE" "$COMMENT"
