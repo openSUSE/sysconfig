@@ -169,9 +169,10 @@ fi
 
 # just for the case we need the original value...
 _NETCONFIG_DNS_RANKING="$NETCONFIG_DNS_RANKING"
-if [ "x$_NETCONFIG_DNS_RANKING" = "x" ] ; then
-    _NETCONFIG_DNS_RANKING="$NETCONFIG_DNS_RANKING_DEFAULT"
-fi
+case "$_NETCONFIG_DNS_RANKING" in
+  auto) _NETCONFIG_DNS_RANKING="$NETCONFIG_DNS_RANKING_DEFAULT" ;;
+  none) _NETCONFIG_DNS_RANKING=""                               ;;
+esac
 
 # just for the case we need the original value...
 _NETCONFIG_DNS_POLICY="$NETCONFIG_DNS_POLICY"
