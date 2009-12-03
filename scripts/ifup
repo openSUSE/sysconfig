@@ -255,11 +255,11 @@ fi
 # Check if NetworkManager is running, inform the user and exit
 # 
 if [ "$NETWORKMANAGER" = yes ] && ! netcontrol_running ; then
-	if [ "$SCRIPTNAME" != ifdown ] ; then
+	if [ "$SCRIPTNAME" != ifdown -a "$INTERFACE" != lo ] ; then
 		mesg "Network interface is managed by the NetworkManager -> skipping"
 		exit $R_NOTIMPL
 	fi
-elif nm_running ; then
+elif nm_running && [ "$INTERFACE" != lo ] ; then
 	mesg "Network interface is managed by the NetworkManager -> skipping"
 	exit $R_NOTIMPL
 fi
