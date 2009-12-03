@@ -272,6 +272,16 @@ BOOTPROTO=$(echo "${BOOTPROTO}" | awk '{print tolower($0);}')
 
 
 ######################################################################
+# Parse iSCSI Boot Firmware Table (feature 308283, bnc 542225) to
+# either start dhcp client or keep anything untouched, because it
+# is already configured in the initrd.
+#
+if [ "${BOOTPROTO}" = "ibft" ] ; then
+	IBFT=yes # not used at the moment... remember before override
+	eval BOOTPROTO=none `parse_ifname_ibft_settings "$INTERFACE"`
+fi
+
+######################################################################
 # work around bug 85849
 # If interface is not configured for dhcp, but ifup/down -o dhcp was
 # called from dhcpcd, then exit. This case may happen when dhcpcd was

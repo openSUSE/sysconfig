@@ -92,6 +92,11 @@ test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
 explicit_dhcp4=no
 explicit_dhcp6=no
 BOOTPROTO=$(echo "$BOOTPROTO" | awk '{print tolower($0);}')
+# Override with iSCSI Boot Firmware Table (feature 308283, bnc 542225)
+if [ "${BOOTPROTO}" = "ibft" ] ; then
+	IBFT=yes # not used at the moment... remember before override
+	eval BOOTPROTO=none `parse_ifname_ibft_settings "$INTERFACE"`
+fi
 BOOTPROTOS=()
 AUTOIP=no
 add_bootproto_once() {

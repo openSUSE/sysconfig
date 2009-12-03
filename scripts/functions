@@ -774,3 +774,35 @@ dhcp_interfaces() {
 	return 0
 }
 
+# Parse iSCSI Boot Firmare Table settings of given interface
+# and provide as adequate ifcfg/netcontrol scripts settings.
+parse_ifname_ibft_settings()
+{
+	case $1 in ""|.|..|*/*) return 1 ;; esac
+	test -d "/sys/class/net/$1" || return 1
+
+	local IF="$1" sysfs_ibft="/sys/firmware/ibft"
+	#test -d "$sysfs_ibft" || modprobe -qs iscsi_ibft 2>/dev/null
+	test -d "$sysfs_ibft" || return 1
+
+	local edir ibft_e_origin
+	for edir in $(ls -1d "$sysfs_ibft/ethernet"* 2>/dev/null) ;
+	do
+		if test -d "$edir/device/net/$IF" ; then
+			# Check another flags (flags bit 1, FW Boot Selected)?
+			# IpPrefixOrigin: Other,Manual,WellKnown,Dhcp,RouterAdv
+			ibft_e_origin=`cat "$edir/origin" 2>/dev/null`
+			case $ibft_e_origin in
+			3)	# IpPrefixOriginDdhcp
+				echo "BOOTPROTO='dhcp'"
+			;;
+			*)	# ... everything else ('static' ?!)
+				echo "BOOTPROTO='none'"
+			;;
+			esac
+			return 0
+		fi
+	done
+	return 1
+}
+
