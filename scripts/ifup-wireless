@@ -339,6 +339,9 @@ EOL
         case "$WIRELESS_MODE" in
                 ([M,m]anaged|[A,a]d-[H,h]oc|"")
                     case "${DRIVER}" in
+                        (wl)
+                            # bnc#555774, wl driver does not like it
+                        ;;
                         (ath_pci)
                             test -z "$WIRELESS_AP" && WIRELESS_AP='off'
                         ;;
