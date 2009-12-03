@@ -479,9 +479,8 @@ DEVNAME=
 if [ -n "$VENDORID$PRODUCTID" -a "$BUSNAME" = pci -a -x /sbin/lspci ] ; then
 	DEVNAME=`lspci -d $VENDORID:$PRODUCTID 2>/dev/null | sed -n 1p`
 	DEVNAME=${DEVNAME#*: }
-fi
-if [ "$BUSNAME" = pcmcia ] ; then
-	DEVNAME=`cat /sys/class/net/$INTERFACE/device/prod_id*`
+elif [ "$BUSNAME" = pcmcia ] ; then
+	DEVNAME=`cat /sys/class/net/$INTERFACE/device/prod_id* 2>/dev/null`
 fi
 if [ -n "$DEVNAME" ] ; then
 	message "`printf "    %-9s device: %s" $INTERFACE "$DEVNAME"`"
