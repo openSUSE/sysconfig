@@ -1,4 +1,35 @@
 -------------------------------------------------------------------
+Fri Dec  4 11:28:20 CET 2009 - mt@suse.de
+
+- version 0.73.2
+- Fixed to not set WIRELESS_AP at all for wl driver (bnc#555774)
+- Avoid error message, when pcmcia device does not provide its
+  vendor/name info via sysfs device/prod_id files (bnc#551640).
+- Allow ifup lo, even NetworkManager is active or it breaks the
+  lo setup via /etc/init.d/boot.localnet (bnc#547620,bnc#547928).
+- First implementation of BOOTPROTO=ibft (fate#308283,bnc#542225)
+  causing to either start dhcp client or skip any setup -- it is
+  already done in the initrd. Intended to use on systems with iBFT
+  firmware together with STARTMODE=nfsroot.
+- Documented BOOTPROTO=ibft (fate#308283,bnc#542225), dhcp4 & 6
+  and CIDR/IPv6 route notation in ifcfg.6 and routes.5 man pages.
+- Improved network/config and network/dhcp variable documentation
+  adding notes, that the NetworkManager and the dhclient started
+  by the NetworkManager are not using any sysconfig settings
+  (bnc#551690).
+- Documented netconfig DNS service ranking (fate#306342).
+- Added racoon to netconfig dns ranking defaults (bnc#550706).
+- Fixed spelling mistake in ifcfg.template (bnc#537428).
+- Fixed typo in convert_persistent_name_rules script causing to
+  generate persistent name rules on update, not matching MAC
+  address (bnc#546575).
+
+-------------------------------------------------------------------
+Wed Nov 11 12:24:31 CET 2009 - mt@suse.de
+
+- Added ar9170* to wpa_supplicant wext driver mapping (bnc#546561).
+
+-------------------------------------------------------------------
 Wed Nov 11 12:02:07 CET 2009 - mt@suse.de
 
 - version 0.73.1
