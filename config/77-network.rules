@@ -3,6 +3,11 @@
 SUBSYSTEM=="drivers", ACTION=="add", DEVPATH=="/bus/pci/drivers/ipw3945", RUN+="ipw3945d.sh"
 
 #
+# Apply per interface sysctl settings before setup (see man 5 ifsysctl):
+#
+SUBSYSTEM=="net", ACTION=="add", RUN+="/etc/sysconfig/network/scripts/ifup-sysctl  $env{INTERFACE} -o hotplug"
+
+#
 # The following rules are to:
 # - mark a (physical) interface as renamed to it's persistent name and
 #   ready to configure by the network service.
