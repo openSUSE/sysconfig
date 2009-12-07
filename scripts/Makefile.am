@@ -22,6 +22,7 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					ifup-route \
 					ifup-services \
 					ifup-skel \
+					ifup-sysctl \
 					ifup-wireless \
 					ifup-tunnel \
 					ifplugd-selectif \
@@ -61,6 +62,8 @@ install-data-hook:
 	ln -sf /etc/init.d/network 	$(DESTDIR)/$(sbindir)/rcnetwork
 	ln -sf ifup-route 		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-route
 	ln -sf ifup-route 		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-route
+	ln -sf ifup-sysctl              $(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-sysctl
+	ln -sf ifup-sysctl              $(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-sysctl
 	ln -sf ifdown-connection	$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-connection
 	ln -sf ifup-wireless		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-wireless
 	ln -sf ifup-wireless		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-wireless
