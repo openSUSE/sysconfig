@@ -1,0 +1,96 @@
+.\" Process this file with
+.\" groff -man -Tascii ifsysctl.5
+.\"
+.TH IFNDP-PROXY 5 "December 2009" "sysconfig" "Network configuration"
+.SH NAME
+ifndp-proxy[-<interface name>] \- IPv6 \fBNDP\fR and IPv4 \fBARP\fR proxy entries
+.SH SYNOPSIS
+\fB/etc/sysconfig/network/ifndp-proxy\fR
+.br
+\fB/etc/sysconfig/network/ifndp-proxy-\fR<\fIinterface\ name\fR>
+.SH DESCRIPTION
+These files contain IPv6 \fBNDP\fR and IPv4 \fBARP\fR proxy settings,
+that should be applied using the \fBip neigh add proxy\fR command
+documented in the ip(8) manual page that provides a common interface
+for IPv4 and IPv6.
+
+The \fBNDP\fR/\fBARP\fR proxy is required, e.g. when IP addresses
+from the same subnet have to be used on the interface of the host
+as well as on interfaces behind a (tunnel) interface and using a
+bridge is not an option.
+
+Don't forget to enable forwarding and the \fBNDP\fR/\fBARP\fR proxy
+by setting
+.nf
+	\fBnet.ipv6.conf.\fR<\fIall|default|interface name\fR>\fB.proxy_ndp = 1\fR
+	\fBnet.ipv6.conf.\fR<\fIall|default|interface name\fR>\fB.forwarding = 1\fR
+and/or
+	\fBnet.ipv4.conf.\fR<\fIall|default|interface name\fR>\fB.proxy_arp = 1\fR
+	\fBnet.ipv4.conf.\fR<\fIall|default|interface name\fR>\fB.forwarding = 1\fR
+or
+	\fBnet.ipv4.ip_forward = 1\fR
+.fi
+either as global \fIall\fR setting in the /etc/sysctl.conf file or
+using the \fBifsysctl(5)\fR files, that allow per-interface setup.
+.br
+Forwarding can be also enabled in the \fB/etc/sysconfig/sysctl\fR
+file using the \fBIP_FORWARD\fR and \fBIPV6_FORWARD\fR variables.
+
+The proxy entries are added and deleted using the
+	\fBif-\fR{\fBup\fR|\fBdown\fR}\fB.d/ndp-proxy\fR
+script, every time after an involved interface has been set up or
+down.
+
+.SH SYNTAX
+The format of the \fBifndp-proxy\fR file is:
+.nf
+<address> <address interface>     <proxy interface list>
+.fi
+
+The format of the \fBifndp-proxy-\fR<\fIaddress interface\fR> file
+is same to above, but allows also to omit the address interface
+by using a "-" as placeholder inside of the file, because it is
+already available in the file name:
+.nf
+<address> <address interface | -> <proxy interface list>
+.fi
+
+Lines beginning with # and blank lines are ignored.
+
+Each line defines to add a proxy \fBNDP\fR/\fBARP\fR entry with the
+\fIaddress\fR of or behind \fIaddress interface\fR to all interfaces
+in the \fIproxy interface list\fR.
+
+.SH EXAMPLES
+Let's assume, your machine is connected via eth0 to a switch with the
+networks 2001:db8:abba::/64 and 192.168.100.1/24 and is using the IP
+address 1 itself. You'd like to use the addresses 11 and 12 e.g. for
+virtual machines behind the tap1 and tap2 interface, that is:
+.nf
+     2001:db8:abba::1/64       -- local eth0 address
+     2001:db8:abba::11/64      -- address behind tap1
+     2001:db8:abba::12/64      -- address behind tap2
+     192.168.100.1/24          -- local eth0 address
+     192.168.100.11/24         -- address behind tap1
+     192.168.100.12/24         -- address behind tap2
+.fi
+then set up the following entries in the ifndp-proxy file:
+.nf
+     2001:db8:abba::1          eth0	tap1 tap2
+     2001:db8:abba::11         tap1	eth0 tap2
+     2001:db8:abba::12         tap2	eth0 tap1
+     192.168.100.1             eth0    tap1 tap2
+     192.168.100.11            tap1    eth0 tap2
+     192.168.100.12            tap2    eth0 tap1
+.fi
+additionally to the routing entries in the \fBroutes\fR or
+\fBifroute\fR-<\fIinterface name>\fR files.
+.SH BUGS
+Please report bugs at <https://bugzilla.novell.com/>
+.SH AUTHOR
+.nf
+Marius Tomaschewski <mt@suse.de>
+.SH "SEE ALSO"
+.BR ifup (8)
+.BR ifcfg (5)
+.BR ifsysctl(8)

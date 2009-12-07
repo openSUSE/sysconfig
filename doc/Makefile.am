@@ -15,6 +15,7 @@ man_MANS = 	ifup.8 \
 		ifcfg-wireless.5 \
 		netconfig.8 \
 		ifsysctl.5 \
+		ifndp-proxy.5 \
 		routes.5
 
 doc_DATA =	README COPYING Contents Network \

@@ -25,27 +25,34 @@
 # 'proxy interfaces' using ip neigh command documented in
 # the ip(8) manual page.
 #
-# Don't forget to set net.ipv6.conf.all.proxy_ndp=1, e.g.
-# in the /etc/sysctl.conf file.
+# Don't forget to enable net.ipv6.conf.all.proxy_ndp=1 or
+# net.ipv4.conf.all.proxy_arp, e.g. in /etc/sysctl.conf or
+# /etc/sysconfig/network/ifsysctl[-<interface>] files, that
+# support also interface specific sysctl settings.
 #
-# Format of ndp-proxy.conf is:
+# Format of ifndp-proxy is:
 #   <address> <address interface> <proxy interface list>
 #
-# Format of ndp-proxy.<address interface>.conf is same to
+# Format of ifndp-proxy-<address interface> is same to
 # the above, but allows also to omit address interface:
 #   <address> -                   <proxy interface list>
 #
 # Example:
 # - Description:
-#     2001:db8:abba::1/64	-- local eth0 address
-#     2001:db8:abba::1001/64	-- address behind tap1
-#     2001:db8:abba::2001/64	-- address behind tap2
+#     2001:db8:abba::1/64       -- local eth0 address
+#     2001:db8:abba::11/64      -- address behind tap1
+#     2001:db8:abba::12/64      -- address behind tap2
+#     192.168.100.1/24          -- local eth0 address
+#     192.168.100.11/24         -- address behind tap1
+#     192.168.100.12/24         -- address behind tap2
 #
-# - ndp-proxy.conf configuration:
-#     2001:db8:abba::1		eth0	tap1 tap2
-#     2001:db8:abba::1001	tap1	eth0 tap2
-#     2001:db8:abba::2001	tap2	eth0 tap1
-#
+# - ifndp-proxy configuration:
+#     2001:db8:abba::1          eth0    tap1 tap2
+#     2001:db8:abba::11         tap1    eth0 tap2
+#     2001:db8:abba::12         tap2    eth0 tap1
+#     192.168.100.1             eth0    tap1 tap2
+#     192.168.100.11            tap1    eth0 tap2
+#     192.168.100.12            tap2    eth0 tap1
 #--
 
 usage () {
@@ -97,19 +104,18 @@ done
 
 ######################################################################
 # configuration files relative to /etc/sysconfig/network
-ndp_proxy_conf='ndp-proxy.conf'
-ndp_proxy_glob='ndp-proxy.*.conf'
+ndp_proxy_conf='ifndp-proxy'
+ndp_proxy_glob='ifndp-proxy-*'
 
 
 ######################################################################
-# apply interface from file name when missed in ndp-proxy.$IF.conf
+# apply interface from file name when missed in ifndp-proxy-$IF
 read_ifname_conf()
 {
     local iface fname=$1
     test -s "$fname" || return 1
 
-    iface=${fname%.conf}
-    iface=${iface##*ndp-proxy.}
+    iface=${fname##*ifndp-proxy-}
     case $iface in
         ""|"-") return 1 ;;
     esac
