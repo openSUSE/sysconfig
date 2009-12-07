@@ -87,7 +87,6 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %ghost /etc/sysconfig/network/dhcp
 %config(noreplace) /etc/sysconfig/network/ifcfg-lo
 %config(noreplace) /etc/sysconfig/network/ifroute-lo
-%config(noreplace) /etc/sysconfig/network/ndp-proxy.conf
 %config(noreplace) /etc/ppp/ip-up
 %config(noreplace) /etc/ppp/ip-down
 %config(noreplace) /etc/ppp/ipv6-up
