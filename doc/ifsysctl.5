@@ -1,0 +1,96 @@
+.\" Process this file with
+.\" groff -man -Tascii ifsysctl.5
+.\"
+.TH IFSYSCTL 5 "December 2009" "sysconfig" "Network configuration"
+.SH NAME
+ifsysctl[-<interface name>] \- per network interface sysctl settings
+.SH SYNOPSIS
+\fB/etc/sysconfig/network/ifsysctl\fR
+.br
+\fB/etc/sysconfig/network/ifsysctl-\fR<\fIinterface\ name\fR>
+.SH DESCRIPTION
+These files are intended to contain \fBsysctl\fR settings, that
+should be applied when a network interface is created. This are
+usually interface specific settings, like:
+
+.nf
+	net.ipv6.conf.eth0.use_tempaddr = 1
+or
+	net.ipv4.conf.eth0.rp_filter = 0
+.fi
+
+The settings are applied by the
+.B /etc/sysconfig/network/scripts/ifup-sysctl
+script executed via
+.B /etc/udev/rules.d/77-network.rules
+rule (see \fBudev(7)\fR), after the creation and after the rename of the
+interface name to its persistent name (when applicable), but before the
+\fBifup <interface name> -o hotplug\fR may be executed to configure the interface.
+
+The settings are not applied by default when the \fINetworkManager\fR is active
+(NETWORKMANAGER=yes), except when the \fBIFSYSCTL_NETWORKMANAGER\fR=\fIyes\fR
+variable is set in the \fB/etc/sysconfig/network/config\fR file.
+
+Settings from the \fBifsysctl-\fR file are applied every time an interface has
+been created.
+
+Settings from the \fBifsysctl-\fIinterface\ name\fR file are applied when the
+interface with the corresponding interface name has been created.
+
+.SH SYNTAX
+The \fBsysctl(8)\fR utility is required to apply the settings. It supports two
+separator characters for sysctl keywords: a "\fB.\fR" in \fIdefault format\fR
+and a "\fB/\fR" in the \fIalternate format\fR.
+Therefore the syntax is basically same to the /etc/sysctl.conf file.
+
+Interface names may contain a "\fB.\fR". In the default sysctl format using
+a "\fB.\fR" as separator, that is any "\fB.\fR" in the interface name of the
+keyword, has to be replaced with a "\fB/\fR". In the alternate sysctl format
+with "\fB/\fR" as separator, normal interface names can be used.
+
+.PP
+\fIOptionally\fR, the ifsysctl files may contain also the \fB$INTERFACE\fR
+and the \fB$SYSCTL_IF\fR variables, that are automatically replaced with the
+current interface name usable in the alternate format and with the sysctl-quoted
+interface name for the default format, before the settings are passed to the
+sysctl utility.
+
+\fINote also\fR, that settings with variables in the \fBifsysctl\fR (without
+the -<interface name> suffix), will be applied for every interface!
+.br
+Further, files with variables are not compatible to the /etc/sysctl.conf file.
+
+.SH EXAMPLES
+Settings for "eth0" and "eth0.1" interfaces
+.nf
+	# using "." as separator:
+	net.ipv6.conf.eth0.use_tempaddr = 1
+	net.ipv6.conf.eth0/1.use_tempaddr = 1
+
+	# using "/" as separator:
+	net/ipv6/conf/eth0/use_tempaddr = 1
+	net/ipv6/conf/eth0.0/use_tempaddr = 1
+.fi
+
+Settings with variables:
+.nf
+	# using "." as separator:
+	net.ipv6.conf.$SYSCTL_IF.use_tempaddr = 1
+
+	# using "/" as separator:
+	net/ipv6/conf/$INTERFACE/use_tempaddr = 1
+.fi
+
+To test your ifsysctl-eth0 or ifsysctl file, use:
+.nf
+	/etc/sysconfig/network/scripts/ifup-sysctl eth0 -o debug
+.fi
+.SH BUGS
+Please report bugs at <https://bugzilla.novell.com/>
+.SH AUTHOR
+.nf
+Marius Tomaschewski <mt@suse.de>
+.SH "SEE ALSO"
+.BR ifup (8)
+.BR ifcfg (5)
+.BR sysctl(8)

@@ -1,0 +1,133 @@
+#!/bin/bash
+#
+# Copyright (c) 2009 SUSE LINUX Products GmbH Nuernberg, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# Author: 
+#    Marius Tomaschewski <mt@suse.de>
+#
+usage () {
+	echo $@
+	echo "usage: if{up,down,status}-sysctl [<config>] <interface> [-o <options>]"
+	echo ""
+	echo "Options are:"
+	echo "    [on]boot : we are currently booting (or shutting down)"
+	echo "    auto     : alias for boot"
+	echo "    hotplug  : we are handling a hotplug event"
+	echo "    debug    : be verbose"
+	exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network        || exit $R_INTERNAL
+test -f ./config && . ./config
+
+# we source common constants and log functions only here
+test -f scripts/functions.common && \
+      . scripts/functions.common || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+ACTION=${SCRIPTNAME#if}
+ACTION=${ACTION%%-*}
+case "${ACTION}" in
+	up|status|down) ;;
+	*) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+	INTERFACE=$1
+else
+	INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+	case $1 in
+		boot|onboot) MODE=auto ;;
+		hotplug)     MODE=auto ;;
+		auto)        MODE=auto ;;
+		quiet)       be_quiet_has_gone ;;
+		debug)       DEBUG=yes ;;
+		rc)                    ;;
+		*)           debug unknown option $1 ;;
+	esac
+	shift
+done
+
+
+######################################################################
+if test "$NETWORKMANAGER" = yes ; then
+	# do we have to apply in NetworkManager mode?
+	test "${IFSYSCTL_NETWORKMANAGER:-no}" = yes || exit 0
+fi
+
+######################################################################
+# Check needed tools
+#
+if ! [ -x /sbin/sysctl ]; then
+	err_mesg "sysctl utility missed, install procps"
+	exit $R_INTERNAL
+fi
+
+ifsysctl_files()
+{
+	local restore_noglob=`shopt -o -p noglob`
+	shopt -o -s noglob
+	local CF=$1
+	for cf in ./ifsysctl ${CF:+"./ifsysctl-${CF}"} ; do
+		test -r "$cf" && echo "$cf"
+	done
+	eval $restore_noglob
+}
+
+get_interface_sysctls()
+{
+	local IF="$1" CF="$2"
+	test -n "$IF" -a -n "$CF" || return 1
+
+	LANG=C LC_ALL=C \
+	awk -vI="$IF" -- 'BEGIN{S=I; gsub("\\.", "/", S);}
+	{ gsub("\\$INTERFACE", I); gsub("\\$SYSCTL_IF", S); print $0; }
+	' `ifsysctl_files "$CF"` </dev/null
+}
+
+######################################################################
+case $ACTION in
+up)
+	test "$DEBUG" = yes && quiet='' || quiet='-q'
+	debug "Applying $INTERFACE ifsysctl settings"
+	out=`get_interface_sysctls "$INTERFACE" "$CONFIG" | \
+	     /sbin/sysctl -e $quiet -p - 2>&1`
+	test "x$out" = x || message_if_not_run_from_rc "$out"
+;;
+down)
+;;
+status)
+;;
+esac
+
