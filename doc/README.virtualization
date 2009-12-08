@@ -1,0 +1,502 @@
+XEN/KVM networking with sysconfig (SLE-11 SP1)
+==============================================
+(by Marius Tomaschewski <mt@suse.de>)
+
+
+This document attempts to describe basic scenarios and configuration steps
+required to use sysconfig alias ifup mechanisms to configure networking on
+a XEN/KVM host system.
+
+TODO: provide KVM instructions, cleanup & fix.
+
+1) Bridged
+
+1.1) Bridged to a physical network
+
+    The most common scenario is to configure a bridge and connect the virtual
+    machines directly to the network behind the physical interface adding the
+    physical interface as well as the interfaces of the virtual machines to
+    the bridge.
+
+    This confiugration can be illustrated as two switches connected together.
+    The physical ethernet network interface (eth0) can be considered as the
+    "uplink" connection between the bridge switch and the physical network
+    switch, the bridge interface as the interface of the "cable" to the bridge
+    switch on the host system.
+
+    The bridge provides a virtual network interface, that allows to set up IP
+    addresses for the host machine.  Bridged networking is supported by yast2
+    network on SLE-11 and openSUSE 11.1 and is proposed by default to the user
+    at installation time, as soon as virtualization software like XEN, KVM or
+    VirtualBox is selected for installation.
+
+    The steps done by the yast2 network proposal are:
+        - create a bridge for each physical ethernet card
+        - add each physical ethernet card to the bridge
+        - use the bridge interface instead of the ethernet card
+          interface for IP configuration of the host machine
+
+    To use the configuration for a virtual machine e.g. in virt-manager:
+        - select a bridge interface for each virtual machine interface
+
+    Bridges are auto-detected by the SuSEfirewall2 and bridged traffic is
+    allowed by default -- see also the SuSEfirewall2 variable
+    	FW_FORWARD_ALLOW_BRIDGING
+    in /etc/sysconfig/SuSEfirewall2. The SuSEfirewall2 script implements it
+    by adding the following rule for IPv4 and Ipv6:
+    	$iptables -A FORWARD -m physdev --physdev-is-bridged -j ACCEPT
+
+    The network configuration inside of the virtual machine is equivalent
+    to configuration of a normal ethernet interface of a host, because it
+    is bridged directly to the physical network and can use same services
+    as the host machine.
+
+    Example:
+
+      - Network configuration in the host system:
+
+        /etc/sysconfig/network/ifcfg-eth0:
+            STARTMODE='auto'
+            BOOTPROTO='none'
+
+        /etc/sysconfig/network/ifcfg-br0:
+            STARTMODE='auto'
+            BOOTPROTO='static'
+            # boot protocol can be also 'dhcp'
+            # in case of 'static' the IP static
+            # configuration:
+            IPADDR='192.168.0.1/24'
+            IPADDR_1='2001:db8:abba::1/64'
+            # bridge settings
+            BRIDGE='yes'
+            BRIDGE_PORTS='eth0'
+            BRIDGE_STP='off'
+            BRIDGE_FORWARDDELAY='0'
+
+        /etc/sysconfig/network/routes (or ifroute-br0)
+            # IPv4
+            default 192.168.0.254           - br0
+            # IPv6 -- only required when forwarding is enabled or
+            #         the ipv6 configuration is disabled, e.g.:
+            #default fe80::201:1ff:fe01:254 - br0
+
+
+      - Network interface definition for the 'xen1' virtual machine:
+
+        /etc/xen/vm/xen1:
+            [...]
+            vif=[ 'mac=00:16:3e:10:10:10,script=vif-bridge,bridge=br0', ]
+            #vif=[ 'mac=00:16:3e:10:10:10,script=vif-bridge,bridge=br0,vifname=xen1.0', ]
+            [...]
+
+        Using 'vifname=xen1.0' causes to use of a static interface name
+        and is completely optional in bridged mode -- it allows to filter
+        the traffic based on the interface name in firewall rules (see the
+        'physdev' match extension description in the iptables(8) man page,
+         e.g.: '-m physdev --physdev-in xen1.0').
+
+        When the vifname is not specified, xen will use the 'vifX.Y' scheme
+        for the virtual machine network interfaces, that are different with
+        every start of the virtual machine.
+
+        No network configuration (ifcfg-xen1.0) for the virtual machine
+        interface is required.
+        The virtual machine network interfaces are added to the bridge
+        as ports by the vif-bridge script at startup time of the virtual
+        machine. The vif-bridge script is enabled by default in xen.
+
+
+1.2) Host-Only Bridge
+
+    Host-Only networking can be realized using a bridge without adding any
+    physical ethernet network interface as bridge port.
+
+    For example br0 can be configured with a physical network interface
+    as port to provide access to a the physical network and br1 without
+    any physical interface port used as the host-only bridge.
+
+    The host-only bridge as well as the interfaces inside of the virtual
+    machines are usually configured using IP addresses from a private
+    network (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 as IPv4 networks).
+
+    It is not required to configure any private networks in IPv6.
+    The virtual machines and the host can communicate using so-called
+    'link-local' IPv6 addresses, that are auto-configured by default.
+
+    In case there are multiple networks required (e.g. there is more than
+    one "private" host-only network and the networks have to be connected
+    together), it is possible to use addresses e.g. from the fc00::/7 IPv6
+    prefix as specified in RFC 4193. Note, that these addresses are not
+    expected to be routable on the global Internet.
+
+    The host-only network services as e.g. dhcp- and dns-server have to be
+    bound to the host-only bridge interface and/or the IP addresses on the
+    bridge interfaces on the host system.
+    Alternatively, these services can be provided by one of the virtual
+    machines.
+
+    Example (additionally to the 'br0' example in previous chapter):
+
+      - Network configuration of host-only bridge in the host system:
+
+        /etc/sysconfig/network/ifcfg-br1:
+            STARTMODE='auto'
+            BOOTPROTO='static'
+            IPADDR='192.168.1.1/24'
+            BRIDGE='yes'
+            BRIDGE_PORTS=''
+            #            ^^
+            #            ||
+            # empty 'host-only' bridge
+            #
+            BRIDGE_STP='off'
+            BRIDGE_FORWARDDELAY='0'
+
+      - Network interface definition for the 'xen1' virtual machine:
+
+        /etc/xen/vm/xen1:
+            [...]
+            vif=[ 'mac=00:16:3e:10:10:10,script=vif-bridge,bridge=br0', ]
+            vif=[ 'mac=00:16:3e:11:11:11,script=vif-bridge,bridge=br1', ]
+            #vif=[ 'mac=00:16:3e:10:10:10,script=vif-bridge,bridge=br0,vifname=xen1.0', ]
+            #vif=[ 'mac=00:16:3e:11:11:11,script=vif-bridge,bridge=br1,vifname=xen1.1', ]
+            [...]
+
+
+2) Routed setup
+
+    Routed networking basically means, there is no bridge involved and (at
+    least the traffic between the physical network and the virtual machines)
+    is routed instead.
+
+    Routed setup is usually required on machines in the internet, because
+    most ISPs will not allow any traffic with a different MAC address than
+    the address of the physical network interface and block when a bridge
+    is configured on the physical interface.
+
+    Further, it has to be used also in special cases, for example, when the
+    root filesystem is installed on iSCSI / NFS. It is not possible to add
+    any interface serving a root filesystem to a bridge.
+    The physical network interface is configured already in the initrd and
+    has to stay configured all the time.
+
+    In this scenario, the host machine is configured as router with enabled
+    IP forwarding:
+
+      - To enable IPv4 forwarding:
+      	- set IP_FORWARD=yes in /etc/sysconfig/sysctl
+	- set FW_ROUTE=yes in /etc/sysconfig/SuSEfirewall2
+
+      - To enable IPv6 forwarding:
+        - set IPV6_FORWARD="yes" in /etc/sysconfig/sysctl
+	  and set "net.ipv6.conf.all.forwarding = 1" in the
+	  /etc/sysctl.conf (keep these settings consistent).
+
+
+    All further configuration depends on the IP address space availability,
+    the configuration on the physical network (router) as well as on the
+    requirements for the virtual machines.
+
+    Also in routed setup, it is possible and sometimes useful to use host-only
+    bridges to group virtual machines -- each host-only bridge represents one
+    network or group (one switch) and the host system is routing between these
+    networks and the physical network. The communication between the virtual
+    machines inside of one group is bridged then.
+
+    Further, host-only bridges are also usable as workaround to handle dynamic
+    interface names (vifX.Y) used in XEN by default.
+    Note: Older XEN versions may not support the 'vifname' keyword allowing to
+    specify a custom and static interface name for full-virtualized guests.
+
+    Two major cases have to be considered:
+
+    - There is only one shared network that has to be used on both, the
+      physical interface on the host system and on the virtual machines.
+
+    - There are multiple subnets. One is assigned to the physical interface,
+      further virtual machine networks are routed through this network.
+
+
+    Routed setup with one shared network example:
+
+      *** FIXME FIXME FIXME  FIXME FIXME FIXME FIXME FIXME ***
+
+      When there is only one network (/64 network in case of IPv6) available
+      for the host system and the virtual machines, the setup requires the
+	      used of
+      IPv4 Proxy ARP and IPv6 Proxy NDP.
+
+      IPv4:
+	Network Address        : 192.0.2.240/28 (255.255.255.240)
+	Gateway/Router         : 192.0.2.254
+	Host System IP         : 192.0.2.253
+	Virtual Machine IPs    : 192.0.2.241 .. 192.0.2.252
+
+      IPv6:
+	Network Prefix         : 2001:db8:abba::/64
+	Gateway/Router         : fe80::201:1ff:fe01:254
+	Host System IP         : 2001:db8:abba::1/64
+
+	IP adderess for 1. VM  : 2001:db8:abba::1001
+
+      Because we can't subnet a IPv6 /64 network any more and we have to proxy
+      each IPv6 address separately. Routes themself can be specified using
+      normal cidr notation and don't need to be routed one by one.
+
+      To enable IPv6 forwarding and proxy_ndp/proxy_arp set:
+
+      - IP_FORWARD=yes and IPV6_FORWARD=yes in /etc/sysconfig/sysctl
+
+      - When IPv6 is compiled as module, append "ipv6" at the end of the
+	INITRD_MODULES variable in /etc/sysconfig/kernel, so the module is
+	loaded before the boot.sysctl execution.
+
+      - set/add following keywords in
+          /etc/sysctl.conf:
+            # enable ipv6 forwarding and proxy ndp:
+            net.ipv6.conf.default.forwarding = 1
+            net.ipv6.conf.all.forwarding = 1
+            net.ipv6.conf.default.proxy_ndp = 1
+            net.ipv6.conf.all.proxy_ndp = 1
+	    net.ipv4.conf.default.proxy_arp = 1
+	    net.ipv4.conf.all.proxy_arp = 1
+
+      and apply them:
+
+          mkinitrd
+          update-bootloader --refresh
+          /etc/init.d/boot.sysctl start
+          /etc/init.d/boot.ipconfig start
+          /etc/init.d/network restart
+
+      - Network configuration in the host system:
+
+        /etc/sysconfig/network/ifcfg-eth0:
+            BOOTPROTO='static'
+            STARTMODE='onboot'
+            IPADDR='192.0.2.253/28'
+            IPADDR_1='2001:db8:abba::1/64'
+
+        /etc/sysconfig/network/ifcfg-xen1.0
+            NAME='XEN vm 1 virtual interface 0'
+            BOOTPROTO='static'
+            STARTMODE='hotplug'
+            #          ^^^^^^^
+            # to avoid attempts to start/wait for it at boot time
+
+        /etc/sysconfig/network/routes (or ifroute-eth0, ...):
+            # IPv4
+            # - first virtual machine:
+            192.0.2.241         -                        - xen1.0
+            # - default route:
+            default             192.0.2.254              - eth0
+
+            # IPv6
+            # - first virtual machine:
+            2001:db8:abba::1001 fe80::216:3eff:fe10:1010 - xen1.0
+            #   default -- required because forwarding is enabled
+            default             fe80::201:1ff:fe01:254   - eth0
+
+        Finally, it is required to publish the adresses between the
+        interfaces - this can be done in the ifndp-proxy file:
+
+        /etc/sysconfig/network/ifndp-proxy:
+            # <address>          <address interface> <proxy interface>
+            2001:db8:abba::1     eth0                xen1.0
+            2001:db8:abba::1001  xen1.0              eth0
+
+        See also description and examples in the ifndp-proxy(5) manual page.
+
+      - Network configuration inside of the 1st virtual machine:
+
+        /etc/sysconfig/network/ifcfg-eth0:
+            NAME='Virtual Ethernet Card 0'
+            BOOTPROTO='static'
+            STARTMODE='auto'
+	    IPADDR='192.0.2.241/28'
+            IPADDR_1='2001:db8:abba::1001/64'
+
+        /etc/sysconfig/network/routes (or ifroute-eth0)
+	    # IPv4
+            192.0.2.253         -                         - eth0
+	    default             192.0.2.253               - eth0
+            # IPv6
+            default             fe80::fcff:ffff:feff:ffff - eth0
+
+      - Network interface definition for the 'xen1' virtual machine:
+
+        In the virtual machine config, we set script to vif-route-ifup
+        and the vifname to some static interface name, e.g. xen1.0:
+
+        /etc/xen/vm/xen1:
+            [...]
+            vif=[ 'mac=00:16:3e:10:10:10,script=vif-route-ifup,vifname=xen1.0', ]
+            [...]
+
+        The use of the vifname keyword is required to use a static interface
+	name instead of the dynamic vifX.Y names used by XEN by default.
+
+        The vif-route-ifup script is a stripped down vif-route, calling the
+	"ifup ${vif}" and "do_without_error ifdown ${vif}" command only.
+        It should be provided together with another xen scripts on SLE11-SP1.
+
+
+     Now you may ask where the fe80::216:3eff:fe10:1010 address is from. This
+     is IPv6 address derived from the MAC address, that has been set in the
+     vif= line of the virtual machine config file (00:16:3e:10:10:10). You
+     can either calculate it yourself or start the machine, attach a console,
+     and take a look to the "ip addr show" output inside of the machine,
+     e.g.:
+
+        2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> [...]
+            link/ether 00:16:3e:10:10:10 brd ff:ff:ff:ff:ff:ff
+            inet6 fe80::216:3eff:fe10:1010/64 scope link
+        [...]
+
+    For more informations, search for "EUI-64 Identifiers" - there are several
+    pages with nice calculation instructions available on the internet.
+
+
+2.2) Routed setup with multiple networks
+
+    *** FIXME FIXME FIXME  FIXME FIXME FIXME FIXME FIXME ***
+
+    In this scenario, we use a host-only bridge for each virtual machine
+    group, so the host system can route complete networks. One virtual machine
+    can be in more than one group when needed.
+
+    The radvd (and dhcpv6 server) can be started on the bridge interface, so
+    the virtual machines can configure the default route and when desired also
+    the IPv6 IP address themself.
+
+    A setup without a bridge is also possible, but it does not differ much
+    from the setup of one shared network -- the difference is, that we don't
+    need any proxy NDP/ARP rules here and can route complete networks.
+
+    Optionally, we can set the 'vifname=xen1.0' to get a static interface name
+    and be able to filter a signle machine interface using the 'physdev' match
+    extension, see iptables(8) manual page.
+
+    IPv4:
+    	- Network at the physical interface:
+		Network Address        : 192.0.2.240/28 (255.255.255.240)
+		Gateway/Router         : 192.0.2.254
+		Host System IP         : 192.0.2.253
+
+	- 1. Network for virtual machines:
+		Network Address        : 192.0.2.0/28   (255.255.255.240)
+		Host System IP         : 192.0.2.14
+		Virtual Machine IPs    : 192.0.2.1 .. 192.0.2.13
+
+	- 2. Network for virtual machines:
+		Network Address        : 192.0.2.16/28  (255.255.255.240)
+		Host System IP         : 192.0.2.30
+
+		Virtual Machine IPs    : 192.0.2.17 .. 192.0.2.29
+
+    IPv6:
+    	There is a difference between routing in IPv4 and IPv6.
+
+	In IPv6, the link local addresses can be used for routing, so it is
+	possible to assign a complete network to a virtual machine or a group
+	when a host-only bridge is used to group the machines.
+
+    	- Network at the physical interface:
+		Network Prefix         : 2001:db8:abba::/64
+		Gateway/Router         : fe80::201:1ff:fe01:254
+		Host System IP         : 2001:db8:abba::1/64
+		Prefix routed to host  : 2001:db8:abba::/60
+
+	- 1. Network for virtual machines:
+		Network Address    : 2001:db8:abba:1::/64
+
+	- 2. Network for virtual machines:
+		Network Address    : 2001:db8:abba:2::/64
+
+
+      - Network configuration in the host system:
+
+        /etc/sysconfig/network/ifcfg-eth0:
+            STARTMODE='auto'
+            BOOTPROTO='static'
+	    IPADDR='192.0.2.253/28'
+	    IPADDR_v6='2001:db8:abba::1/64'
+
+        /etc/sysconfig/network/ifcfg-br1:
+            STARTMODE='auto'
+            BOOTPROTO='static'
+            IPADDR='192.0.2.14/28'
+            BRIDGE='yes'
+            BRIDGE_PORTS=''
+            BRIDGE_STP='off'
+            BRIDGE_FORWARDDELAY='0'
+
+         /etc/sysconfig/network/ifcfg-br2:
+            STARTMODE='auto'
+            BOOTPROTO='static'
+            IPADDR='192.0.2.30/28'
+            BRIDGE='yes'
+            BRIDGE_PORTS=''
+            BRIDGE_STP='off'
+            BRIDGE_FORWARDDELAY='0'
+
+        /etc/sysconfig/network/routes (or ifroute-br0)
+            # IPv4
+            default            192.0.2.254             - eth0
+
+            # IPv6
+            # - avoid that traffic to our network goes out
+            #   via default route back to default gateway
+            2001:db8:abba::/60 -                       - -    unreachable
+            # - required, because forwarding is enabled
+            default            fe80::201:1ff:fe01:254  - eth0
+
+
+
+      - Network interface definition for the 'xen1' virtual machine:
+
+        In the virtual machine config, we set script to vif-bridge:
+
+        /etc/xen/vm/xen1:
+            [...]
+            vif=[ 'mac=00:16:3e:10:10:10,script=vif-bridge,bridge=br0,', ]
+            #vif=[ 'mac=00:16:3e:10:10:10,script=vif-bridge,bridge=br0,vifname=xen1.0', ]
+            [...]
+
+
+        /etc/sysconfig/network/routes (or ifroute-eth0):
+            # IPv4
+            default 192.0.2.254            - eth0
+            # IPv6
+            #   default -- required because forwarding is enabled
+            default fe80::201:1ff:fe01:254 - eth0
+
+
+3) NAT setup
+
+    *** FIXME FIXME FIXME  FIXME FIXME FIXME FIXME FIXME ***
+
+  A NAT setup is basically a routed setup. The virtual machines are using
+  private IP addresses and the NAT rules map the available official IP
+  addresses per IP or even on a port basis.
+
+  See /etc/sysconfig/SuSEfirewall2 variables:
+    FW_REDIRECT
+    FW_MASQ_NETS, FW_MASQ_DEV,
+    FW_FORWARD, FW_FORWARD_REJECT,
+    FW_FORWARD_MASQ, FW_FORWARD_MASQ,
+
+  and the examples provided by the SuSEfirewall2.
+
+  Note, that there is no 'nat' table in IPv6 iptables.
+
+  Routes with source IP as used in vif-nat:
+
+  	$ ip route add 192.168.1.10 dev xen1.0 src 192.168.1.1
+	$ ip route add 2001:db8:abba::1001 dev xen1.0 src 2001:db8:abba::1
+
+  can be written in /etc/sysconfig/network/routes as follows:
+
+  	192.168.1.10        - - xen1.0 src 192.168.1.1
+	2001:db8:abba::1001 - - xen1.0 src 2001:db8:abba::1
+
