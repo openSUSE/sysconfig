@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Tue Dec  8 16:23:51 CET 2009 - mt@suse.de
+
+- version 0.71.26
+- Documented xen routed network setup using sysconfig mechanizms
+  in the README.virtualization, documented the if-up.d/ndp-proxy
+  and its config file in the ifndp-proxy.5, fixed to follow the
+  sysconfig config file name conventions (fate#304415).
+- Added ifup-sysctl script applying per interface sysctl settings
+  and documented it in the ifsysctl.5 man page (bnc#494958).
+
+-------------------------------------------------------------------
 Fri Dec  4 11:09:43 CET 2009 - mt@suse.de
 
 - version 0.71.25
