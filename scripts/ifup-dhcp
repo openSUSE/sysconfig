@@ -47,7 +47,7 @@ test "$DEBUG" = "EXTRA" && . scripts/extradebug
 # check arguments and how we are called (in case of links)
 #
 SCRIPTNAME=${0##*/}
-debug $*
+debug "$SCRIPTNAME $*"
 
 case "${SCRIPTNAME}" in
 	ifup-*) ACTION=start ;;
@@ -586,14 +586,19 @@ case "$ACTION" in
 					case "$DHCLIENT" in
 					(dhcpcd)
 						test -n "$DHCP4_STATUS" || {
-							start_dhcp4_dhcpcd
-							DHCP4_STARTED="yes"
+							start_dhcp4_dhcpcd && {
+								DHCP4_STARTED="yes"
+								write_cached_config_data dhcp4_client $DHCLIENT  $INTERFACE
+								write_cached_config_data dhcp4_state  started    $INTERFACE
+								commit_cached_config_data                        $INTERFACE
+							} || DHCP4_STATUS=$?
 						}
 					;;
 					(dhclient)
 						test -n "$DHCP4_STATUS" || {
-							start_dhcp4_dhclient
-							DHCP4_STARTED="yes"
+							start_dhcp4_dhclient && {
+								DHCP4_STARTED="yes"
+							} || DHCP4_STATUS=$?
 						}
 					;;
 					esac
@@ -602,8 +607,9 @@ case "$ACTION" in
 					case "$DHCLIENT6" in
 					(dhcp6c)
 						test -n "$DHCP6_STATUS" || {
-							start_dhcp6_dhcp6c
-							DHCP6_STARTED="yes"
+							start_dhcp6_dhcp6c && {
+								DHCP6_STARTED="yes"
+							} || DHCP6_STATUS=$?
 						}
 					;;
 					#(dhclient)
@@ -616,8 +622,6 @@ case "$ACTION" in
 				;;
 				esac
 			done
-			# don't hurry too much...
-			[ "x$DHCP6_STARTED" = xyes -o "x$DHCP4_STARTED" = xyes ] && sleep 1
 
 			#
 			# in case we've started at least one client, wait the specified
@@ -626,11 +630,10 @@ case "$ACTION" in
 			DHCP4_MESSAGE=''
 			DHCP6_MESSAGE=''
 
-			#
-			# TODO: does one the actual clients still exit on infinite lease??
-			#       (dhcpcd does not do this any more)
-			show_dots=true
-			for ((wab_cnt=0; wab_cnt<=${DHCLIENT_WAIT_AT_BOOT:-15}; wab_cnt++)); do
+			typeset -i wusleep=100000
+			typeset -i wab_max=${DHCLIENT_WAIT_AT_BOOT:-15};
+			let wab_max\*=10
+			for ((wab_cnt=0; wab_cnt<=wab_max; wab_cnt++)); do
 				for BOOTPROTO in ${BOOTPROTOS[@]} ; do
 					case "$BOOTPROTO" in
 					(dhcp4)
@@ -640,14 +643,15 @@ case "$ACTION" in
 							info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
 
 							if ! dhcpc4_on_iface -q ; then
-								[ $wab_cnt -lt 2 ] && message_n .\ .\ 
+								((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
 								DHCP4_MESSAGE="DHCP4 client NOT running"
 								DHCP4_STATUS=$R_NOTRUNNING
 								continue
 							fi
 							[ -n "$DHCP4_STATUS" ] && continue
 
-							if [ -e $info -a ! $info -ot $stamp ]; then
+							state=`read_cached_config_data dhcp4_state $INTERFACE`
+							if [ "x$state" = "xcomplete" -a -e $info -a ! $info -ot $stamp ]; then
 								IP='' ; NM='' ; HN=''
 								while read line ; do
 									case "$line" in
@@ -672,7 +676,7 @@ case "$ACTION" in
 						(dhclient)
 							# TODO: parse the lease?!
 							if ! dhcpc4_on_iface -q ; then
-								[ $wab_cnt -lt 2 ] && message_n .\ .\ 
+								((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
 								DHCP4_MESSAGE="DHCP4 client NOT running"
 								DHCP4_STATUS=$R_NOTRUNNING
 								continue
@@ -697,7 +701,7 @@ case "$ACTION" in
 					;;
 					(dhcp6)
 						if ! dhcpc6_on_iface -q ; then
-							[ $wab_cnt -lt 2 ] && message_n .\ .\ 
+							((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
 							DHCP6_MESSAGE="DHCP6 client NOT running"
 							DHCP6_STATUS=$R_NOTRUNNING
 							continue
@@ -724,8 +728,11 @@ case "$ACTION" in
 					esac
 				done
 				if [ -z "$DHCP4_STATUS" -o -z "$DHCP6_STATUS" ] ; then
-					$show_dots && { show_dots=false ; message_n .\ ; } || show_dots=true
-					sleep 1
+					((wab_cnt % 20 == 1)) && message_n .\ 
+					usleep $wusleep
+				else
+					# ok, we have status from both clients now => done
+					break
 				fi
 			done
 			message " "
@@ -957,8 +964,10 @@ case "$ACTION" in
 			#if [ $STATUS -eq $R_SUCCESS ] ; then
 
 			# delete primary flag from cache file if needed
-			delete_from_cached_config_data primary yes $INTERFACE
-			commit_cached_config_data $INTERFACE
+			delete_from_cached_config_data primary yes  $INTERFACE
+			delete_from_cached_config_data 'dhcp4_*' '' $INTERFACE
+			delete_from_cached_config_data 'dhcp6_*' '' $INTERFACE
+			commit_cached_config_data                   $INTERFACE
 
 			# This is useful for pcmcia interfaces... before the modules can be
 			# unloaded, the device must be unused.
@@ -991,7 +1000,9 @@ case "$ACTION" in
 						stamp=/var/lib/dhcpcd/dhcpcd-$INTERFACE.timestamp
 						info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
 
-						if [ \( -e $info -a ! $info -ot $stamp \) -a -n \
+						state=`read_cached_config_data dhcp4_state $INTERFACE`
+						if [ "x$state" = "xcomplete" -a \
+						     \( -e $info -a ! $info -ot $stamp \) -a -n \
 						     "`ip -o -f inet addr show $INTERFACE`" ]; then
 							while read line ; do
 								case "$line" in
