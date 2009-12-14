@@ -252,8 +252,20 @@ up)
 		esac
 	;;
 	tun|tap)
-		# we use a persistent tunnel by default
-		if [ "$TUNNEL_SET_PERSISTENT" != no ] ; then
+		if [ -d "/sys/class/net/$INTERFACE" ] ; then
+			owner=`cat /sys/class/net/$INTERFACE/owner 2>/dev/null`
+			group=`cat /sys/class/net/$INTERFACE/group 2>/dev/null`
+			debug "Tunnel interface $INTERFACE exists ($owner:$group)"
+			info="Already exists"
+			if [ -n "$owner" ] ; then
+				info="$info, owned by uid $owner"
+			fi
+			if [ "x$group" != "x-1" ] ; then
+				info="$info, gid $group"
+			fi
+			printf "    %-9s %s\n" "$INTERFACE" "$info"
+		elif [ "$TUNNEL_SET_PERSISTENT" != no ] ; then
+			# we use a persistent tunnel by default
 			case "$INTERFACETYPE" in
 			tap)	TUNCTL_TYPE_ARG="-p" ;;
 			tun)	TUNCTL_TYPE_ARG="-n" ;;
