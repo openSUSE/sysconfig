@@ -47,7 +47,7 @@ test -f scripts/functions.common && \
 # check arguments and how we are called (in case of links)
 #
 SCRIPTNAME=${0##*/}
-debug $*
+debug "$SCRIPTNAME $*"
 ACTION=${SCRIPTNAME#if}
 ACTION=${ACTION%%-*}
 case "${ACTION}" in
@@ -73,7 +73,7 @@ while [ $# -gt 0 ]; do
 		auto)        MODE=auto ;;
 		quiet)       be_quiet_has_gone ;;
 		debug)       DEBUG=yes ;;
-		rc)                    ;;
+		rc)          RUN_FROM_RC=yes ;;
 		*)           debug unknown option $1 ;;
 	esac
 	shift
