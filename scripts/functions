@@ -721,20 +721,32 @@ ifup_on_iface() {
 dhcpc4_on_iface() {
 	local pid retval=1
 	[ "x$DHCLIENT"  != x -a "x$INTERFACE" != x ] || return $retval
-	for pid in `pgrep -f "^(/.*/)?$DHCLIENT\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
+	# when the dhcp client forks, it may be not visible
+	# in the process list for a short (usleep) while...
+	typeset -i retries=3
+	for ((; retries > 0; retries--)) ; do
+	    for pid in `pgrep -f "^(/.*/)?$DHCLIENT\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
 		retval=0
 		test "x$1" == "x-q" && break
 		echo $pid
+	    done
+	    (( retval == 0 )) && break || usleep 100000
 	done
 	return $retval
 }
 dhcpc6_on_iface() {
 	local pid retval=1
 	[ "x$DHCLIENT6"  != x -a "x$INTERFACE" != x ] || return $retval
-	for pid in `pgrep -f "^(/.*/)?$DHCLIENT6\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
+	# when the dhcp client forks, it may be not visible
+	# in the process list for a short (usleep) while...
+	typeset -i retries=3
+	for ((; retries > 0; retries--)) ; do
+	    for pid in `pgrep -f "^(/.*/)?$DHCLIENT6\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
 		retval=0
 		test "x$1" == "x-q" && break
 		echo $pid
+	    done
+	    (( retval == 0 )) && break || usleep 100000
 	done
 	return $retval
 }
@@ -743,10 +755,16 @@ dhcpc_on_iface() {
 	[ "x$DHCLIENT"  != x ] && pattern=$DHCLIENT || pattern=""
 	[ "x$DHCLIENT6" != x ] && pattern="${pattern:+$pattern|}$DHCLIENT6"
 	[ "x$pattern" != x -a "x$INTERFACE" != x ] || return $retval
-	for pid in `pgrep -f "^(/.*/)?($pattern)\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
+	# when the dhcp client forks, it may be not visible
+	# in the process list for a short (usleep) while...
+	typeset -i retries=3
+	for ((; retries > 0; retries--)) ; do
+	    for pid in `pgrep -f "^(/.*/)?($pattern)\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
 		retval=0
 		test "$1" == "-q" && break
 		echo $pid
+	    done
+	    (( retval == 0 )) && break || usleep 100000
 	done
 	return $retval
 }
@@ -756,10 +774,16 @@ any_dhcpc_on_iface()
 	[ "x$INTERFACE" != x ] || return $retval
 	# just search for all known dhcp clients
 	pattern="dhcpcd|dhclient|dhcp6c|dhclient6"
-	for pid in `pgrep -f "^(/.*/)?($pattern)\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
+	# when the dhcp client forks, it may be not visible
+	# in the process list for a short (usleep) while...
+	typeset -i retries=3
+	for ((; retries > 0; retries--)) ; do
+	    for pid in `pgrep -f "^(/.*/)?($pattern)\>.*\<$INTERFACE\>$" 2>/dev/null` ; do
 		retval=0
 		test "$1" == "-q" && break
 		echo $pid
+	    done
+	    (( retval == 0 )) && break || usleep 100000
 	done
 	return $retval
 }
