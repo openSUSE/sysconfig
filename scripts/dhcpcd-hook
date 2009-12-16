@@ -133,6 +133,9 @@ hostname_changed()
 
 case $state in
 up)
+	write_cached_config_data  dhcp4_state up       $INTERFACE
+	commit_cached_config_data                      $INTERFACE
+
 	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
 	ifup $INTERFACE -o dhcp
 
@@ -141,12 +144,11 @@ up)
 		-i $INTERFACE $NC_OPTIONS  \
 		-l $leaseinfo 2>&1 | $log_dbg
 
-	if hostname_changed ; then
-		# reload syslog so it knows the new hostname
-		/etc/init.d/syslog reload
-	fi
 	;;
 down)
+	write_cached_config_data  dhcp4_state down     $INTERFACE
+	commit_cached_config_data                      $INTERFACE
+
 	# We now call PRE_DOWN_SCRIPT directly from ifdown, because it was called
 	# POST from here (after IP address was removed). Thus we don't need this
 	# $debug && $log_dbg "Running ifdown $INTERFACE -o dhcp"
@@ -158,6 +160,9 @@ down)
 		2>&1 | $log_dbg
 	;;
 new)
+	write_cached_config_data  dhcp4_state new      $INTERFACE
+	commit_cached_config_data                      $INTERFACE
+
 	$debug && $log_dbg "new IP address: $IPADDR"
 
 	$debug && NC_OPTIONS="-v"
@@ -165,15 +170,23 @@ new)
 		-i $INTERFACE $NC_OPTIONS  \
 		< $leaseinfo 2>&1 | $log_dbg
 
+	$debug && $log_dbg "Running ifdown $INTERFACE -o dhcp"
+	ifdown $INTERFACE -o dhcp
+	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
+	ifup $INTERFACE -o dhcp
+	;;
+complete)
+	# dhcpcd finished all requested configuration steps ...
+	# check if hostname changed and reload syslog when needed
 	if hostname_changed ; then
 		# reload syslog so it knows the new hostname
 		/etc/init.d/syslog reload
 	fi
 
-	$debug && $log_dbg "Running ifdown $INTERFACE -o dhcp"
-	ifdown $INTERFACE -o dhcp
-	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
-	ifup $INTERFACE -o dhcp
+	$debug && $log_dbg "DHCP4 configuration of $INTERFACE is complete"
+
+	write_cached_config_data  dhcp4_state complete $INTERFACE
+	commit_cached_config_data                      $INTERFACE
 	;;
 esac
 
