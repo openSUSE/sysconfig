@@ -1,4 +1,28 @@
 -------------------------------------------------------------------
+Wed Jan 13 16:14:57 CET 2010 - mt@suse.de
+
+- version 0.71.27
+- Fixed netconfig module/action exit code propagation (bnc#568398)
+- Applied udevmountd udev rule patch by Ludwig Nussel: don't handle
+  crypto devices, boot.crypto does that already (bnc#569942)
+
+-------------------------------------------------------------------
+Thu Dec 17 11:53:55 CET 2009 - mt@suse.de
+
+- Fix to allow ifup $tap when it already exists, e.g. created by
+  kvm (bnc#557864).
+
+-------------------------------------------------------------------
+Thu Dec 10 17:09:56 CET 2009 - mt@suse.de
+
+- Synchronized ifup-dhcp and dhcpcd configuration steps to report
+  status after dhcpcd really finished all its steps (bnc#518219).
+- Improved detection if a dhcp client is running, causing ifup-dhcp
+  and the network script to report false failures, when the client
+  forks at the moment of the check (bnc#562030 and others).
+- Fixed rc option handling in ifup-sysctl, show own name in debug
+
+-------------------------------------------------------------------
 Tue Dec  8 16:23:51 CET 2009 - mt@suse.de
 
 - version 0.71.26
