@@ -233,7 +233,7 @@ function run_modules() {
     local mfilter="$1"
     local errors=()
     local msg=""
-    local ret=0
+    local ret=0 err=0
 
     if [ -n "$FORCE_REPLACE" ]; then
         export FORCE_REPLACE=$FORCE_REPLACE
@@ -260,12 +260,12 @@ function run_modules() {
                continue                    ;;
         esac
 
-        msg=`"$MODULEDIR/$plg" 2>&1`
+        msg=`"$MODULEDIR/$plg" 2>&1` ; ret=$?
+        if [ "$ret" != "0" -a "$err" = "0" ]; then
+            err=$ret
+        fi
         if [ "x$msg" != x ]; then
             errors[${#errors[@]}]="$msg"
-        fi
-        if [ "$?" != "0" ]; then
-            ret=$?
         fi
     done
 
@@ -274,7 +274,7 @@ function run_modules() {
             echo "$msg"
         done
     fi
-    return $ret
+    return $err
 }
 
 
@@ -439,32 +439,33 @@ if [ "$?" != 0 ]; then
     exit 1;
 fi
 
-EXITVAL=0
+RET=0
+ERR=0
 
 case "$ACTION" in
     modify)
-           modify
-           if [ "$?" != "0" ]; then EXITVAL=$?; fi
-           run_modules "$MODFILTER"
-           if [ "$?" != "0" ]; then EXITVAL=$?; fi
-           ;;
-    remove)
-           remove
-           if [ "$?" != "0" ]; then EXITVAL=$?; fi
-           run_modules "$MODFILTER"
-           if [ "$?" != "0" ]; then EXITVAL=$?; fi
+           modify      ; RET=$?
+           if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
+           run_modules ; RET=$?
+           if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
            ;;
     update)
-           run_modules "$MODFILTER"
-           if [ "$?" != "0" ]; then EXITVAL=$?; fi
+           run_modules ; RET=$?
+           if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
+           ;;
+    remove)
+           remove      ; RET=$?
+           if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
+           run_modules ; RET=$?
+           if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
            ;;
     *)
     usage "Invalid action given.\n"
     ;;
 esac
-    
+
 unLock "$PROGNAME"
 
-exit $EXITVAL
+exit $ERR
 
 # vim: set ts=8 sts=4 sw=4 ai et:
