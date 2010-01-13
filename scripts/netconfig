@@ -444,19 +444,19 @@ ERR=0
 
 case "$ACTION" in
     modify)
-           modify      ; RET=$?
+           modify                   ; RET=$?
            if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
-           run_modules ; RET=$?
+           run_modules "$MODFILTER" ; RET=$?
            if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
            ;;
     update)
-           run_modules ; RET=$?
+           run_modules "$MODFILTER" ; RET=$?
            if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
            ;;
     remove)
-           remove      ; RET=$?
+           remove                   ; RET=$?
            if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
-           run_modules ; RET=$?
+           run_modules "$MODFILTER" ; RET=$?
            if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
            ;;
     *)
