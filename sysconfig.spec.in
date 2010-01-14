@@ -23,7 +23,7 @@ Version:        @VERSION@
 Release:        0
 Summary:        The sysconfig scheme
 Group:          System/Base
-License:        GPL v2 or later
+License:        GPLv2+
 AutoReqProv:    on
 PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
 Requires:       iproute2 dbus-1 hal procps
@@ -60,7 +60,7 @@ CFLAGS="$RPM_OPT_FLAGS -fno-strict-aliasing -fPIC" \
             --sysconfdir=%_sysconfdir \
             --mandir=%_mandir \
             --with-fillup-templatesdir=/var/adm/fillup-templates
-%{__make}
+%{__make} %{?_smp_mflags}
 
 %check
 make check
