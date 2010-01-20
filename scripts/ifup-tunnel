@@ -260,7 +260,7 @@ up)
 			if [ -n "$owner" ] ; then
 				info="$info, owned by uid $owner"
 			fi
-			if [ "x$group" != "x-1" ] ; then
+			if [ -n "$group" -a "x$group" != "x-1" ] ; then
 				info="$info, gid $group"
 			fi
 			printf "    %-9s %s\n" "$INTERFACE" "$info"
