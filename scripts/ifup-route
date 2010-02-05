@@ -107,6 +107,33 @@ test -f $ROUTECONF || ROUTECONF=""
 EXTRAROUTECONF=ifroute-$CONFIG
 test -f $EXTRAROUTECONF || EXTRAROUTECONF=""
 
+# initialize route protos used in files we should consider
+# in the ifstatus check (usually not used, see bnc#572205)
+if [ "$ACTION" = status ] ; then
+	ROUTE_PROTOS=`LANG=C LC_ALL=C awk -- \
+	'$1 !~ /^(#.*)?$/ {
+		if(match($0,"proto ([^ ]+)",p)) {
+			l=length(l) > 0 ? l"|"p[1] : p[1]
+		}
+	}
+	END { print l;}' \
+	$ROUTECONF $EXTRAROUTECONF < /dev/null 2>/dev/null`
+else
+	ROUTE_PROTOS=""
+fi
+
+filter_routes()
+{
+	LANG=C LC_ALL=C awk -vrp="$ROUTE_PROTOS" -- \
+	'/proto [^ ]+/ {
+		if(length(rp) > 0 && match($0,"proto ("rp")")) {
+			print $0;
+		}
+		next;
+	}
+	{ print $0;}'
+}
+
 #
 # add special link local route
 # can configure only one interface this way at the moment
@@ -122,7 +149,7 @@ if [ -d /sys/class/net/$INTERFACE ] ; then
 	# Don't add this route if interface has no v4 address (Bug 65557)
 	test -z "`ip -4 a l dev $INTERFACE 2>/dev/null`" && islinklocal=
 	if test -n "$islinklocal" ; then
-		current=`ip -4 route show 169.254.0.0/16`
+		current=`ip -4 route show 169.254.0.0/16 | filter_routes`
 		if test -z "$current" -o "$current" != "${current/ dev $INTERFACE }"; then
 			EXTRALINKLOCAL="169.254.0.0/16 - - $INTERFACE"
 		fi
@@ -215,7 +242,7 @@ pop_route_stack () {
 
 	# At first look for the current default route interface via 'ip route' and store
 	# it in $DR_IFACE.
-	set -- `ip route` 
+	set -- `ip -4 route show | filter_routes` 
 	while [ "$1" != default -a $# -gt 0 ] ; do shift; done
 	while [ "$1" != dev -a $# -gt 0 ] ; do shift; done
 	DR_IFACE=$2
@@ -283,7 +310,7 @@ get_default_route() {
 			OLDDEFROUTEIFACE=$IFACE
 			return
 		fi
-	done < <(ip -4 route show)
+	done < <(ip -4 route show | filter_routes)
 	return 1
 }
 
@@ -318,7 +345,7 @@ if [ "$ACTION" = status ] ; then
 			*)
 				ALL_ROUTES="$ALL_ROUTES ${DEST}_${GWAY}_${IFACE}_" ;;
 		esac
-	done < <(ip -4 route show)
+	done < <(ip -4 route show | filter_routes)
 
 	declare -i n=0 m=0
 fi
@@ -514,7 +541,7 @@ if [ "$ACTION" = status ] ; then
 	IFACE_ROUTES=""
 	while read LINE; do
 		IFACE_ROUTES="${IFACE_ROUTES:+$IFACE_ROUTES\n}  $LINE"
-	done < <(ip -4 route show dev $INTERFACE 2>/dev/null)
+	done < <(ip -4 route show dev $INTERFACE 2>/dev/null | filter_routes)
 	test -n "$IFACE_ROUTES" && message_if_not_run_from_rc "Active IPv4 routes for interface $INTERFACE:"
 	message_if_not_run_from_rc "$IFACE_ROUTES"
 	test $n -gt 0  && \
@@ -522,7 +549,7 @@ if [ "$ACTION" = status ] ; then
 	IFACE_ROUTES=""
 	while read LINE; do
 		IFACE_ROUTES="${IFACE_ROUTES:+$IFACE_ROUTES\n}  $LINE"
-	done < <(ip -6 route show dev $INTERFACE 2>/dev/null)
+	done < <(ip -6 route show dev $INTERFACE 2>/dev/null | filter_routes)
 	test -n "$IFACE_ROUTES" && message_if_not_run_from_rc "Active IPv6 routes for interface $INTERFACE:"
 	message_if_not_run_from_rc "$IFACE_ROUTES"
 	test $n -ne $m && exit 3
