@@ -109,9 +109,9 @@ map_proc_to_vconfig()
 }
 get_vlan_iface_name()
 {
-	awk -v vid="$1" -- 'BEGIN{ nt=0; }
+	awk -v vid="$1" -v dev="$2" -- 'BEGIN{ nt=0; }
 		/^Name-Type:/   { nt=1; next; }
-		nt && $3 == vid { print $1;   }' \
+		nt && $3 == vid && $5 == dev { print $1; }' \
 		/proc/net/vlan/config 2>/dev/null
 }
 del_pad()
@@ -192,7 +192,7 @@ start)
 	# Don't hurry too much
 	udevadm settle
 
-	viface=`get_vlan_iface_name "$nr"`
+	viface=`get_vlan_iface_name "$nr" "$ETHERDEVICE"`
 	if test "x$viface" = x ; then
 		err_mesg "ERROR: unable to find create vlan $id interface '$INTERFACE'"
 		exit $R_ERROR
