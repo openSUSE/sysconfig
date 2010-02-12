@@ -2,7 +2,7 @@
 Fri Jan 15 15:50:54 CET 2010 - mt@suse.de
 
 - Applied udevmountd udev rule patch by Ludwig Nussel: don't handle
-  crypto devices, boot.crypto does that already (bnc#569942)
+  crypto devices, boot.crypto does that already (bnc#568577)
 
 -------------------------------------------------------------------
 Wed Dec 16 22:55:16 CET 2009 - mt@suse.de
