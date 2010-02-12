@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Feb 12 12:36:05 CET 2010 - mt@suse.de
+
+- Added route proto filter to ifstatus-route to evaluate only
+  routes that may have been set by ifup-route and skip routes
+  added e.g. by zebra to not to waste CPU for big zebra routing
+  tables (bnc#572205). Thanks to Adrian Ban for initial patch!
+
+-------------------------------------------------------------------
 Thu Jan 21 15:59:38 UTC 2010 - mt@suse.de
 
 - Fixed ifup-802.1q script to correctly search for the interface
