@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jan 21 15:59:38 UTC 2010 - mt@suse.de
+
+- Fixed ifup-802.1q script to correctly search for the interface
+  name of a vlan id in case multiple interfaces are using same
+  vlan id. Thanks to Adrian Ban for a correction! (bnc#572186)
+
+-------------------------------------------------------------------
 Fri Jan 15 15:50:54 CET 2010 - mt@suse.de
 
 - Applied udevmountd udev rule patch by Ludwig Nussel: don't handle
