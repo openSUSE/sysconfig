@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jan 21 15:59:38 UTC 2010 - mt@suse.de
+
+- Fixed ifup-802.1q script to correctly search for the interface
+  name of a vlan id in case multiple interfaces are using same
+  vlan id. Thanks to Adrian Ban for a correction! (bnc#572186)
+
+-------------------------------------------------------------------
 Wed Jan 13 16:14:57 CET 2010 - mt@suse.de
 
 - version 0.71.27
