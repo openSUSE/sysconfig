@@ -1,4 +1,33 @@
 -------------------------------------------------------------------
+Fri Jan 15 15:50:54 CET 2010 - mt@suse.de
+
+- Applied udevmountd udev rule patch by Ludwig Nussel: don't handle
+  crypto devices, boot.crypto does that already (bnc#569942)
+
+-------------------------------------------------------------------
+Wed Dec 16 22:55:16 CET 2009 - mt@suse.de
+
+- Fix to allow ifup $tap when it already exists, e.g. created by
+  kvm (bnc#557864).
+- Synchronized ifup-dhcp and dhcpcd configuration steps to report
+  status after dhcpcd really finished all its steps (bnc#518219).
+- Improved detection if a dhcp client is running, causing ifup-dhcp
+  and the network script to report false failures, when the client
+  forks at the moment of the check (bnc#562030 and others).
+
+-------------------------------------------------------------------
+Mon Nov 23 20:55:34 CET 2009 - mt@suse.de
+
+- Avoid error message, when pcmcia device does not provide its
+  vendor/name info via sysfs device/prod_id files (bnc#551640).
+- Fixed to not set WIRELESS_AP at all for wl driver (bnc#555774).
+- Allow ifup lo, even NetworkManager is active or it breaks the
+  lo setup via /etc/init.d/boot.localnet (bnc#547620,bnc#547928).
+- Fixed typo in convert_persistent_name_rules script causing to
+  generate persistent name rules on update, not matching MAC
+  address (bnc#546575).
+
+-------------------------------------------------------------------
 Fri Oct  9 15:33:27 CEST 2009 - mt@suse.de
 
 - version 0.72.6
