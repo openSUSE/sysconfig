@@ -934,8 +934,9 @@ case "$ACTION" in
 
 					# remove old lease file and pid when they still exist
 					if test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" ; then
-						rm -f "$DHCPIFLEASE" "$DHCPIFPID"
+						rm -f "$DHCPIFLEASE"
 					fi
+					rm -f "$DHCPIFPID"
 				;;
 				(dhcp6)
 					# send termination signal
@@ -960,8 +961,9 @@ case "$ACTION" in
 
 					# remove old lease file and pid when they still exist
 					if test "$DHCLIENT6_RELEASE_BEFORE_QUIT" = "yes" ; then
-						rm -f "$DHCP6IFLEASE" "$DHCP6IFPID"
+						rm -f "$DHCP6IFLEASE"
 					fi
+					rm -f "$DHCP6IFPID"
 				;;
 				esac
 			done

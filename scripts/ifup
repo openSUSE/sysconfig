@@ -875,7 +875,7 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 			${SCRIPTNAME}-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			retcode=$?
 		else                             # called from rcnetwork or manually
-			# FIXME: dhcpcd supports autoip...
+			# TODO: dhcpcd supports autoip...
 			${SCRIPTNAME}-autoip $CONFIG $INTERFACE -o prepare $OPTIONS
 			${SCRIPTNAME}-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			dhcpretcode=$?
@@ -1088,7 +1088,14 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 				ifup-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 				;;
 			ifdown)
-				ifdown-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				case "$BOOTPROTO" in
+				dhcp*)
+					# already stopped in dhcp case before
+				;;
+				*)
+					ifdown-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				;;
+				esac
 				ifdown-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 				# Calling 'ip' if there is no interface (ifdown called from udev for
 				# remove event) would trigger automatic module loading (Bug 199456)
