@@ -1,10 +1,36 @@
 -------------------------------------------------------------------
-Fri Feb 12 12:36:05 CET 2010 - mt@suse.de
+Fri Feb 19 10:56:14 CET 2010 - mt@suse.de
 
+- Changed to use expanded option lists for netconfig actions in
+  usage text (bnc#569609).
+- Improved netconfig.8 DNS forwarder/static servers documentation
+  and yast2 meta tags in network/config file to show the currently
+  available settings (bnc#580361,bnc#580506).
+- Filter out loopback addresses from forwarder configs (dnsmasq,
+  bind) in NETCONFIG_DNS_FORWARDER!=resolver mode, so they don't
+  cause any loop and allow them in /etc/resolv.conf to make it
+  possible to get the system running, when the glibc feature to
+  use the name server on the local machine gets broken again or
+  the user wants ipv4 only (bnc#580361,bnc#549447,bnc#441947).
+- Fixed ifdown-dhcp to release a dhcpv6 lease correctly when
+  requested, added a separate DHCLIENT6_RELEASE_BEFORE_QUIT
+  variable (bnc#524675).
 - Added route proto filter to ifstatus-route to evaluate only
   routes that may have been set by ifup-route and skip routes
   added e.g. by zebra to not to waste CPU for big zebra routing
   tables (bnc#572205). Thanks to Adrian Ban for initial patch!
+- Consider the bind mounted files scenario instead of symlinks
+  to a writable location in all netconfig calls to create
+  temporary files.
+
+-------------------------------------------------------------------
+Thu Jan 28 21:04:50 CET 2010 - agruen@suse.de
+
+- When no temporary files can be created next to /etc/resolv.conf
+  (like /etc/resolv.conf.XXXXXXX), create the temporary file in
+  /tmp instead: the root filesystem may be read-only, and
+  /etc/resolv.conf may be bind mounted to a writable location.
+  Likewise for /etc/yp.conf.
 
 -------------------------------------------------------------------
 Thu Jan 21 15:59:38 UTC 2010 - mt@suse.de
