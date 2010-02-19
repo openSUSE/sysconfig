@@ -879,8 +879,8 @@ case "$ACTION" in
 								done
 							done
 
-							# then release the lease
-							$DHCLIENT6_BIN -r all \
+							# then release the lease but stay in foreground
+							$DHCLIENT6_BIN -f -r all \
 								-c /dev/null \
 								-p "$DHCP6IFPID" \
 								$INTERFACE </dev/null &>/dev/null
