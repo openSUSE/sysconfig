@@ -1,6 +1,21 @@
 -------------------------------------------------------------------
-Fri Feb 19 10:56:14 CET 2010 - mt@suse.de
+Fri Feb 19 14:35:56 CET 2010 - mt@suse.de
 
+- version 0.71.28
+- Added scripts/link_wait disabled by default, that can be used       
+  via if-up.d to check whether an interface is ready to use or 
+  just wait some time in cause of devices that does not report 
+  the link state correctly (bnc#570935).
+- Fixed ifdown to stop dhcp, flush IPs and set down interfaces
+  marked BOOTPROTO=none (slave/ports) or the dhcp clients, ...
+  will stay active after a rcnetwork restart when an interface
+  configured with dhcp gets reconfigured as a bridge port or a
+  bonding slave. Fixed ifstatus to report accurate status codes,
+  so rcnetwork does not show red errors for virtual interfaces
+  with STARTMODE=off (bnc#581245,bnc#562030).
+- Fixed ifdown-dhcp to remove pid file that can't be cleaned up
+  when the client has been killed with -KILL (e.g. nfsroot case)
+  and fixed ifdown to not execute ifdown-dhcp twice (bnc#524675).
 - Changed to use expanded option lists for netconfig actions in
   usage text (bnc#569609).
 - Improved netconfig.8 DNS forwarder/static servers documentation
