@@ -29,6 +29,7 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					if-up.ndp-proxy \
 					dhcpcd-hook \
 					extradebug \
+					link_wait \
 					hwdesc2iface \
 					move_shm_sysconfig.sh \
 					create-ifservices-directory
