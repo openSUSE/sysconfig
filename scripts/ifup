@@ -682,6 +682,9 @@ if [ "$DHCP" != yes ] ; then
 	fi
 
 	if [ "$SCRIPTNAME" = ifup ] ; then
+		# apply (per interface) sysctl settings before anything else
+		scripts/${SCRIPTNAME}-sysctl $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+
 		# before setting up interfaces we have to configure
 		# wireless NICs
 		scripts/${SCRIPTNAME}-wireless $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
