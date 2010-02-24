@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Feb 22 12:51:48 CET 2010 - mt@suse.de
+
+- Fixed to apply (per interface) sysctl settings also in ifup,
+  so changes to the configuration have an effect (bnc#494958).
+  
+-------------------------------------------------------------------
 Fri Feb 19 14:35:56 CET 2010 - mt@suse.de
 
 - version 0.71.28
