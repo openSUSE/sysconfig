@@ -607,6 +607,9 @@ case "$ACTION" in
 						test -n "$DHCP4_STATUS" || {
 							start_dhcp4_dhclient && {
 								DHCP4_STARTED="yes"
+								write_cached_config_data dhcp4_client $DHCLIENT  $INTERFACE
+								write_cached_config_data dhcp4_state  started    $INTERFACE
+								commit_cached_config_data                        $INTERFACE
 							} || DHCP4_STATUS=$?
 						}
 					;;
@@ -692,19 +695,20 @@ case "$ACTION" in
 							fi
 							[ -n "$DHCP4_STATUS" ] && continue
 
-							while read a b c d e f g h i; do
-								case "$d" in
-								169.254.*) continue ;;
-								esac
-								lease="/var/lib/dhcp/dhclient.${INTERFACE}.lease"
-								config="/var/lib/dhcp/dhclient.${INTERFACE}.conf"
-
-								if [ -e "$lease" -a "$lease" -nt "$config" ] && \
-								   grep -q "${d%/*}" "$lease" &>/dev/null ; then
-									DHCP4_STATUS=$R_SUCCESS
-									DHCP4_MESSAGE="IP address: $d"
-								fi
-							done < <(ip -o -4 addr show $INTERFACE)
+							lease="/var/lib/dhcp/dhclient.${INTERFACE}.lease"
+							config="/var/lib/dhcp/dhclient.${INTERFACE}.conf"
+							state=`read_cached_config_data dhcp4_state $INTERFACE`
+							if [ "x$state" = "xcomplete" -a -e "$lease" -a "$lease" -nt "$config" ] ; then
+								while read a b c d e f g h i ; do
+									case "$d" in
+									169.254.*) continue ;;
+									esac
+									if grep -q "${d%/*}" "$lease" &>/dev/null ; then
+										DHCP4_MESSAGE="IP address: $d"
+									fi
+								done < <(ip -o -4 addr show $INTERFACE)
+								DHCP4_STATUS=$R_SUCCESS
+							fi
 						;;
 						esac
 					;;
@@ -1083,7 +1087,9 @@ case "$ACTION" in
 						fi
 					;;
 					dhclient)
-						if [ -n "`ip -o -f inet addr show $INTERFACE`" ]; then
+						state=`read_cached_config_data dhcp4_state $INTERFACE`
+						if [ "x$state" = "xcomplete" -a \
+						     -n "`ip -o -f inet addr show $INTERFACE`" ]; then
 							:
 							DHCP4_STATUS=$R_SUCCESS
 						else
