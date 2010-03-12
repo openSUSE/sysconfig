@@ -26,7 +26,7 @@ Group:          System/Base
 License:        GPLv2+
 AutoReqProv:    on
 PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
-Requires:       iproute2 dbus-1 hal procps
+Requires:       iproute2 dbus-1 procps
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Source:         %name-%version.tar.bz2
 

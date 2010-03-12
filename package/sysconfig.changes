@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Feb 17 18:31:54 CET 2010 - kay.sievers@novell.com
+
+- do not require hal, NetworkManager dropped it
+
+-------------------------------------------------------------------
 Fri Feb 12 12:36:05 CET 2010 - mt@suse.de
 
 - Added route proto filter to ifstatus-route to evaluate only
