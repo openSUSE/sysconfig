@@ -238,8 +238,20 @@ fi
 #
 if ! is_iface_available $INTERFACE; then
 	if [ "$SCRIPTNAME" != ifdown ] ; then
-		logerror Interface $INTERFACE is not available
-		exit $R_NODEV
+		retcode=$R_NODEV
+		retmesg="is not available"
+		case "$STARTMODE" in
+		off)
+			retcode=$R_INACTIVE
+			retmesg="is not active (startmode $STARTMODE)"
+		;;
+		esac
+		if [ "$RUN_FROM_RC" = yes ] ; then
+			message "`printf "    %-9s $retmesg" $INTERFACE`"
+		else
+			logerror "Interface $INTERFACE $retmesg"
+		fi
+		exit $retcode
 	else
 		if [ "$RUN_FROM_RC" = yes -o "$HOTPLUG" = yes ] ; then
 			: just go on, there are things to clean up even if iface has gone
@@ -898,7 +910,36 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 		retcode=$?
 	;;
 	none)
-		:
+		# stop dhcp client, ... on slaves or it may continue
+		# running and have IPs, when the config changed ...
+		case $SCRIPTNAME in
+			ifdown)
+				ifdown-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				ifdown-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+				# Calling 'ip' if there is no interface (ifdown called from udev for
+				# remove event) would trigger automatic module loading (Bug 199456)
+				if [ -d /sys/class/net/$INTERFACE ] ; then
+					ip addr flush dev $INTERFACE &>/dev/null
+					ip link set dev $INTERFACE down &>/dev/null
+				fi
+				retcode=0 # $?
+			;;
+			ifstatus)
+				if is_iface_up $INTERFACE ; then
+					message_if_not_run_from_rc "$INTERFACE is up"
+					message_if_not_run_from_rc "$(ip addr show $INTERFACE)"
+					while read a b c d e f g h i; do
+						message "`printf "    %-9s IP address: %s" "$i" "$d"`"
+					done < <(ip -o -4 addr show $INTERFACE)
+					ifstatus-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+					retcode=$R_SUCCESS
+				else
+					# message_if_not_run_from_rc "$INTERFACE is down"
+					message "`printf "    %-9s is down" $INTERFACE`"
+					retcode=$R_INACTIVE
+				fi
+			;;
+		esac
 	;;
 	*)
 		# TODO: move this to ifup-static script ?
@@ -1070,7 +1111,9 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 					# message_if_not_run_from_rc "$INTERFACE is down"
 					message "`printf "    %-9s is down" $INTERFACE`"
 					retcode=$R_NOTRUNNING
-					test "$STARTMODE" = "manual" && retcode=$R_INACTIVE
+					case "$STARTMODE" in
+					manual|off) retcode=$R_INACTIVE ;;
+					esac
 				fi
 				;;
 		esac
