@@ -1,9 +1,29 @@
 -------------------------------------------------------------------
+Mon Mar  8 18:30:09 CET 2010 - mt@suse.de
+
+- Do not use own ipoib mode/umcast defaults in ifup-infiniband
+  but honor the /etc/sysconfig/infiniband:SET_IPOIB_CM=yes/no
+  setting and apply when explicitly requested only (bnc#579555).
+
+-------------------------------------------------------------------
+Thu Mar  4 14:35:03 CET 2010 - mt@suse.de
+
+- Fixed ifup-dhcp to check the complete state mark also for
+  dhclient, that reports it now too (bnc#585380,bnc#518219).
+
+-------------------------------------------------------------------
+Fri Feb 26 17:51:43 CET 2010 - mt@suse.de
+
+- Fixed dhcpcd-hook to call ifup ... -o dhcp (if-up.d/ifservice
+  scripts) when dhcpcd reports "complete" configuration instead
+  in "up", so also the new hostname is already set (bnc#583800).
+
+-------------------------------------------------------------------
 Mon Feb 22 12:51:48 CET 2010 - mt@suse.de
 
 - Fixed to apply (per interface) sysctl settings also in ifup,
   so changes to the configuration have an effect (bnc#494958).
-  
+
 -------------------------------------------------------------------
 Fri Feb 19 14:35:56 CET 2010 - mt@suse.de
 
