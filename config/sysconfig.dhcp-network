@@ -187,7 +187,7 @@ DHCLIENT_RELEASE_BEFORE_QUIT="no"
 ## Type:	yesno
 ## Default:	no
 #
-# Send a DHCPRELEASE to the server (sign off the address)? (yes|no)
+# Send a DHCPv6 RELEASE to the server (sign off the address)? (yes|no)
 # This may lead to getting a different address/hostname next time an address
 # is requested. But some servers require it.
 #
