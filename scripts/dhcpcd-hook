@@ -136,9 +136,6 @@ up)
 	write_cached_config_data  dhcp4_state up       $INTERFACE
 	commit_cached_config_data                      $INTERFACE
 
-	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
-	ifup $INTERFACE -o dhcp
-
 	$debug && NC_OPTIONS="-v"
 	/sbin/netconfig modify -s "dhcpcd" \
 		-i $INTERFACE $NC_OPTIONS  \
@@ -172,8 +169,6 @@ new)
 
 	$debug && $log_dbg "Running ifdown $INTERFACE -o dhcp"
 	ifdown $INTERFACE -o dhcp
-	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
-	ifup $INTERFACE -o dhcp
 	;;
 complete)
 	# dhcpcd finished all requested configuration steps ...
@@ -182,6 +177,9 @@ complete)
 		# reload syslog so it knows the new hostname
 		/etc/init.d/syslog reload
 	fi
+
+	$debug && $log_dbg "Running ifup $INTERFACE -o dhcp"
+	ifup $INTERFACE -o dhcp
 
 	$debug && $log_dbg "DHCP4 configuration of $INTERFACE is complete"
 
