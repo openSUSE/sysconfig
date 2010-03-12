@@ -166,17 +166,15 @@ RETVAL=$R_SUCCESS
 case $ACTION in
 up)
 	# verify values of interface parameters
-	IPOIB_MODE=${IPOIB_MODE:-datagram}
 	case $IPOIB_MODE in
-	connected|datagram) ;;
+	connected|datagram|"") ;;
 	*)
 		message "illegal value for IPOIB_MODE: $IPOIB_MODE"
 		exit $R_ERROR
 	;;
 	esac
-	IPOIB_UMCAST=${IPOIB_UMCAST:-0}
 	case $IPOIB_UMCAST in
-	0|1) ;;
+	0|1|"") ;;
 	*)
 		message "illegal value for IPOIB_UMCAST: $IPOIB_UMCAST"
 		exit $R_ERROR
@@ -197,8 +195,12 @@ up)
 	esac
 
 	# set interface parameters
-	echo "$IPOIB_MODE"   > "/sys/class/net/$INTERFACE/mode"
-	echo "$IPOIB_UMCAST" > "/sys/class/net/$INTERFACE/umcast"
+	if test -n "$IPOIB_MODE" ; then
+		echo "$IPOIB_MODE"   > "/sys/class/net/$INTERFACE/mode"
+	fi
+	if test -n "$IPOIB_UMCAST" ; then
+		echo "$IPOIB_UMCAST" > "/sys/class/net/$INTERFACE/umcast"
+	fi
 ;;
 down)
 	case "$INTERFACE" in
