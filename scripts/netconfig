@@ -314,15 +314,21 @@ Usage:
   update    Updates the managed files with the current set of settings.
 
  modify options:
+  < -s|--service <service name> >       service providing settings
+  [ -i|--interface <interface name> ]   interface providing settings
   [ -F|--input-format <input format> ]  currently 'dhcpcd' supported only
   [ -I|--input-file <file name> ]       file name to read, stdin by default
   [ -l|--lease-file <file name> ]       alias for --input-file
-  {remove options}
+  [ -m|--module-only <name | prefix> ]  module or module group updates only
+  [ -f|--force-replace ]                generate files, even user modified
+  [ -v|--verbose ]                      enable debug and be verbose
 
  remove options:
   < -s|--service <service name> >       service providing settings
   [ -i|--interface <interface name> ]   interface providing settings
-  {update options}
+  [ -m|--module-only <name | prefix> ]  module or module group updates only
+  [ -f|--force-replace ]                generate files, even user modified
+  [ -v|--verbose ]                      enable debug and be verbose
 
  update options:
   [ -m|--module-only <name | prefix> ]  module or module group updates only
