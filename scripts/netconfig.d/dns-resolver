@@ -288,7 +288,19 @@ fi
 # the name server on the local machine then ...
 if [ "$NETCONFIG_DNS_FORWARDER" != "resolver" -a \
      "$NETCONFIG_DNS_FORWARDER" != "" ]; then
-    unset ${!DNS_SERVERS_*}
+    # write explicitly specified loopback addresses (when any);
+    # everything else will go into the forwarder specific config.
+    for idx in 0 1 2 ; do
+        var="DNS_SERVERS_$idx"
+        val=(${!var})
+        new=()
+        for ns in ${val[@]} ; do
+            case $ns in
+            127.*|::1) new+=("$ns") ;;
+            esac
+        done
+        eval "${var}='${new[@]}'"
+    done
 fi
 
 write_resolv_conf "$DNS_SEARCHLIST_0 $DNS_SEARCHLIST_1 $DNS_SEARCHLIST_2" \

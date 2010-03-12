@@ -241,6 +241,20 @@ if [ $sf -eq 1 -a -z "$DNS_SERVERS_0" \
     DNS_SERVERS_2="$DNS_SERVERS_2 $NETCONFIG_DNS_STATIC_SERVERS"
 fi
 
+# filter out loopback addresses that would case a loop
+for idx in 0 1 2 ; do
+    var="DNS_SERVERS_$idx"
+    val=(${!var})
+    new=()
+    for ns in ${val[@]} ; do
+        case $ns in
+            127.*|::1)      ;;
+            *) new+=("$ns") ;;
+        esac
+    done
+    eval "${var}='${new[@]}'"
+done
+
 write_dnsmasq_forwarders "$DNS_SERVERS_0 $DNS_SERVERS_1 $DNS_SERVERS_2"
 RET=$?
 
