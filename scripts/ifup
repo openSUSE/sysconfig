@@ -553,6 +553,13 @@ fi
 # check startmode (not for ifdown)
 #
 # STARTMODE is from config file; MODE is current mode
+#
+# Read temporary startmode
+if [ "$SCRIPTNAME" = ifdown ] ; then
+       tmp_startmode=`read_cached_config_data startmode $INTERFACE`
+       [ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"
+fi
+
 test "$STARTMODE" = "on"      && STARTMODE=auto
 test "$STARTMODE" = "boot"    && STARTMODE=auto
 test "$STARTMODE" = "onboot"  && STARTMODE=auto
