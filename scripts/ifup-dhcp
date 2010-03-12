@@ -631,9 +631,6 @@ case "$ACTION" in
 				;;
 				esac
 			done
-			### FIXME
-			# don't hurry too much...
-			###[ "x$DHCP6_STARTED" = xyes -o "x$DHCP4_STARTED" = xyes ] && sleep 1
 
 			#
 			# in case we've started at least one client, wait the specified
@@ -808,23 +805,31 @@ case "$ACTION" in
 		if [ "$INTERFACE" != all ]; then
 			ALL_INTERFACES=($INTERFACE)
 
+			dhcpc4_pids=""
+			dhcpc6_pids=""
+			dhcpc4_signal="-TERM"
+			dhcpc6_signal="-TERM"
+
 			debug "Shutting down dhcp clients on $INTERFACE"
 
 			# first try the configured way
 			for BOOTPROTO in ${BOOTPROTOS[@]} ; do
 				case "$BOOTPROTO" in
 				(dhcp4)
-					dhcpcd_on_device="`dhcpc4_on_iface`"
-					USE_SIGNAL="-TERM"
+					dhcpc4_pids="`dhcpc4_on_iface`"
 
 					case $DHCLIENT in
 					(dhcpcd)
+						DHCPIFLEASE="/var/lib/dhcpcd/dhcpcd-$INTERFACE.info"
+						DHCPIFPID="/var/run/dhcpcd-$INTERFACE.pid"
+
 						if test "$STARTMODE" = "nfsroot" ;
 						then
-							USE_SIGNAL="-KILL"
+							dhcpc4_signal="-KILL"
 						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" ;
 						then
-							USE_SIGNAL="-HUP"
+							$DHCLIENT_BIN --release \
+								$INTERFACE </dev/null &>/dev/null
 						fi
 					;;
 					(dhclient)
@@ -833,9 +838,8 @@ case "$ACTION" in
 
 						if test "$STARTMODE" = "nfsroot" ;
 						then
-							USE_SIGNAL="-KILL"
+							dhcpc4_signal="-KILL"
 						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" ;
-						#          -a -f "${DHCPIFLEASE}" ?!
 						then
 							$DHCLIENT_BIN -r \
 								-cf /dev/null \
@@ -846,41 +850,39 @@ case "$ACTION" in
 					;;
 					esac
 
-					# send termination signal
-					for i in $dhcpcd_on_device; do
-						kill $USE_SIGNAL $i &>/dev/null
-					done
-
-					# wait until the processes are gone
-					for i in $dhcpcd_on_device; do
-						for ((wait=0; wait<=20; wait++)); do
-							if test -d /proc/$i ; then
-								usleep 300000
-							else
-								continue 2
-							fi
-							if [ $wait -eq 20 ]; then
-								#message "process $i still not dead, sending SIGKILL"
-								kill -KILL $i &>/dev/null
-							fi
-						done
-					done
 				;;
 				(dhcp6)
-					dhcpcd_on_device="`dhcpc6_on_iface`"
-					USE_SIGNAL="-TERM"
+					dhcpc6_pids="`dhcpc6_on_iface`"
 
 					case $DHCLIENT6 in
 					(dhcp6c)
 						DHCP6IFCONF="/var/lib/dhcpv6/dhcp6c.${INTERFACE}.conf"
 						DHCP6IFPID="/var/run/dhcp6c.${INTERFACE}.pid"
+
 						if test "$STARTMODE" = "nfsroot" ;
 						then
-							USE_SIGNAL="-9"
-						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" ;
+							dhcpc6_signal="-KILL"
+						elif test "$DHCLIENT6_RELEASE_BEFORE_QUIT" = "yes" ;
 						then
+							# dhcp6c daemon needs to get killed or
+							# dhcp6c -r fails to bind the interface
+							for i in $dhcpc6_pids; do
+								kill $dhcpc6_signal $i &>/dev/null
+							done
+							for i in $dhcpc6_pids; do
+								for ((wait=0; wait<=20; wait++)); do
+									if test -d /proc/$i ; then
+										usleep 300000
+									else
+										continue 2
+									fi
+								done
+							done
+
+							# then release the lease
 							$DHCLIENT6_BIN -r all \
 								-c /dev/null \
+								-p "$DHCP6IFPID" \
 								$INTERFACE </dev/null &>/dev/null
 						fi
 					;;
@@ -890,9 +892,8 @@ case "$ACTION" in
 
 						if test "$STARTMODE" = "nfsroot" ;
 						then
-							USE_SIGNAL="-9"
-						elif test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" \
-						          -a -f "${DHCP6IFLEASE}" ;
+							dhcpc6_signal="-KILL"
+						elif test "$DHCLIENT6_RELEASE_BEFORE_QUIT" = "yes" ;
 						then
 							$DHCLIENT_BIN6 -6 -r \
 								-cf /dev/null \
@@ -903,13 +904,21 @@ case "$ACTION" in
 					;;
 					esac
 
+				;;
+				esac
+			done
+
+			# same game again...
+			for BOOTPROTO in ${BOOTPROTOS[@]} ; do
+				case "$BOOTPROTO" in
+				(dhcp4)
 					# send termination signal
-					for i in $dhcpcd_on_device; do
-						kill $USE_SIGNAL $i &>/dev/null
+					for i in $dhcpc4_pids; do
+						kill $dhcpc4_signal $i &>/dev/null
 					done
 
 					# wait until the processes are gone
-					for i in $dhcpcd_on_device; do
+					for i in $dhcpc4_pids; do
 						for ((wait=0; wait<=20; wait++)); do
 							if test -d /proc/$i ; then
 								usleep 300000
@@ -917,11 +926,42 @@ case "$ACTION" in
 								continue 2
 							fi
 							if [ $wait -eq 20 ]; then
-								#message "process $i still not dead, sending SIGKILL"
+								debug "process $i still not dead, sending SIGKILL"
 								kill -KILL $i &>/dev/null
 							fi
 						done
 					done
+
+					# remove old lease file and pid when they still exist
+					if test "$DHCLIENT_RELEASE_BEFORE_QUIT" = "yes" ; then
+						rm -f "$DHCPIFLEASE" "$DHCPIFPID"
+					fi
+				;;
+				(dhcp6)
+					# send termination signal
+					for i in $dhcpc6_pids; do
+						kill $dhcpc6_signal $i &>/dev/null
+					done
+
+					# wait until the processes are gone
+					for i in $dhcpc6_pids; do
+						for ((wait=0; wait<=20; wait++)); do
+							if test -d /proc/$i ; then
+								usleep 300000
+							else
+								continue 2
+							fi
+							if [ $wait -eq 20 ]; then
+								debug "process $i still not dead, sending SIGKILL"
+								kill -KILL $i &>/dev/null
+							fi
+						done
+					done
+
+					# remove old lease file and pid when they still exist
+					if test "$DHCLIENT6_RELEASE_BEFORE_QUIT" = "yes" ; then
+						rm -f "$DHCP6IFLEASE" "$DHCP6IFPID"
+					fi
 				;;
 				esac
 			done
@@ -960,7 +1000,7 @@ case "$ACTION" in
 							continue 2
 						fi
 						if [ $wait -eq 10 ]; then
-							#message "process $i still not dead, sending SIGKILL"
+							debug "process $i still not dead, sending SIGKILL"
 							kill -KILL $i &>/dev/null
 						fi
 					done

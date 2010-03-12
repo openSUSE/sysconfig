@@ -184,6 +184,15 @@ DHCLIENT_VENDOR_CLASS_ID=""
 #
 DHCLIENT_RELEASE_BEFORE_QUIT="no"
 
+## Type:	yesno
+## Default:	no
+#
+# Send a DHCPRELEASE to the server (sign off the address)? (yes|no)
+# This may lead to getting a different address/hostname next time an address
+# is requested. But some servers require it.
+#
+DHCLIENT6_RELEASE_BEFORE_QUIT="no"
+
 ## Type:	integer
 ## Default:	0
 #
