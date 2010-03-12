@@ -225,10 +225,13 @@ NETCONFIG_MODULES_ORDER="dns-resolver dns-bind dns-dnsmasq nis ntp-runtime"
 #
 NETCONFIG_DNS_POLICY="auto"
 
-## Type:        string
+## Type:        string(resolver,bind,dnsmasq,)
 ## Default:     "resolver"
 #
 # Defines the name of the DNS forwarder that has to be configured.
+# Currently implemented are "bind", "dnsmasq" and "resolver", that
+# causes to write the name server IP addresses to /etc/resolv.conf
+# only (no forwarder). Empty string defaults to "resolver".
 #
 NETCONFIG_DNS_FORWARDER="resolver"
 
@@ -236,6 +239,7 @@ NETCONFIG_DNS_FORWARDER="resolver"
 ## Default:     ""
 #
 # List of DNS domain names used for host-name lookup.
+# It is written as search list into the /etc/resolv.conf file.
 #
 NETCONFIG_DNS_STATIC_SEARCHLIST=""
 
@@ -243,6 +247,12 @@ NETCONFIG_DNS_STATIC_SEARCHLIST=""
 ## Default:     ""
 #
 # List of DNS nameserver IP addresses to use for host-name lookup.
+# When the NETCONFIG_DNS_FORWARDER variable is set to "resolver",
+# the name servers are written directly to /etc/resolv.conf.
+# Otherwise, the nameserver are written into a forwarder specific
+# configuration file and the /etc/resolv.conf does not contain any
+# nameservers causing the glibc to use the name server on the local
+# machine (the forwarder). See also netconfig(8) manual page.
 #
 NETCONFIG_DNS_STATIC_SERVERS=""
 
@@ -282,7 +292,7 @@ NETCONFIG_NTP_STATIC_SERVERS=""
 #
 NETCONFIG_NIS_POLICY="auto"
 
-## Type:        string
+## Type:        string(yes,no,)
 ## Default:     "yes"
 #
 # Defines whether to set the default NIS domain. When enabled and no domain

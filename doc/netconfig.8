@@ -182,17 +182,33 @@ the NetworkManager!
 .TP
 .B NETCONFIG_DNS_POLICY
 Defines the DNS merge policy.
+See also the \fBNETCONFIG_\fI<set>\fB_POLICY\fR section.
 .TP
 .B NETCONFIG_DNS_FORWARDER
-The type of the forwarder type to configure. Valid settings are "resolver",
-"bind" and "dnsmasq". The default setting is "resolver" activating the
-"dns-resolver" module.
+The name of the DNS forwarder that has to be configured. Currently
+implemented are "bind" (dns-bind module), "dnsmasq" (dns-dnsmasq)
+and "resolver" (dns-resolver module), that causes to write the name
+server IP addresses directly to /etc/resolv.conf only (no forwarder).
+Empty string defaults to "resolver", that is also the default setting.
+
+See also \fBNETCONFIG MODULES\fR section for more informations.
 .TP
 .B NETCONFIG_DNS_STATIC_SEARCHLIST
 List of DNS domain names used for host-name lookup.
+
+It is written as search list into the /etc/resolv.conf file.
 .TP
 .B NETCONFIG_DNS_STATIC_SERVERS
 List of namserver IP addresses used for host-name lookup.
+
+When the NETCONFIG_DNS_FORWARDER variable is set to "resolver", the name
+servers are written directly to /etc/resolv.conf.
+
+Otherwise, the nameserver are written into a forwarder specific
+configuration file and the /etc/resolv.conf does not contain any
+nameservers causing the glibc to use the name server on the local
+machine (the forwarder). See also \fBNETCONFIG MODULES\fR section
+for more informations.
 .TP
 .B NETCONFIG_DNS_RANKING
 Allows to specify a custom DNS service ranking list, that is which services
@@ -212,6 +228,7 @@ the value \fI"none"\fR or \fI""\fR allows to disable the ranking / sorting.
 .TP
 .B NETCONFIG_NTP_POLICY
 Defines the NTP merge policy.
+See also the \fBNETCONFIG_\fI<set>\fB_POLICY\fR section.
 .TP
 .B NETCONFIG_NTP_STATIC_SERVERS
 List of NTP server IP addresses.
@@ -219,6 +236,7 @@ List of NTP server IP addresses.
 .SS NIS
 .B NETCONFIG_NIS_POLICY
 Defines the NIS / YP merge policy.
+See also the \fBNETCONFIG_\fI<set>\fB_POLICY\fR section.
 .TP
 .BR NETCONFIG_NIS_STATIC_DOMAIN " [ " _ "<number> ]"
 A NIS domain name.
