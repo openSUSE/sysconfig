@@ -61,7 +61,7 @@ function write_ntp_servers()
 
     local SERVERS
 
-    TMP_FILE=`mktemp "$r/tmp/ntp-servers-netconfig.XXXXXX"` || return 1
+    TMP_FILE=`mktemp -t "ntp-servers-netconfig.XXXXXX"` || return 1
 
     if test ! -s "$DESTFILE" ; then
         touch "$DESTFILE"  ; chmod 644 "$DESTFILE"

@@ -56,11 +56,9 @@ function write_named_forwarders ()
     local NAMESERVER=()
 
     # DESTFILE may be a symlink on a read only /-fs
-    #   when, then $r/etc/named.d is be symlinked,
-    #   there is IMO no need to follow symlink...
-    #DST_FILE=`read_symlink "${DESTFILE}"`
-    DST_FILE="${DESTFILE}"
-    TMP_FILE=`mktemp "${DST_FILE}.XXXXXX"` || return 1
+    DST_FILE=`read_symlink "${DESTFILE}"`
+    TMP_FILE=`mktemp "${DST_FILE}.XXXXXX" 2>/dev/null || \
+              mktemp -t "${DST_FILE##*/}.XXXXXX"` || return 1
 
     if test ! -s "$DST_FILE" ; then
         touch "$DST_FILE" ; chmod 644 "$DST_FILE"
