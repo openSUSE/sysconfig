@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Mar 12 12:53:38 UTC 2010 - mt@suse.de
+
+- version 0.71.29
+- Added reading of a temporary startmode in ifdown to skip
+  stopping of the interface and avoid shutdown problems when
+  multipathed iscsi device was mounted (bnc#581259).
+
+-------------------------------------------------------------------
 Mon Mar  8 18:30:09 CET 2010 - mt@suse.de
 
 - Do not use own ipoib mode/umcast defaults in ifup-infiniband
