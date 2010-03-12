@@ -26,9 +26,9 @@
 #
 ### BEGIN INIT INFO
 # Provides:		network-remotefs
-# Required-Start:	$network $remote_fs haldaemon
+# Required-Start:	$network $remote_fs
 # Should-Start:		
-# Required-Stop:	$network $remote_fs haldaemon
+# Required-Stop:	$network $remote_fs
 # Should-Stop:		
 # Default-Start:	2 3 5
 # Default-Stop:		
