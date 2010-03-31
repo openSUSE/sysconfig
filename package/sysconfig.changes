@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Mar 29 08:59:30 UTC 2010 - coolo@novell.com
+
+- make the network script cleanup the netconfig scripts on stop,
+  so that it doesn't have to be done on boot - where it's much more
+  expensive
+
+-------------------------------------------------------------------
 Fri Mar 12 16:14:13 UTC 2010 - mt@suse.de
 
 - version 0.73.4

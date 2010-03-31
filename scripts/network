@@ -199,6 +199,7 @@ case "$ACTION" in
 			$FAKE killproc -TERM $NETWORKMANAGER_BIN
 			rc_status -v
 		fi
+		netconfig update
 		# else fall through to NetControl
 		;;
 	try-restart)
