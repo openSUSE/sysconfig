@@ -610,11 +610,15 @@ PREFER_WPA_SUPPLICANT=''
 # Ad-Hoc modes when the variable is empty.
 WIRELESS_AP=''
 
-## Type:	yesno
-## Default:	no
+## Type:	string
+## Default:	"none"
 #
+# Can be set to yes, no, none.
+# If set to none, ifup will not manipulate power saving for this device.
+# If set to no, ifup tries to disable power saving for this device.
 # If set to yes, ifup tries to enable power saving for this device. This is
-# not supported by all cards resp. drivers.
+# not supported by all cards resp. drivers and shall be tested before the user
+# decides to set it.
 WIRELESS_POWER=''
 
 ## Type:	string
