@@ -19,6 +19,7 @@ man_MANS = 	ifup.8 \
 		routes.5
 
 doc_DATA =	README COPYING Contents Network \
+		README.virtualization \
 		README.hwcfg_and_device_initialisation \
 		README.netconfig netconfig.odg netconfig.png
 
