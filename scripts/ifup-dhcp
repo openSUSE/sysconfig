@@ -87,13 +87,31 @@ test -f ./dhcp && . ./dhcp
 test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
 
 ######################################################################
+# get the interface and check if it is up
+#
+if [ -z "$INTERFACE" ] ; then
+	usage "No interface given"
+fi
+if ! is_iface_available $INTERFACE ; then
+	# When a hotplug remove event occurs the interface has already gone.
+	# Nevertheless we have to clean up.
+	if [ \( "$ACTION" != stop -o "$MODE" != hotplug \) -a "$INTERFACE" != all ] ; then
+		logerror "interface ${INTERFACE} is not available"
+		exit $R_NODEV
+	fi
+fi
+
+######################################################################
 # Normalize & resolve & cleanup the bootproto value from config
+# Note:
+# INTERFACE=all is a special case used by rcnetwork stop/ifdown
+# to kill all dhcp clients that may still run on some interface
 #
 explicit_dhcp4=no
 explicit_dhcp6=no
 BOOTPROTO=$(echo "$BOOTPROTO" | awk '{print tolower($0);}')
 # Override with iSCSI Boot Firmware Table (feature 308283, bnc 542225)
-if [ "${BOOTPROTO}" = "ibft" ] ; then
+if [ "$INTERFACE" != "all" -a "${BOOTPROTO}" = "ibft" ] ; then
 	IBFT=yes # not used at the moment... remember before override
 	eval BOOTPROTO=none `parse_ifname_ibft_settings "$INTERFACE"`
 fi
@@ -126,21 +144,13 @@ for bp in ${BOOTPROTO//+/ } ; do
 		(*) continue ;;
 	esac
 done
+if [ "$INTERFACE" != all ] ; then
+	# Read temporary startmode and handle it
+	# [kill -9 on stop, use dhcpcd -p flag on start]
+	tmp_startmode=`read_cached_config_data startmode $INTERFACE`
+	[ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"
+fi
 
-######################################################################
-# get the interface and check if it is up
-#
-if [ -z "$INTERFACE" ] ; then
-	usage "No interface given"
-fi
-if ! is_iface_available $INTERFACE ; then
-	# When a hotplug remove event occurs the interface has already gone.
-	# Nevertheless we have to clean up.
-	if [ \( "$ACTION" != stop -o "$MODE" != hotplug \) -a "$INTERFACE" != all ] ; then
-		logerror "interface ${INTERFACE} is not available"
-		exit $R_NODEV
-	fi
-fi
 
 ######################################################################
 # determine type of dhcp client
@@ -983,6 +993,9 @@ case "$ACTION" in
 		# now verify it & "kill them all"
 		# catching also INTERFACE=all case
 		for INTERFACE in ${ALL_INTERFACES[@]} ; do
+			# Read temporary startmode and use kill -9 to stop
+			tmp_startmode=`read_cached_config_data startmode $INTERFACE`
+			[ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"
 
 			# try to catch also config changes
 			dhcpcd_on_device=`any_dhcpc_on_iface`
