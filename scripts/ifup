@@ -556,8 +556,8 @@ fi
 #
 # Read temporary startmode
 if [ "$SCRIPTNAME" = ifdown ] ; then
-       tmp_startmode=`read_cached_config_data startmode $INTERFACE`
-       [ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"
+	tmp_startmode=`read_cached_config_data startmode $INTERFACE`
+	[ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"
 fi
 
 test "$STARTMODE" = "on"      && STARTMODE=auto
