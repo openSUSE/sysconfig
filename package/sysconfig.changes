@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Mon Apr 12 16:35:28 UTC 2010 - mt@suse.de
+
+- Added reading of a temporary startmode in ifdown-dhcp as well
+  to stop dhcp clients without deconfiguration of the interface
+  in nfsroot case to avoid shutdown problems when multipathed
+  iscsi device was mounted (bnc#581259).
+
+-------------------------------------------------------------------
 Thu Apr  1 15:13:16 CEST 2010 - mt@suse.de
 
 - version 0.71.30
