@@ -1,9 +1,19 @@
 -------------------------------------------------------------------
 Wed Apr 21 11:43:45 UTC 2010 - mt@suse.de
 
+- version 0.73.5
+- Added WIRELESS_WPA_DEBUG_OPTION option with default of -dddt used
+  while wpa_supplicant start when DEBUG is set (yes or wireless).
+- Fixed ifup-wireless to use PREFER_WPA_SUPPLICANT=yes when unset
+  as specified as default in ifcfg.template.
+- Switched to use the new nl80211 wpa_supplicant driver required to
+  support WIRELESS_REGULATORY_DOMAIN by default in the ifup-wireless.
+  Can be switched back using WIRELESS_WPA_DRIVER='wext' (bnc#585802).
+- Updated interface type detection checking new sysfs tun_flags for
+  tap and the phy80211 link for mac80211 based wireless interfaces.
+- Use git commands when in git repository (show/create ChangeLog)
 - Documented xen routed network setup using sysconfig mechanizms
   in the README.virtualization.
-- Use git commands when in git repository (show/create ChangeLog)
 
 -------------------------------------------------------------------
 Tue Apr 13 00:35:58 CEST 2010 - vbotka@suse.de
