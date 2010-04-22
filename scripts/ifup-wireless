@@ -711,37 +711,37 @@ case $ACTION in
                 WPA_DRIVER=ralink
                 ;;
             ipw2200|ipw2100|ipw3945|hostap_*)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             ndiswrapper|*.sys)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             rt2500usb|rt2500pci)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             rt61pci|rt73usb|rt2400pci)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             iwlagn|iwl3945|iwl4965)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             zd1211rw)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             ath5k|ath9k|ath_pci)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             b43|b43legacy|ssb)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             p54pci|p54usb)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             at76*)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             ar9170*)
-                WPA_DRIVER=wext
+                WPA_DRIVER=nl80211
                 ;;
             *)
                 WPA_DRIVER=unsupported
@@ -753,8 +753,10 @@ case $ACTION in
             if [ "$WPA_DRIVER" = "unsupported" ]; then
                 message "`printf "    %-9s warning: WPA configured but may be unsupported" $INTERFACE`"
                 message "`printf "    %-9s warning: by this device" $INTERFACE`"
-                info_mesg "using WPA driver 'wext' for interface $INTERFACE"
-                WPA_DRIVER=wext
+                info_mesg "using WPA driver 'nl80211' for interface $INTERFACE"
+                info_mesg "when you notice problems with this new driver, set " \
+                          "WIRELESS_WPA_DRIVER='wext' and file a bug report"
+                WPA_DRIVER=nl80211
             fi
             start_wpa_supplicant
         elif [ "$PREFER_WPA_SUPPLICANT" = "yes" ]; then
