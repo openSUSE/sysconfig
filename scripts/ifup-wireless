@@ -176,7 +176,7 @@ applicable_wpa_supplicant()
 # using wpa_supplicant for non-WPA connections often makes trouble
 # so we do not prefer it if not explicitly set
 #
-test -z "$PREFER_WPA_SUPPLICANT" && PREFER_WPA_SUPPLICANT=no
+test -z "$PREFER_WPA_SUPPLICANT" && PREFER_WPA_SUPPLICANT=yes
 info_mesg "prefer wpa_supplicant: $PREFER_WPA_SUPPLICANT"
 
 ######################################################################
@@ -665,7 +665,8 @@ start_wpa_supplicant()
         print_wpa_conf > $WPA_SUPP_CONF
     fi
     if [ "$DEBUG" = "yes" ]; then
-        SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid -d 2>&1 | logger &"
+        SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid"
+        SUPPARGS="$SUPPARGS ${WIRELESS_WPA_DEBUG_OPTION:--dt} 2>&1 | logger &"
     else
         SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid -B"
     fi
