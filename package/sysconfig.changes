@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Wed Apr 21 11:43:45 UTC 2010 - mt@suse.de
+
+- Documented xen routed network setup using sysconfig mechanizms
+  in the README.virtualization.
+- Use git commands when in git repository (show/create ChangeLog)
+
+-------------------------------------------------------------------
+Tue Apr 13 00:35:58 CEST 2010 - vbotka@suse.de
+
+- added none option to WIRELESS_POWER and made it default 
+
+-------------------------------------------------------------------
 Mon Mar 29 08:59:30 UTC 2010 - coolo@novell.com
 
 - make the network script cleanup the netconfig scripts on stop,
