@@ -664,9 +664,9 @@ start_wpa_supplicant()
         umask 0077
         print_wpa_conf > $WPA_SUPP_CONF
     fi
-    if [ "$DEBUG" = "yes" ]; then
+    if [ "$DEBUG" = "yes" -o "$DEBUG" = "wireless" ]; then
         SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid"
-        SUPPARGS="$SUPPARGS ${WIRELESS_WPA_DEBUG_OPTION:--dt} 2>&1 | logger &"
+        SUPPARGS="$SUPPARGS ${WIRELESS_WPA_DEBUG_OPTION:--dddt} 2>&1 | logger &"
     else
         SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid -B"
     fi
