@@ -591,6 +591,14 @@ WIRELESS_WPA_CONF=''
 #
 WIRELESS_WPA_DRIVER=''
 
+## Type:        string
+## Default:     "-dddt"
+#
+# This variable allows to set the wpa_supplicant debug option, used while
+# wpa_supplicant start when the DEBUG variable is set to "yes".
+#
+WIRELESS_WPA_DEBUG_OPTION='-dddt'
+
 ## Type:	yesno
 ## Default:	yes
 #
