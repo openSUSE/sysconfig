@@ -35,26 +35,45 @@ package package-local:  package/$(PACKAGE)-$(VERSION).tar.bz2 \
 dist-hook: VERSION sysconfig.spec $(distdir)/ChangeLog
 
 $(distdir)/ChangeLog:
-	@if [ -d $(srcdir)/.svn ]; then \
+	@if  [ -d $(top_srcdir)/.git ]; then \
+	  if ! git --version &>/dev/null ; then \
+	    echo 'ERROR: Unable to find the '\'git\'' version control client!'; \
+	    echo '       Please install git (git-core) and try again.'        ; \
+	    exit 1 ; \
+	  fi >&2 ; \
+	  LANG=C git log --decorate=short -- $(top_srcdir) > $(distdir)/ChangeLog ; \
+	elif [ -d $(top_srcdir)/.svn ]; then \
+	  if ! svn --version &>/dev/null ; then \
+	    echo 'ERROR: Unable to find the '\'svn\'' subversion client!' ; \
+	    echo '       Please install subversion and try again.'        ; \
+	    exit 1 ; \
+	  fi >&2 ; \
+	  LANG=C svn log $(top_srcdir) -v > $(distdir)/ChangeLog ; \
+	fi
+
+show-commit-state:
+	@if  [ -d $(top_srcdir)/.git ]; then \
+	  if ! git --version &>/dev/null ; then \
+	    echo 'ERROR: Unable to find the '\'git\'' version control client!'; \
+	    echo '       Please install git (git-core) and try again.'        ; \
+	    exit 1 ; \
+	  fi >&2 ; \
+	  cd $(top_srcdir) && \
+	  LC_ALL=C git status --all --quiet 2>&1 | \
+	  grep -qsE 'Untracked|to be committed' && { \
+	    echo -e "##\n## *** NOTE: There are uncommited changes:\n##" ; \
+	    git status --quiet 2>&1 ; \
+	  } ; \
+	elif [ -d $(top_srcdir)/.svn ]; then \
 	  if ! svn   --version &>/dev/null ; then \
 	    echo 'ERROR: Unable to find the '\'svn\'' subversion client!' ; \
 	    echo '       Please install subversion and try again.'        ; \
 	    exit 1 ; \
 	  fi >&2 ; \
-	  LANG=C svn log $(srcdir) -v > $(distdir)/ChangeLog ; \
-	fi
-
-show-commit-state:
-	@if [ -d $(srcdir)/.svn ]; then \
-	  if ! svn   --version &>/dev/null ; then \
-	    echo '*** ERROR: Unable to find the '\'svn\'' subversion client!' ; \
-	    echo '           Please install subversion and try again.'        ; \
-	    exit 1 ; \
-	  fi >&2 ; \
-	  cd $(srcdir) && \
+	  cd $(top_srcdir) && \
 	    out=`LC_ALL=C svn status --show-updates --quiet 2>&1` ; \
 	  if [ "x`echo \"$$out\" | grep -v '^Status against revision'`" != x ] ; then \
-	    echo "NOTE: There are uncommited changes:" ; \
+	    echo -e "##\n## *** NOTE: There are uncommited changes:\n##" ; \
 	    echo "$$out" ; \
 	  fi ; \
 	fi
