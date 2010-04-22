@@ -582,8 +582,12 @@ WIRELESS_WPA_CONF=''
 ## Default:     ""
 #
 # This variable allows to override the wpa driver name that should be used
-# by the wpa_supplicant. In most cases "wext" can be used, but there are
-# few exceptions.
+# by the wpa_supplicant. In most cases "nl80211" (default on openSUSE 11.3)
+# or "wext" (old default) can be used, but there are few exceptions.
+#
+# The new "nl80211" wpa driver supports wireless regulatory domain, that
+# can be set in /etc/sysconfig/network/config, WIRELESS_REGULATORY_DOMAIN
+# variable (global).
 #
 WIRELESS_WPA_DRIVER=''
 
