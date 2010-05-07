@@ -54,8 +54,7 @@ mask2pfxlen() {
 	echo $width
 	return 0
 }
-pfxlen2mask_array()
-{
+pfxlen2mask() {
 	test -n "$1" || return 1
 	local o i n=0 adr=() len=$(($1))
 	for o in 0 1 2 3; do
@@ -65,14 +64,8 @@ pfxlen2mask_array()
 			((adr[$o] = ${adr[$o]} + $i))
 		done
 	done
-	echo ${adr[*]}
+	echo ${adr[0]}.${adr[1]}.${adr[2]}.${adr[3]}
 	return 0
-}
-pfxlen2mask() {
-	local ret
-	local octet=($(pfxlen2mask_array $1)) ; ret=$?
-	echo ${octet[0]}.${octet[1]}.${octet[2]}.${octet[3]}
-	return $ret
 }
 
 add_to_wordlist() {
