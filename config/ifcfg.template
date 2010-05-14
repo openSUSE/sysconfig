@@ -190,8 +190,8 @@ RUN_POLL_TCPIP=
 ## Type:    yesno
 ## Default: no
 #
-# If an interface may be controlled from a user via kinternet or cinternet
-# you have to set this variable to yes.
+# If an interface may be controlled by a user via qinternet, cinternet
+# or another user interface, you have to set this variable to yes.
 #
 USERCONTROL=
 
