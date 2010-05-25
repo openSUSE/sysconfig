@@ -704,6 +704,9 @@ case $ACTION in
         test -n "$WIRELESS_WPA_DRIVER"    && \
         WPA_DRIVER="$WIRELESS_WPA_DRIVER" || \
         case "${DRIVER}" in
+            wl)
+                WPA_DRIVER=wext
+                ;;
             prism54)
                 WPA_DRIVER=prism54
                 PREFER_WPA_SUPPLICANT=no
