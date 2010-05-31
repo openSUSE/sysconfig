@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon May 31 14:44:45 UTC 2010 - mt@suse.de
+
+- Fixed ifup-bonding to handle ifup called twice correctly,
+  instead to destroy the bonding (bnc#609809).
+
+-------------------------------------------------------------------
 Tue May 25 14:24:02 UTC 2010 - mt@suse.de
 
 - Use wext wpa driver for the broadcom wl hw driver (bnc#585802).
