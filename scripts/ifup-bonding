@@ -143,7 +143,7 @@ load_bond() {
 		done
 		NIF=`cat "$sysfs_npath/bonding_masters"`
 		if [ -n "$NIF" -a "$NIF" != "$INTERFACE" ] ; then
-			nameif -r $INTERFACE $NIF
+			ip link set "$NIF" name $INTERFACE
 		fi
 	fi
 
@@ -233,6 +233,8 @@ remove_bond () {
 #
 case $ACTION in
 up)
+	[ -d "$sysfs_iface/bonding" ] && created=no || created=yes
+
 	if ! load_bond $INTERFACE $BONDING_MODULE_OPTS ; then
 		logerror "Bonding: could not get interface $INTERFACE"
 		exit $R_NODEV
@@ -247,22 +249,38 @@ up)
 		BONDING_SLAVE=${!BSVAR}
 		[ "x$BONDING_SLAVE" = x ] && continue
 
-		# slave has to be down while it gets added
-		if is_iface_up $BONDING_SLAVE ; then
-			ip link set down dev $BONDING_SLAVE
+		sysfs_slave="$sysfs_npath/$BONDING_SLAVE"
+		if [ ! -d "$sysfs_slave" ] ; then
+			logerror "Slave interface '$BONDING_SLAVE' is not available. Skipped."
+			continue
 		fi
-		echo "+$BONDING_SLAVE" > "$sysfs_iface/bonding/slaves"
-		if [ "$?" -gt 0 ]; then
-			logerror "Could not enslave interface '$BONDING_SLAVE'"
-			if ! is_iface_available "$BONDING_SLAVE" ; then
-				logerror "Slave interface '$BONDING_SLAVE' is not available. Skipped."
+
+		enslaved=no
+		for iface in `cat "$sysfs_iface/bonding/slaves" 2>/dev/null` ;
+		do
+			test "x$iface" = "x$BONDING_SLAVE" && enslaved=yes
+		done
+
+		if [ "$enslaved" = no ] ; then
+			# slave has to be down while it gets added
+			if is_iface_up $BONDING_SLAVE ; then
+				ip link set down dev $BONDING_SLAVE
+			fi
+
+			echo "+$BONDING_SLAVE" > "$sysfs_iface/bonding/slaves"
+			if [ "$?" -gt 0 ]; then
+				logerror "Could not enslave interface '$BONDING_SLAVE'"
+				if [ "$created" = yes ] ; then
+					logerror "Removing bonding interface '$INTERFACE'"
+					ifdown $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+					exit $R_ERROR
+				fi
 			else
-				logerror "Removing bonding interface '$INTERFACE'"
-				ifdown $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-				exit $R_ERROR
+				message "`printf "    %-9s enslaved interface: %s" \
+					"$INTERFACE" "$BONDING_SLAVE"`"
 			fi
 		else
-			message "`printf "    %-9s enslaved interface: %s" \
+			message "`printf "    %-9s already enslaved interface: %s" \
 				"$INTERFACE" "$BONDING_SLAVE"`"
 		fi
 	done
