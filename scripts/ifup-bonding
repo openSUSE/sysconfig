@@ -246,7 +246,9 @@ remove_bond () {
 		return 1 # Interface is not a bonding master
 	fi
 	ip link set down dev $INTERFACE &>/dev/null
-	echo "-$INTERFACE" 2>/dev/null > "$sysfs_npath/bonding_masters"
+	if test "x$BONDING_SKIP_REMOVE_WORKAROUND" != xyes ; then
+		echo "-$INTERFACE" 2>/dev/null > "$sysfs_npath/bonding_masters"
+	fi
 }
 
 
