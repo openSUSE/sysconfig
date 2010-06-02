@@ -235,6 +235,16 @@ NETCONFIG_DNS_POLICY="auto"
 #
 NETCONFIG_DNS_FORWARDER="resolver"
 
+## Type:        yesno
+## Default:     yes
+#
+# When enabled (default) in forwarder mode ("bind", "dnsmasq"),
+# netconfig writes an explicit localhost nameserver address to the
+# /etc/resolv.conf, followed by the policy resolved name server list
+# as fallback for the moments, when the local forwarder is stopped.
+#
+NETCONFIG_DNS_FORWARDER_FALLBACK="yes"
+
 ## Type:        string
 ## Default:     ""
 #
