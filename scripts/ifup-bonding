@@ -120,8 +120,8 @@ load_bond() {
 	local NIF OPT OPT_NAME OPT_VALUE OLD_OPT_VALUE OLD_OPT_VALUE_2 NOFAIL
 	local INTERFACE
 	NOFAIL=0
-	if [ "$1" == _no_fail_ ] ; then
-		NOFAIL=1
+	if [ "x$1" = "x--no-fail" ] ; then
+		NOFAIL=$1
 		shift
 	fi
 
@@ -161,15 +161,23 @@ load_bond() {
 	# Set options
 	for OPT in $*; do
 		read OPT_NAME OPT_VALUE < <(IFS==; echo $OPT)
-		if [ "$OPT_NAME" == max_bonds ] ; then
-			err_mesg "Don't use option max_bonds."
-			continue
-		fi
-		if [ ! -w "$sysfs_iface/bonding/$OPT_NAME" ] ; then
+		case $OPT_NAME in
+		    # not options -- read-only files providing info
+		    mii_status|ad_aggregator|ad_num_ports|\
+		    ad_actor_key|ad_partner_key|ad_partner_mac)
 			err_mesg "There is no option '$OPT_NAME' for interface '$INTERFACE'."
-			echo "-$INTERFACE" > "$sysfs_npath/bonding_masters"
+			[ "x$NOFAIL" = "x--no-fail" ] && continue
+			remove_bond "$INTERFACE"
 			return 1 # or continue? I guess its better to fail completely
-		fi
+		    ;;
+		    # max_bonds is documented in networking/bonding.txt,
+		    # but is a module option and not in sysfs (any more?),
+                    # slaves should be set via BONDING_SLAVE_<X> variable.
+		    slaves|max_bonds)
+			err_mesg "Don't use $OPT_NAME option."
+			continue
+		    ;;
+		esac
 		# Some options may only be changed if the interface is up and slaves are
 		# already assigned. Others may only be changed if it is down. To avoid
 		# unneccessary error messages or warnings we check first if the option
@@ -177,36 +185,50 @@ load_bond() {
 		# Special case for option 'mode': this sysfs attribute contains two
 		# words. A string describing the mode and the corresponding number. We
 		# have to compare both.
-		read OLD_OPT_VALUE OLD_OPT_VALUE_2 < /sys/class/net/$INTERFACE/bonding/$OPT_NAME
-		if [ "$OPT_NAME" == arp_ip_target ]; then
-		    for a in `cat "$sysfs_iface/bonding/$OPT_NAME"`; do
-			if ! echo "-$a" > "$sysfs_iface/bonding/$OPT_NAME"
+		read -a OLD_OPT_VAL < "$sysfs_iface/bonding/$OPT_NAME"
+		case $OPT_NAME in
+		arp_ip_target)
+		    for a in "${OLD_OPT_VAL[@]}" ; do
+			if ! echo "-$a" 2>/dev/null > "$sysfs_iface/bonding/$OPT_NAME" ;
 			then
 			    err_mesg "Option '$OPT_NAME': can't remove $a"
 			fi
 		    done
 		    for a in ${OPT_VALUE//,/ } ; do
-			if ! echo "+$a" > "$sysfs_iface/bonding/$OPT_NAME" ; then
+			if ! echo "+$a" 2>/dev/null > "$sysfs_iface/bonding/$OPT_NAME" ;
+			then
 			    err_mesg "Option '$OPT_NAME': can't add $a"
 			fi
 		    done
 		    continue
-		fi
-		if [    "$OLD_OPT_VALUE" == "$OPT_VALUE" \
-		     -o \( "$OPT_NAME" == mode -a "$OLD_OPT_VALUE_2" == "$OPT_VALUE" \) \
-		   ] ; then
-			info_mesg "Bonding interface '$INTERFACE':" \
-			          "option '$OPT_NAME' is already set to '$OPT_VALUE'"
+		;;
+		ad_select|arp_validate|fail_over_mac|lacp_rate|mode|xmit_hash_policy)
+		    if [ "$OPT_VALUE" = "${OLD_OPT_VAL[0]}" -o \
+			 "$OPT_VALUE" = "${OLD_OPT_VAL[1]}" ] ; then
+			info_mesg "Bonding interface '$INTERFACE': option" \
+			          " '$OPT_NAME' is already set to '$OPT_VALUE'"
 			continue
-		fi
+		    fi
+		    # else fall through and set it
+		;;
+		miimon|primary|updelay|downdelay|use_carrier|\
+		num_grat_arp|num_unsol_na|arp_interval|*)
+		    if [ "$OPT_VALUE" = "${OLD_OPT_VAL[0]}" ] ; then
+			info_mesg "Bonding interface '$INTERFACE': option" \
+			          " '$OPT_NAME' is already set to '$OPT_VALUE'"
+			continue
+		    fi
+		    # else fall through and set it
+		;;
+		esac
 		info_mesg "Bonding interface '$INTERFACE':" \
 		          "Setting option '$OPT_NAME' to '$OPT_VALUE'"
-		if ! echo "$OPT_VALUE" > "$sysfs_iface/bonding/$OPT_NAME" 2>/dev/null ; then
-			err_mesg "Option '$OPT_NAME' of interface '$INTERFACE' cannot be set to" \
-			         "'$OPT_VALUE'."
+		if ! echo "$OPT_VALUE" 2>/dev/null > "$sysfs_iface/bonding/$OPT_NAME" ;
+		then
+			err_mesg "Can not set '$OPT_NAME' to '$OPT_VALUE' for interface '$INTERFACE'."
 			# Should we continue? Its better to fail if not requested differently
-			test "$NOFAIL" == 1 && continue
-			echo "-$INTERFACE" > "$sysfs_npath/bonding_masters"
+			[ "x$NOFAIL" = "x--no-fail" ] && continue
+			remove_bond "$INTERFACE"
 			return 1
 		fi
 	done
@@ -224,7 +246,7 @@ remove_bond () {
 		return 1 # Interface is not a bonding master
 	fi
 	ip link set down dev $INTERFACE &>/dev/null
-	{ echo "-$INTERFACE" > "$sysfs_npath/bonding_masters" ; } &>/dev/null
+	echo "-$INTERFACE" 2>/dev/null > "$sysfs_npath/bonding_masters"
 }
 
 
@@ -233,10 +255,10 @@ remove_bond () {
 #
 case $ACTION in
 up)
-	[ -d "$sysfs_iface/bonding" ] && created=no || created=yes
+	[ -d "$sysfs_iface" ] && NOFAIL='--no-fail' || NOFAIL=
 
-	if ! load_bond $INTERFACE $BONDING_MODULE_OPTS ; then
-		logerror "Bonding: could not get interface $INTERFACE"
+	if ! load_bond $NOFAIL $INTERFACE $BONDING_MODULE_OPTS ; then
+		logerror "Bonding: could not create interface $INTERFACE"
 		exit $R_NODEV
 	fi
 
@@ -267,10 +289,10 @@ up)
 				ip link set down dev $BONDING_SLAVE
 			fi
 
-			echo "+$BONDING_SLAVE" > "$sysfs_iface/bonding/slaves"
-			if [ "$?" -gt 0 ]; then
+			echo "+$BONDING_SLAVE" 2>/dev/null > "$sysfs_iface/bonding/slaves"
+			if [ $? -gt 0 ]; then
 				logerror "Could not enslave interface '$BONDING_SLAVE'"
-				if [ "$created" = yes ] ; then
+				if [ "x$NOFAIL" = "x" ] ; then
 					logerror "Removing bonding interface '$INTERFACE'"
 					ifdown $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 					exit $R_ERROR
@@ -287,7 +309,7 @@ up)
 
 	# Some option have to be changed after enslaving (e.g. primary)
 	# Therefore we call load_bond() a second time
-	load_bond "$INTERFACE" "$BONDING_MODULE_OPTS"
+	load_bond $NOFAIL "$INTERFACE" "$BONDING_MODULE_OPTS"
 ;;
 down)
 	# bonding interface must be up for removing slaves
