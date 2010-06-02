@@ -27,6 +27,17 @@ into the documentation mentioned at the bottom.
 Note, that this options are not passed as parameters to the bonding kernel
 module any more, but set via sysfs interface. This variable will be renamed
 in the feature.
+.TP
+.B BONDING_SKIP_REMOVE_WORKAROUND
+When set to "yes", a bonding interface will be not removed while ifdown any
+more to avoid problems, e.g. when some third party kernel module, such as
+Veritas 'llt' module, does not react correctly to the UNREGISTER event and
+does not remove its references to the bonding interface causing all network
+related operation to stuck.
+
+\fBNote\fR: the bonding options are not reverted when this option is enabled
+and it is required to either explicitly keep the old options and set them to
+their default setting on bonding configuration changes or to reboot.
 
 .SH Example 
 Example for a bonding interface on eth0 and eth1 using the backup mode
