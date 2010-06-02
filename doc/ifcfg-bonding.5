@@ -18,21 +18,18 @@ the usual network settings. But you must add additional variables
 must be set to 'yes' to identify this interface as a bonding interface
 .TP
 .B BONDING_SLAVE_<X>
-here you specify the interface name representing the slave network device.
-.TP
-.B BONDING_OPTS
-contains additional options for ifenslave, this one is optional and not important
-for most cases. For additional information take a look into the documentation
-mentioned at the bottom of this section.
+here you specify the interface name representing the slave network interfaces.
 .TP
 .B BONDING_MODULE_OPTS
-contains additional options for the bonding kernel module. Here you can set
-interface timeouts or working modes ('mode=1' for backup mode). For additional
-information take a look into the documentation mentioned at the bottom.
-
+contains bonding options. Here you can set interface timeouts or working modes
+('mode=active-backup' for backup mode). For additional information take a look
+into the documentation mentioned at the bottom.
+Note, that this options are not passed as parameters to the bonding kernel
+module any more, but set via sysfs interface. This variable will be renamed
+in the feature.
 
 .SH Example 
-Example for a bonding device on eth0 and eth1 using the backup mode
+Example for a bonding interface on eth0 and eth1 using the backup mode
 
 .I ifcfg-bond0
 .nf
@@ -43,7 +40,7 @@ Example for a bonding device on eth0 and eth1 using the backup mode
    BONDING_MASTER='yes'
    BONDING_SLAVE_0='eth0'
    BONDING_SLAVE_1='eth1'
-   BONDING_MODULE_OPTS='mode=1'            # backup mode
+   BONDING_MODULE_OPTS='mode=active-backup miimon=100'
 .fi
 
 .SH Additional Information
