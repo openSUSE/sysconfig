@@ -193,6 +193,14 @@ Empty string defaults to "resolver", that is also the default setting.
 
 See also \fBNETCONFIG MODULES\fR section for more informations.
 .TP
+.B NETCONFIG_DNS_FORWARDER_FALLBACK
+When enabled (default) in forwarder mode ("bind", "dnsmasq"), netconfig
+writes an explicit localhost nameserver address to the /etc/resolv.conf,
+followed by the policy resolved name server list as fallback for the
+moments, when the local forwarder is stopped. Otherwise, the fallback is
+written only, when the NETCONFIG_DNS_STATIC_SERVERS variable contains an
+localhost address.
+.TP
 .B NETCONFIG_DNS_STATIC_SEARCHLIST
 List of DNS domain names used for host-name lookup.
 
@@ -204,10 +212,12 @@ List of namserver IP addresses used for host-name lookup.
 When the NETCONFIG_DNS_FORWARDER variable is set to "resolver", the name
 servers are written directly to /etc/resolv.conf.
 
-Otherwise, the nameserver are written into a forwarder specific
-configuration file and the /etc/resolv.conf does not contain any
-nameservers causing the glibc to use the name server on the local
-machine (the forwarder). See also \fBNETCONFIG MODULES\fR section
+Otherwise, the nameserver are written into a forwarder specific configuration
+file. Whether the nameservers are written as fallback to the /etc/resolv.conf,
+depends on the NETCONFIG_DNS_FORWARDER_FALLBACK variable.
+When the /etc/resolv.conf does not contain any nameservers, the glibc makes
+use of the name server running on the local machine (the forwarder). See also
+\fBNETCONFIG MODULES\fR section
 for more informations.
 .TP
 .B NETCONFIG_DNS_RANKING
@@ -275,8 +285,9 @@ This module writes the DNS settings into the \fI/etc/resolv.conf\fR file.
 When the \fBNETCONFIG_DNS_FORWARDER\fR variable is empty or set to "resolver",
 both, the domain search list and the nameserver list is written.
 
-Otherwise, only the domain search list is written - the nameservers has to
-be handled by the forwarder specific module, e.g. bind.
+Otherwise, only the domain search list is written. Whether the nameservers are
+written to the /etc/resolv.conf or handled by the forwarder specific module
+(e.g. bind) only, depends on the NETCONFIG_DNS_FORWARDER_FALLBACK variable.
 .TP
 .B dns-bind
 This module writes the DNS nameservers as forwarders for the bind nameserver
