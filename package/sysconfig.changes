@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Fri Jun  4 11:01:00 UTC 2010 - mt@suse.de
+
+- Added writing of name server addresses to /etc/resolv.conf in
+  forwarder mode ("bind", "dnsmasq") as fallback for the moments,
+  when the local forwarder process is stopped, e.g. during update
+  (bnc#607511). Set NETCONFIG_DNS_FORWARDER_FALLBACK=no to revert.
+- Fixed ifup-bonding to not fail, when the bonding already exists
+  (bnc#609809) or when bonding options are using numeric arguments
+  instead of names (fixes also bnc#572367).
+- Added BONDING_SKIP_REMOVE_WORKAROUND variable allowing to skip
+  bonding interface removal in ifdown as workaround for kernel
+  modules not reacting correctly to UNREGISTER event (bnc#576355).
+
+-------------------------------------------------------------------
 Mon Apr 12 16:35:28 UTC 2010 - mt@suse.de
 
 - Added reading of a temporary startmode in ifdown-dhcp as well
