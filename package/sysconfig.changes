@@ -1,8 +1,21 @@
 -------------------------------------------------------------------
-Mon May 31 14:44:45 UTC 2010 - mt@suse.de
+Tue Jun  8 08:57:45 UTC 2010 - mt@suse.de
 
-- Fixed ifup-bonding to handle ifup called twice correctly,
-  instead to destroy the bonding (bnc#609809).
+- version 0.73.7
+- Added writing of name server addresses to /etc/resolv.conf in
+  forwarder mode ("bind", "dnsmasq") as fallback for the moments,
+  when the local forwarder process is stopped, e.g. during update
+  (bnc#607511). Set NETCONFIG_DNS_FORWARDER_FALLBACK=no to revert.
+- Fixed ifup-bonding to not fail, when the bonding already exists
+  (bnc#609809) or when bonding options are using numeric arguments
+  instead of names (fixes also bnc#572367).
+- Added BONDING_SKIP_REMOVE_WORKAROUND variable allowing to skip
+  bonding interface removal in ifdown as workaround for kernel
+  modules not reacting correctly to UNREGISTER event (bnc#576355).
+- Updated USERCONTROL variable description (bnc#605853).
+- Removed obsolete (pre 10.3) migration hooks
+- Removed dbus from Required-Start in /etc/init.d/network,
+  added earlysyslog to Should-Start
 
 -------------------------------------------------------------------
 Tue May 25 14:24:02 UTC 2010 - mt@suse.de
