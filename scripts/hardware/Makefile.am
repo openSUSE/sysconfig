@@ -3,7 +3,7 @@
 CLEANFILES = *~
 MAINTAINERCLEANFILES = Makefile.in
 
-sysconfig_hardware_SCRIPTS = hwcfg2rules
+sysconfig_hardware_SCRIPTS =
 
 EXTRA_DIST = $(sysconfig_hardware_SCRIPTS)
 

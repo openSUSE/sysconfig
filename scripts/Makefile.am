@@ -9,7 +9,6 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					functions.common \
 					functions.netconfig \
 					functions.rpm-utils \
-					convert_persistent_name_rules \
 					convert_to_netconfig_dns \
 					convert_to_netconfig_nis \
 					ifdown-connection \
@@ -30,7 +29,6 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					dhcpcd-hook \
 					extradebug \
 					link_wait \
-					hwdesc2iface \
 					move_shm_sysconfig.sh \
 					create-ifservices-directory
 
