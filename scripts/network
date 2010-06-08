@@ -30,9 +30,9 @@
 #
 ### BEGIN INIT INFO
 # Provides:		network
-# Required-Start:	$local_fs dbus
-# Should-Start:		isdn openibd SuSEfirewall2_init
-# Required-Stop:	$local_fs dbus
+# Required-Start:	$local_fs
+# Should-Start:		earlysyslog isdn openibd SuSEfirewall2_init
+# Required-Stop:	$local_fs
 # Should-Stop:		isdn openibd SuSEfirewall2_init
 # Default-Start:	2 3 5
 # Default-Stop:		
