@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Jul 12 11:12:21 UTC 2010 - mt@suse.de
+
+- Fixed check whether ipv6 is enabled or not in /sbin/ifup-dhcp to
+  avoid dhcpv6 client start in case the interface is configured to
+  start both, dhcpv4 and dhcpv6 clients (bnc#616765).
+
+-------------------------------------------------------------------
 Tue Jun  8 08:57:45 UTC 2010 - mt@suse.de
 
 - version 0.73.7
