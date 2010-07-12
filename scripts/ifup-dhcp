@@ -199,7 +199,11 @@ case "$ACTION" in
 	;;
 	*)
 		HAVE_IPv6=yes
-		test -d /proc/sys/net/ipv6 || HAVE_IPv6=no
+		test -d /proc/sys/net/ipv6 && {
+			val1=`cat "/proc/sys/net/ipv6/conf/$INTERFACE/disable_ipv6" 2>/dev/null`
+			val2=`cat "/proc/sys/net/ipv6/conf/all/disable_ipv6" 2>/dev/null`
+			test "x$val1" = x1 -o "x$val2" = x1 && HAVE_IPv6=no
+		} || HAVE_IPv6=no
 
 		clients=0
 		bootprotos=(${BOOTPROTOS[@]})
@@ -256,7 +260,7 @@ case "$ACTION" in
 					if [ "x$explicit_dhcp6" = "xyes" ] ; then
 						if [ "x$HAVE_IPv6" = xyes ] ; then
 							print_mesg err_mesg "DHCP6 client is not available."
-							print_mesg err_mesg "      Please install 'dhcpv6' package'"
+							print_mesg err_mesg "      Please install 'dhcpv6' or 'dhcp-client' package'"
 						else
 							print_mesg err_mesg "DHCP6 disabled - no IPv6 support"
 						fi
@@ -265,7 +269,7 @@ case "$ACTION" in
 				*)
 					DHCLIENT6=""
 					print_mesg err_mesg "DHCP6 client unknown/unsupported: $DHCLIENT6_BIN"
-					print_mesg err_mesg "      Please install the 'dhcpv6' package"
+					print_mesg err_mesg "      Please install the 'dhcpv6' or 'dhcp-client' package"
 				;;
 				esac
 			;;
