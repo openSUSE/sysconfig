@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Jul 20 10:58:55 UTC 2010 - mt@suse.de
+
+- version 0.74.0
+- Changed ifup-wireless to use wext wpa driver for the rt2870sta,
+  ipw2200 and ipw2100 wlan adapter driver (bnc#623676,bnc#623340).
+
+-------------------------------------------------------------------
 Mon Jul 12 11:12:21 UTC 2010 - mt@suse.de
 
 - Fixed check whether ipv6 is enabled or not in /sbin/ifup-dhcp to
