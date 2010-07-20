@@ -717,7 +717,10 @@ case $ACTION in
 	    rt2870sta)
 	    	WPA_DRIVER=wext
 		;;
-            ipw2200|ipw2100|ipw3945|hostap_*)
+            ipw2200|ipw2100)
+                WPA_DRIVER=wext
+                ;;
+            ipw3945|hostap_*)
                 WPA_DRIVER=nl80211
                 ;;
             ndiswrapper|*.sys)
