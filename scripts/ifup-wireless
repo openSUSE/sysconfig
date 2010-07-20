@@ -714,6 +714,9 @@ case $ACTION in
             rt61|rt73)
                 WPA_DRIVER=ralink
                 ;;
+	    rt2870sta)
+	    	WPA_DRIVER=wext
+		;;
             ipw2200|ipw2100|ipw3945|hostap_*)
                 WPA_DRIVER=nl80211
                 ;;
