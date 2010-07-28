@@ -714,9 +714,6 @@ case $ACTION in
             rt61|rt73)
                 WPA_DRIVER=ralink
                 ;;
-	    rt2870sta)
-	    	WPA_DRIVER=wext
-		;;
             ipw2200|ipw2100)
                 WPA_DRIVER=wext
                 ;;
@@ -753,6 +750,15 @@ case $ACTION in
             ar9170*)
                 WPA_DRIVER=nl80211
                 ;;
+            rtl818*)
+                WPA_DRIVER=nl80211
+                ;;
+            rt2860*|rt2870*|r8187se|r8192*|vt665*)
+                WPA_DRIVER=wext
+                ;;
+            r8712*)
+                WPA_DRIVER=wext
+                ;;
             *)
                 WPA_DRIVER=unsupported
                 PREFER_WPA_SUPPLICANT=no
@@ -763,10 +769,10 @@ case $ACTION in
             if [ "$WPA_DRIVER" = "unsupported" ]; then
                 message "`printf "    %-9s warning: WPA configured but may be unsupported" $INTERFACE`"
                 message "`printf "    %-9s warning: by this device" $INTERFACE`"
-                info_mesg "using WPA driver 'nl80211' for interface $INTERFACE"
+                info_mesg "using WPA driver 'wext' for interface $INTERFACE with driver $DRIVER"
                 info_mesg "when you notice problems with this new driver, set " \
-                          "WIRELESS_WPA_DRIVER='wext' and file a bug report"
-                WPA_DRIVER=nl80211
+                          "WIRELESS_WPA_DRIVER='nl80211' and file a bug report"
+                WPA_DRIVER=wext
             fi
             start_wpa_supplicant
         elif [ "$PREFER_WPA_SUPPLICANT" = "yes" ]; then
