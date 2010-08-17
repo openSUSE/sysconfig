@@ -359,11 +359,11 @@ EOL
 
 setup_wlanngdev()
 {
-	if [ -z "`type -p wlanctl-ng`" ] ; then
-	    err_mesg "cannot find 'wlanctl-ng', please install package 'wlan-ng'"
-	    exit $R_ERROR
-	fi
-	wlanctl lnxreq_ifstate ifstate=enable
+        if [ -z "`type -p wlanctl-ng`" ] ; then
+            err_mesg "cannot find 'wlanctl-ng', please install package 'wlan-ng'"
+            exit $R_ERROR
+        fi
+        wlanctl lnxreq_ifstate ifstate=enable
         wlanctl dot11req_reset setdefaultmib=false
         test "$WIRELESS_ESSID" = "any"  && WIRELESS_ESSID=""
         if [ "$ENCRYPTION" = "no" ]; then
@@ -464,13 +464,13 @@ old_setup()
     # although they do not
     case "$DRIVER" in
 
-	prism2_*)
+        prism2_*)
         setup_wlanngdev
-	;;
+        ;;
 
-	*)
+        *)
         setup_iwdev
-	;;
+        ;;
     esac
 }
 
@@ -576,10 +576,10 @@ print_network_block()
         echo "  key_mgmt=WPA-EAP"
         eval EAP_MODE=\$WIRELESS_EAP_MODE$SUFFIX
         if [ -n "$EAP_MODE" ]; then
-	    print_network_line_unquoted eap WIRELESS_EAP_MODE "$SUFFIX"
+            print_network_line_unquoted eap WIRELESS_EAP_MODE "$SUFFIX"
         else
-	    echo "  eap=TTLS PEAP TLS"
-	fi
+            echo "  eap=TTLS PEAP TLS"
+        fi
         if [ "$WIRELESS_AP_SCANMODE" = "2" ]; then
             print_network_line_unquoted proto WIRELESS_WPA_PROTO "$SUFFIX" WPA
             print_network_line_unquoted pairwise WIRELESS_CIPHER_PAIRWISE "$SUFFIX" TKIP
@@ -598,20 +598,20 @@ print_network_block()
         print_network_line private_key_passwd WIRELESS_CLIENT_KEY_PASSWORD "$SUFFIX"
         eval PEAPVER=\$WIRELESS_PEAP_VERSION$SUFFIX
         if [ -n "$PEAPVER" ]; then
-	    echo "  phase1=\"peaplabel=0 peapver=$PEAPVER\""
+            echo "  phase1=\"peaplabel=0 peapver=$PEAPVER\""
         else
-	    echo "  phase1=\"peaplabel=0\""
-	fi
-	
+            echo "  phase1=\"peaplabel=0\""
+        fi
+
         eval EAP_AUTH=\$WIRELESS_EAP_AUTH$SUFFIX
         if [ -n "$EAP_AUTH" ]; then
-	    echo "  phase2=\"auth=$EAP_AUTH\""
-	fi
+            echo "  phase2=\"auth=$EAP_AUTH\""
+        fi
         ;;
-    esac        
+    esac
     echo "}"
 }
-    
+
 print_wpa_conf()
 {
     # header
@@ -705,7 +705,7 @@ set_default_wpa_driver()
         message "`printf "    %-9s warning: with this device" $INTERFACE`"
         info_mesg "Using WPA drivers 'nl80211,wext' for interface $INTERFACE."
         info_mesg "When you notice problems with the 'nl80211' driver, set "
-	info_mesg "e.g. WIRELESS_WPA_DRIVER='wext' and file a bug report."
+        info_mesg "e.g. WIRELESS_WPA_DRIVER='wext' and file a bug report."
         info_mesg "See drivers list in the /usr/sbin/wpa_supplicant -h output"
         WPA_DRIVER='nl80211,wext'
     fi
@@ -726,7 +726,7 @@ case $ACTION in
             ipw2200|ipw2100)
                 WPA_DRIVER=wext
                 ;;
-	    ndiswrapper|*.sys)
+            ndiswrapper|*.sys)
                 WPA_DRIVER=wext
                 ;;
             rt2860*|rt2870*|r8187se)
