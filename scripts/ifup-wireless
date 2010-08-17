@@ -698,15 +698,24 @@ show_status()
         iwconfig $INTERFACE
     fi
 }
+set_default_wpa_driver()
+{
+    if [ "$WPA_DRIVER" = "unsupported" ]; then
+        message "`printf "    %-9s warning: WPA configured, but is untested" $INTERFACE`"
+        message "`printf "    %-9s warning: with this device" $INTERFACE`"
+        info_mesg "Using WPA drivers 'nl80211,wext' for interface $INTERFACE."
+        info_mesg "When you notice problems with the 'nl80211' driver, set "
+	info_mesg "e.g. WIRELESS_WPA_DRIVER='wext' and file a bug report."
+        info_mesg "See drivers list in the /usr/sbin/wpa_supplicant -h output"
+        WPA_DRIVER='nl80211,wext'
+    fi
+}
 
 case $ACTION in
     up)
         test -n "$WIRELESS_WPA_DRIVER"    && \
         WPA_DRIVER="$WIRELESS_WPA_DRIVER" || \
         case "${DRIVER}" in
-            wl)
-                WPA_DRIVER=wext
-                ;;
             prism54)
                 WPA_DRIVER=prism54
                 PREFER_WPA_SUPPLICANT=no
@@ -717,22 +726,16 @@ case $ACTION in
             ipw2200|ipw2100)
                 WPA_DRIVER=wext
                 ;;
-            ipw3945|hostap_*)
-                WPA_DRIVER=nl80211
+	    ndiswrapper|*.sys)
+                WPA_DRIVER=wext
                 ;;
-            ndiswrapper|*.sys)
-                WPA_DRIVER=nl80211
+            rt2860*|rt2870*|r8187se)
+                WPA_DRIVER=wext
                 ;;
-            rt2500usb|rt2500pci)
-                WPA_DRIVER=nl80211
+            r8192*|r8712*|vt665*|wl)
+                WPA_DRIVER=wext
                 ;;
-            rt61pci|rt73usb|rt2400pci)
-                WPA_DRIVER=nl80211
-                ;;
-            iwlagn|iwl3945|iwl4965)
-                WPA_DRIVER=nl80211
-                ;;
-            zd1211rw)
+            adm8211|at76*|ar9170*)
                 WPA_DRIVER=nl80211
                 ;;
             ath5k|ath9k|ath_pci)
@@ -741,23 +744,26 @@ case $ACTION in
             b43|b43legacy|ssb)
                 WPA_DRIVER=nl80211
                 ;;
-            p54pci|p54usb)
+            hostap_*)
                 WPA_DRIVER=nl80211
                 ;;
-            at76*)
+            iwlagn|iwl3945|iwl4965|ipw3945)
                 WPA_DRIVER=nl80211
                 ;;
-            ar9170*)
+            libertas*)
+                WPA_DRIVER=nl80211
+            ;;
+            mwl8k|p54pci|p54usb)
                 WPA_DRIVER=nl80211
                 ;;
-            rtl818*)
+            rt2400pci|rt2500usb|rt2500pci)
                 WPA_DRIVER=nl80211
                 ;;
-            rt2860*|rt2870*|r8187se|r8192*|vt665*)
-                WPA_DRIVER=wext
+            rt61pci|rt73usb|rtl818*)
+                WPA_DRIVER=nl80211
                 ;;
-            r8712*)
-                WPA_DRIVER=wext
+            wl1251|wl1271|zd1211rw)
+                WPA_DRIVER=nl80211
                 ;;
             *)
                 WPA_DRIVER=unsupported
@@ -766,17 +772,11 @@ case $ACTION in
         esac
         if need_wpa_supplicant ; then
             info_mesg "configuration requires wpa_supplicant"
-            if [ "$WPA_DRIVER" = "unsupported" ]; then
-                message "`printf "    %-9s warning: WPA configured but may be unsupported" $INTERFACE`"
-                message "`printf "    %-9s warning: by this device" $INTERFACE`"
-                info_mesg "using WPA driver 'wext' for interface $INTERFACE with driver $DRIVER"
-                info_mesg "when you notice problems with this new driver, set " \
-                          "WIRELESS_WPA_DRIVER='nl80211' and file a bug report"
-                WPA_DRIVER=wext
-            fi
+            set_default_wpa_driver
             start_wpa_supplicant
         elif [ "$PREFER_WPA_SUPPLICANT" = "yes" ]; then
             if applicable_wpa_supplicant ; then
+                set_default_wpa_driver
                 start_wpa_supplicant
             else
                 info_mesg "setting up $INTERFACE w/o wpa_supplicant"
