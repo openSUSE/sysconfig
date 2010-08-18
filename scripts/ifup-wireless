@@ -723,6 +723,9 @@ case $ACTION in
             rt61|rt73)
                 WPA_DRIVER=ralink
                 ;;
+            ath_pci)
+                WPA_DRIVER=wext
+                ;;
             ipw2200|ipw2100)
                 WPA_DRIVER=wext
                 ;;
@@ -738,7 +741,7 @@ case $ACTION in
             adm8211|at76*|ar9170*)
                 WPA_DRIVER=nl80211
                 ;;
-            ath5k|ath9k|ath_pci)
+            ath5k|ath9k)
                 WPA_DRIVER=nl80211
                 ;;
             b43|b43legacy|ssb)
@@ -747,7 +750,7 @@ case $ACTION in
             hostap_*)
                 WPA_DRIVER=nl80211
                 ;;
-            iwlagn|iwl3945|iwl4965|ipw3945)
+            iwlagn|ipw3945)
                 WPA_DRIVER=nl80211
                 ;;
             libertas*)
