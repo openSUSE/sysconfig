@@ -30,7 +30,7 @@
 # Should-Start:		
 # Required-Stop:	$network $remote_fs
 # Should-Stop:		
-# Default-Start:	2 3 5
+# Default-Start:	3 5
 # Default-Stop:		
 # Short-Description:	Configure the remote-fs depending network interfaces
 # Description:		Configure the remote-fs depending network interfaces as
