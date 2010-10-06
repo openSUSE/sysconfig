@@ -146,6 +146,9 @@ get_next_index()
 
 need_wpa_supplicant()
 {
+    if [ -n "$WIRELESS_WPA_CONF" ]; then
+	return 0
+    fi
     case "$WIRELESS_AUTH_MODE" in
     wpa-*|WPA-*|psk|PSK|eap|EAP)
         return 0
