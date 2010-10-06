@@ -150,14 +150,16 @@ up)
 		# set path costs
 		if [ -n "$BRIDGE_PATHCOSTS" ]; then
 			COSTS=(${BRIDGE_PATHCOSTS})
-			if test -n "${COSTS[$COUNTER]}" ; then
+			if test "x${COSTS[$COUNTER]}" != "x" -a \
+				"x${COSTS[$COUNTER]}" != "x-" ; then
 				brctl setpathcost $INTERFACE $PORT_INTERFACE ${COSTS[$COUNTER]}
 			fi
 		fi
 		# set port prio
 		if [ -n "$BRIDGE_PORTPRIORITIES" ]; then
 			PRIOS=(${BRIDGE_PORTPRIORITIES})
-			if test -n "${PRIOS[$COUNTER]}" ; then
+			if test "x${PRIOS[$COUNTER]}" != "x" -a \
+				"x${PRIOS[$COUNTER]}" != "x-" ; then
 				brctl setportprio $INTERFACE $PORT_INTERFACE ${PRIOS[$COUNTER]}
 			fi
 		fi
