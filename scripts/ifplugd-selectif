@@ -34,7 +34,7 @@ test -f ./config && . ./config
 # . scripts/extradebug
 
 get_carrier() {
-	local -i carrier=0 count=40
+	local -i carrier=-1 count=40
 	local check=/sys/class/net/${1}/carrier
 	while ((count-- > 0)) ; do
 		test -e $check && read -t 1 carrier < $check
@@ -54,6 +54,7 @@ fi
 INTERFACE=$1
 ACTION=$2
 INTERFACETYPE=$3 # may be empty
+test -z "$INTERFACETYPE" && INTERFACETYPE=`get_iface_type $INTERFACE`
 
 # Check all available interfaces if they have a ifplugd priority and collect
 # two ordered lists of interfaces with minor or major priority.
@@ -166,7 +167,7 @@ case $ACTION in
 		info_mesg "`printf "    %-9s has priority %s" "$INTERFACE" "$PRIORITY"`"
 		if [ $PRIORITY -gt 0 ] ; then
 			for IF in $MAJOR; do
-				test "`get_carrier $IF`" == 1|| continue
+				test "x`get_carrier $IF`" == x1 || continue
 				mesg "`printf "    %-9s has lesser priority than '%s'" \
 				              "$INTERFACE" "$IF"`"
 				exit 1
