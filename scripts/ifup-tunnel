@@ -196,7 +196,7 @@ iptunnel_del ()
 # function returning the path of tunctl utility (in /usr on 10.3)
 tunctl_bin ()
 {
-	for tunctl in /bin/tunctl /usr/bin/tunctl ; do
+	for tunctl in /sbin/tunctl /bin/tunctl /usr/bin/tunctl ; do
 		test -x "$tunctl" && echo "$tunctl"
 	done
 	echo ""
