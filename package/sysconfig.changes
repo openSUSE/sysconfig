@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Thu Nov 11 13:38:17 UTC 2010 - mt@suse.de
+
+- version 0.74.2
+- Adopted to search tunctl in /sbin (bnc#650468)
+- Fixed check if ipv6 is enabled in ifup-dhcp (bnc#616765).
+- Fixed ifplugd-selectif script to use -1 as default carrier
+  flag and initialize interface type when unset to correctly
+  print wireless instead of cable messages (bnc#637183).
+- Require wpa_supplicant if a wpa_supplicant config is specified
+- Improved ifup-bridge port prio and cost handling.
+  Allow to specify '-' in BRIDGE_PORTPRIORITIES or BRIDGE_PATHCOSTS
+  lists to skip setting of the port prio or path cost for particular
+  ports while setting it for others.
+
+-------------------------------------------------------------------
+Tue Sep 14 10:36:58 UTC 2010 - mt@suse.de
+
+- Fixed init flags to not start network in runlevel 2 (bnc#638508).
+
+-------------------------------------------------------------------
 Wed Aug 18 12:13:26 UTC 2010 - mt@suse.de
 
 - version 0.74.1
