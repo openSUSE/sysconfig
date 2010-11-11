@@ -201,11 +201,13 @@ case "$ACTION" in
 	;;
 	*)
 		HAVE_IPv6=yes
-		test -d /proc/sys/net/ipv6 && {
+		if test -d /proc/sys/net/ipv6 ; then
 			val1=`cat "/proc/sys/net/ipv6/conf/$INTERFACE/disable_ipv6" 2>/dev/null`
 			val2=`cat "/proc/sys/net/ipv6/conf/all/disable_ipv6" 2>/dev/null`
 			test "x$val1" = x1 -o "x$val2" = x1 && HAVE_IPv6=no
-		} || HAVE_IPv6=no
+		else
+			HAVE_IPv6=no
+		fi
 
 		clients=0
 		bootprotos=(${BOOTPROTOS[@]})
