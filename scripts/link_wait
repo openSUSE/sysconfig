@@ -21,7 +21,7 @@
 #
 usage () {
 	echo $@
-	echo "usage: $SCRIPTNAME [<config>] <interface> [-o <options>]"
+	echo "usage: if-up.d/$SCRIPTNAME [<config>] <interface> [-o <options>]"
 	echo ""
 	echo "Options are:"
 	echo "    [on]boot : we are currently booting (or shutting down)"
@@ -124,7 +124,26 @@ check_link_detected () {
 	fi
 }
 
-case $SCRIPTNAME in
+do_ping()
+{
+	local ifname=$1
+	local target=$2
+	local -i limit=$3
+	local -i ret=0
+	local beg now sec rest
+	IFS=. read beg rest < /proc/uptime
+	for ((now=$beg; $now < ($beg + $limit); )) ; do
+		sec=$(($limit - ($now - $beg)))
+		out=`ping -q -I $ifname -w $sec -c 1 $target 2>&1`
+		ret=$?
+		debug "$out"
+		test $ret -eq 0 && break
+		IFS=. read now rest < /proc/uptime
+	done
+	return $ret
+}
+
+case $0 in
 *if-up.d*)
 	if test "$MODE" = onboot -a "${LINK_WAIT:-no}" != no ;
 	then
@@ -145,7 +164,7 @@ case $SCRIPTNAME in
 			sleep $secs
 
 			ifprint message "pinging $LINK_WAIT_PING_IPV4 up to $secs secs"
-			ping -I $INTERFACE -w $secs -c 1 $LINK_WAIT_PING_IPV4
+			do_ping "$INTERFACE" "$LINK_WAIT_PING_IPV4" $secs
 			ifprint message "ping returned $?"
 		;;
 		(*)
@@ -179,7 +198,7 @@ case $SCRIPTNAME in
 		case $LINK_WAIT_PING_IPV4 in
 		(*\.*\.*\.*)
 			ifprint message "pinging $LINK_WAIT_PING_IPV4 up to $secs secs"
-			ping -I $INTERFACE -w $(( $secs - $loop )) -c 1 $LINK_WAIT_PING_IPV4
+			do_ping "$INTERFACE" "$LINK_WAIT_PING_IPV4" $(( $secs - $loop ))
 			ifprint message "ping returned $?"
 		;;
 		esac
