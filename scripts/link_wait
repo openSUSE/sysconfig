@@ -21,7 +21,7 @@
 #
 usage () {
 	echo $@
-	echo "usage: $SCRIPTNAME [<config>] <interface> [-o <options>]"
+	echo "usage: if-up.d/$SCRIPTNAME [<config>] <interface> [-o <options>]"
 	echo ""
 	echo "Options are:"
 	echo "    [on]boot : we are currently booting (or shutting down)"
@@ -33,13 +33,16 @@ usage () {
 	echo "Per interface ifcfg-<config> file variables are:"
 	echo "  LINK_WAIT=no    (or empty/unset)"
 	echo "    - default, don't do anything"
-	echo "  LINK_WAIT=check (or yes)"
-	echo "    - check the link state flags"
-	echo "  LINK_WAIT=<secs>"
-	echo "    - seconds to just sleep without any check"
+	echo "  LINK_WAIT=<steps>"
+	echo "    - space separated list of steps to preform:"
+	echo "       sleep: just sleep"
+	echo "       check: check link state flags"
+	echo "       ping : ping specified address"
+	echo "  LINK_WAIT_SECS=<secs>"
+	echo "    - seconds for each check/sleep/ping step"
+	echo "      (limit is WAIT_FOR_INTERFACES for all)"
 	echo "  LINK_WAIT_PING_IPV4=<ipv4 address to ping>"
-	echo "    - sleep half of the time in LINK_WAIT, then"
-	echo "      ping the address the rest of the time"
+	echo "    - ping the specified address"
 	echo ""
 	echo "Install using:"
 	echo "  ln -s ../scripts/link_wait /etc/sysconfig/network/if-up.d/"
@@ -59,7 +62,8 @@ test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
 # check arguments and how we are called (in case of links)
 #
 SCRIPTNAME=${0##*/}
-debug $*
+echo debug $*
+#set -x
 case $1 in ""|-h|*help*) usage ;; esac
 CONFIG="$1"
 shift
@@ -93,6 +97,7 @@ is_iface_available "$INTERFACE" || exit 0
 # source interface config and make sure we use the
 # per interface setting for wait for link check...
 unset LINK_WAIT
+unset LINK_WAIT_SECS
 unset LINK_WAIT_PING_IPV4
 test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG || exit 0
 
@@ -119,72 +124,96 @@ check_link_detected () {
 		test "$c" = "1" -a "$d" = "0" -a \
 		    \( "$o" = "up" -o "$o" = "unknown" \) && return 0
 	else
-		# SLE 10 does not have operstate/dormant
+		# e.g. SLE 10 does not have operstate/dormant
 		test "$c" = "1" && return 0
 	fi
 }
 
-case $SCRIPTNAME in
+do_ping()
+{
+	local ifname=$1
+	local target=$2
+	local -i limit=$3
+	local -i ret=0
+	local beg now sec rest
+	IFS=. read beg rest < /proc/uptime
+	for ((now=$beg; $now < ($beg + $limit); )) ; do
+		sec=$(($limit - ($now - $beg)))
+		out=`ping -q -I $ifname -w $sec -c 1 $target 2>&1`
+		ret=$?
+		debug "$out"
+		test $ret -eq 0 && break
+		IFS=. read now rest < /proc/uptime
+	done
+	return $ret
+}
+
+case $0 in
 *if-up.d*)
 	if test "$MODE" = onboot -a "${LINK_WAIT:-no}" != no ;
 	then
-            test "$LINK_WAIT" = yes && LINK_WAIT=check
+		# some compatibility to older version
+		if test "$LINK_WAIT" = yes ; then
+			LINK_WAIT=check
+		fi
+		if test -z "$LINK_WAIT_SECS" ; then
+			test $(( $LINK_WAIT )) -gt 0 && \
+				LINK_WAIT_SECS=$LINK_WAIT
+			case $LINK_WAIT_PING_IPV4 in
+			*\.*\.*\.*) LINK_WAIT="ping"  ;;
+			*)          LINK_WAIT="check" ;;
+			esac
+		fi
 
-	    if test "$LINK_WAIT" != check -a $(( $LINK_WAIT )) -gt 0 ;
-	    then
-		# don't wait more than WAIT_FOR_INTERFACES / 3
-	    	test $(( $LINK_WAIT )) -gt \
-		     $(( $WAIT_FOR_INTERFACES / 4 )) && \
-		LINK_WAIT=$(( $WAIT_FOR_INTERFACES / 4 ))
+		steps=($LINK_WAIT)
+		# don't wait more than WAIT_FOR_INTERFACES
+		if test ${#steps[@]} -gt 0 ; then
+			if test $(( $LINK_WAIT_SECS )) -eq 0 -o \
+				$(( $(($LINK_WAIT_SECS)) * ${#steps[@]} )) -gt \
+				$(( $WAIT_FOR_INTERFACES )) ; then
+				LINK_WAIT_SECS=$(( $WAIT_FOR_INTERFACES / ${#steps[@]} ))
+			fi
+		fi
+		spend=0
+		for step in ${steps[@]} ; do
+		    case $step in
+		    check)
+			declare -i secs=$LINK_WAIT_SECS
+			declare -i loop=0
 
-	    	case $LINK_WAIT_PING_IPV4 in
-		(*\.*\.*\.*)
-			declare -i secs=$(( $LINK_WAIT / 2 ))
+			check_link_detected "$INTERFACE"   || \
+			ifprint message "no link detected ... waiting up to $secs secs"
 
-			ifprint message "waiting $secs secs"
-			sleep $secs
+			while ! check_link_detected "$INTERFACE" ; do
+				sleep 1
+				test $((++loop)) -ge $secs && break
+			done
 
-			ifprint message "pinging $LINK_WAIT_PING_IPV4 up to $secs secs"
-			ping -I $INTERFACE -w $secs -c 1 $LINK_WAIT_PING_IPV4
-			ifprint message "ping returned $?"
-		;;
-		(*)
-			declare -i secs=$(( $LINK_WAIT ))
-
-	    		ifprint message "waiting $secs secs"
-			sleep $secs
-		;;
-		esac
-	    else
-		# don't wait more than WAIT_FOR_INTERFACES / 3
-		declare -i secs=$(( $WAIT_FOR_INTERFACES / 4 ))
-		declare -i lmax=$secs
-		declare -i loop=0
-	    	case $LINK_WAIT_PING_IPV4 in
-		(*\.*\.*\.*) lmax=$(( $lmax / 2 )) ;;
-		esac
-
-		check_link_detected "$INTERFACE"   || \
-		ifprint message "no link detected ... waiting up to $secs secs"
-
-		while ! check_link_detected "$INTERFACE" ; do
-			sleep 1
-			test $((++loop)) -ge $lmax && break
+			spend=$((spend + loop))
+			check_link_detected "$INTERFACE" \
+				&& ifprint message "link detected after $spend secs" \
+				|| ifprint message "no link detected ... continue"
+		    ;;
+		    sleep)
+			ifprint message "sleeping for $LINK_WAIT_SECS secs"
+			sleep $LINK_WAIT_SECS
+			spend=$((spend + LINK_WAIT_SECS))
+		    ;;
+		    ping)
+			case $LINK_WAIT_PING_IPV4 in
+			*\.*\.*\.*)
+			ifprint message "ping $LINK_WAIT_PING_IPV4 up to $LINK_WAIT_SECS secs"
+			if do_ping "$INTERFACE" "$LINK_WAIT_PING_IPV4" "$LINK_WAIT_SECS" ; then
+				ifprint message "ping reports reachable $LINK_WAIT_PING_IPV4"
+			else
+				ifprint message "ping reports unreachable $LINK_WAIT_PING_IPV4"
+			fi
+			spend=$((spend + LINK_WAIT_SECS))
+			;;
+			esac
+		    ;;
+		    esac
 		done
-
-		check_link_detected "$INTERFACE" \
-		&& ifprint message "link detected after $loop secs" \
-		|| ifprint message "no link detected ... continue"
-
-		case $LINK_WAIT_PING_IPV4 in
-		(*\.*\.*\.*)
-			ifprint message "pinging $LINK_WAIT_PING_IPV4 up to $secs secs"
-			ping -I $INTERFACE -w $(( $secs - $loop )) -c 1 $LINK_WAIT_PING_IPV4
-			ifprint message "ping returned $?"
-		;;
-		esac
-	    fi
-
 	fi
 ;;
 *if-down.d*)
