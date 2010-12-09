@@ -273,7 +273,25 @@ supported_on_localfs() {
 }
 
 get_hwaddress () {
-	cat /sys/class/net/$1/address >/dev/null
+	cat /sys/class/net/$1/address 2>/dev/null
+}
+
+get_bonding_slave_hwaddrs()
+{
+	local ifname="${1}"
+	local saddrs=()
+	if test -f "/proc/net/bonding/$ifname" ; then
+		while read line ; do
+			case $line in
+			"Permanent HW addr:"*)
+				saddr+=("${line//Permanent HW addr: /}")
+			;;
+			esac
+		done < "/proc/net/bonding/$ifname" 2>/dev/null
+		echo "${saddr[*]}"
+		return 0
+	fi
+	return 1
 }
 
 # This will echo the first address listed for the given interface.
@@ -818,5 +836,79 @@ parse_ifname_ibft_settings()
 		fi
 	done
 	return 1
+}
+
+get_pxe_bootif_param()
+{
+	local cmdline=$(cat /proc/cmdline 2>/dev/null)
+	local rx='^(.*[[:space:]])?BOOTIF=([[:xdigit:]]{2}([-[:xdigit:]]{2})+)([[:space:]].*)?$'
+	if [[ ${cmdline} =~ ${rx} ]] ; then
+		echo "${BASH_REMATCH[2]}"
+	fi
+}
+
+is_pxe_boot_iface()
+{
+	# params <interface name>
+	# output 'yes': bootif param available, $1 interface match
+	#        'no' : bootif param available, no $1 interface match
+	#        ''   : otherwise (no bootif param, errors)
+	# returns 0 on success, 1 on errors
+	local bootif=`get_pxe_bootif_param 2>/dev/null`
+	test "x$bootif" = x && return 0
+
+	local ifname="$1"
+	test  "x$ifname" != x -a -d "/sys/class/net/$ifname" || return 1
+	local iftype=`cat "/sys/class/net/$ifname/type" 2>/dev/null`
+	local ifaddr=`get_hwaddress "$ifname"`
+	test "x$iftype" != x -a "x$ifaddr" != x || return 1
+
+	local maddr=${bootif//-/:}
+	local addrs="$ifaddr" addr
+	case $iftype in
+	1)
+		# TODO: bridge and vlan inherit hwaddrs as well
+		if test -d "/sys/class/net/$ifname/bonding" ; then
+			addrs=`get_bonding_slave_hwaddrs "$ifname" 2>/dev/null`
+		fi
+	;;
+	esac
+	for addr in ${addrs} ; do
+		local x=`printf "%02x:%s" "$iftype" "$addr" 2>/dev/null`
+		if test "x$maddr" = "x$x" ; then
+			echo "yes"
+			return 0
+		fi
+	done
+	echo "no"
+}
+
+is_ibft_primary_iface()
+{
+	# params <interface name>
+	# output 'yes': ibft interfaces available, $1 interface is ibft primary
+	#        'no' : ibft interfaces available, $1 interface is not primary
+	#        ''   : otherwise (no ibft, errors)
+	# returns 0 on success, 1 on errors
+	case $1 in ""|.|..|*/*) return 1 ;; esac
+	test -d "/sys/class/net/$1" || return 1
+
+	local IF="$1" sysfs_ibft="/sys/firmware/ibft"
+	test -d "$sysfs_ibft" || return 1
+
+	# ibft ethernet0 is the primary ibft => dhcp primary
+	local ibft_nic0 enic edir="$sysfs_ibft/ethernet0"
+	if test -d "$edir" -a -d "$edir/device/net" ; then
+		for enic in `ls -1 $edir/device/net/ 2>/dev/null` ; do
+			test -d "$edir/device/net/$enic" || continue
+			ibft_nic0=$enic
+			break
+		done
+	fi
+
+	if test "x$ibft_nic0" != "x" ; then
+		test "x$ibft_nic0" = "x$IF" && echo yes || echo no
+	fi
+	return 0
 }
 

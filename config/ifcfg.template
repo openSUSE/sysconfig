@@ -212,38 +212,6 @@ NAME=
 UNIQUE=
 
 ##########################################################################
-### FIXME:
-### From here one up to 'bridge settings' the file is not up to date
-
-
-## Multiple addresses
-##    You can extend the variable name 'IPADDR' by any string you like (IPADDR_1,
-##    IPADDR_FOO, IPADDRxxx, ...) and use these variables for your IP addresses.
-##    If you need some additional parameters for these addresses, then just add
-##    the same extension to these variable names.
-##    IPADDR_AAA=1.2.3.4
-##    NETMASK_AAA=255.0.0.0
-##    BROADCAST_AAA=1.2.3.55
-##    IPADDR_BBB=10.10.2.3/16
-##    LABEL_BBB=BBB
-##    an so on ...
-##
-## You do not need to set a label for any address. But then you should not use
-## ifconfig any longer; go and use ip. If you want to use ifconfig then omit the
-## label for your main address and set a label for every additional address.
-
-## Routing:
-## If you need special routes for a configuration, then use a file named
-## ifroute-<config> where <config> is the same string as in ifcfg-<config>.
-## It has the same syntax like routes except one difference:
-## If you omit the interface name (4th field) in the ifroute file it will be
-## set to the current interface name when setting up the interface. You need to
-## do this with hotpluggable devices, where you do not know which interface name
-## they will get at the time when you plug them.
-## See man 5 routes.
-
-
-##########################################################################
 ## DHCP settings
 
 ## Type: list("",yes,no)
@@ -252,31 +220,54 @@ UNIQUE=
 # Multiple DHCP clients:
 #
 # With two or more DHCP clients running, they would concurrently try to replace
-# the default route or rewrite resolv.conf, rewrite ntp.conf etc. There are two
-# ways of dealing with this conflict (and it is a conflict, because you can
-# have only one default route even though routes are stackable, and there can
-# only be one resolv.conf file):
+# the default route or set the hostname. There are several ways of dealing with
+# this conflict (and it is a conflict, because you can have only one default
+# route even though routes are stackable and the dhcp clients would change it
+# while every lease renew):
 #
-#  1) allow both clients to do that stuff. This would work in many cases if
+#  1) Allow both clients to do that stuff. This would work in many cases if
 #     only one of the interfaces is used at a time. However, it would lead to
-#     undefined behaviour.
+#     undefined behaviour such as changing default route e.g. on dhcp renew.
 #
-#  2) allow only one of the DHCP clients to do that stuff. This implies
-#     that there would be a "primary" interface and a "secondary". This is the
-#     assumption the default configuration is based on. But since the system
-#     can't guess which interface is "more important" and should have the
-#     default route and resolver configuration associated with it, it simply
-#     chooses the first interface that is started with DHCP to be
-#     "authoritative".  Which one that is can be influenced by adding
-#     DHCLIENT_PRIMARY_DEVICE=yes to one of the /etc/sysconfig/network/ifcfg-*
-#     files. This can even be added to more than one file, to achieve the
-#     behaviour described in 1).  Thus, there is the flexibility to do it
-#     either way.
+#  2) When both interfaces are connected to the same network, you may configure
+#     a bonding interface in active-backup mode (or another, e.g. 802.3ad, when
+#     supported and configured by the switch) and configure dhcp on the bonding
+#     instead.
 #
-# Per default, only the DHCP client that is started first will be allowed to
-# change the default route / resolver configuration etc.  All other running
-# clients will only configure the interface with an address, but not change
-# "global" configuration.
+#  3) When only one of the interfaces is used at time, you may set STARTMODE to
+#     ifplugd and specify the priority of the interfaces in IFPLUGD_PRIORITY.
+#     This is a common scenario for notebooks to use the wired interface when
+#     connected, wireless otherwise.
+#
+#  4) allow only one of the DHCP clients to do that stuff.
+#     This implies that there would be a "primary" interface and a "secondary".
+#     This is the assumption the default configuration is based on. But since
+#     the system often can't guess which interface is "more important", we
+#     simply choose one depending on related configuration or take the first
+#     interface that is started with DHCP to be primary ("authoritative").
+#     This can be configured by setting DHCLIENT_PRIMARY_DEVICE=yes in one of
+#     the /etc/sysconfig/network/ifcfg-* files and DHCLIENT_PRIMARY_DEVICE=no
+#     in /etc/sysconfig/network/dhcp (or in all other ifcfg files using DHCP).
+#
+# When DHCLIENT_PRIMARY_DEVICE is not explicitly configured to yes/no, the
+# "primary" interface is choosed as follows:
+#
+# - On systems with iSCSI Boot Firmare Table, the iBFT primary interface
+#   is used as the primary DHCP interface by default.
+# - On systems booting via PXE, the interface specified by the BOOTIF kernel
+#   parameter is used as primary DHCP interface. Set the global "ipappend 2"
+#   parameter in pxelinux.cfg/* files, so the BOOTIF kernel parameter is set.
+# - Otherwise, the DHCP client that is started first will be "primary" and
+#   allowed the set the default route and hostname ("first up wins" mode,
+#   the only one before openSUSE 11.4). To force this "first up wins" mode,
+#   set DHCLIENT_PRIMARY_DEVICE="first" in /etc/sysconfig/network/dhcp.
+#
+# All other running dhcp clients will only configure the interface with an
+# address and network routes, but not change the "global" default route or
+# hostname.
+# See also DHCLIENT_SET_DEFAULT_ROUTE and DHCLIENT_SET_HOSTNAME variables,
+# that allow to modify the DHCLIENT_PRIMARY_DEVICE parameter behaviour once
+# again.
 #
 # Thus, to specifically allow an interface's DHCP client to change "global"
 # configuration, set the following variable to "yes". Or you can make an
@@ -285,17 +276,16 @@ UNIQUE=
 #
 DHCLIENT_PRIMARY_DEVICE=
 
-
 ## Type:
 ## Default:
 #
-# Even more finegrained control can be excerted by setting any of the variables
-# from /etc/sysconfig/network/dhcp here:
+# Even more finegrained control can be excerted by setting any of the
+# variables from /etc/sysconfig/network/dhcp in ifcfg files:
+#
 DHCLIENT_DEBUG=
 DHCLIENT_SET_HOSTNAME=
 DHCLIENT_SET_DEFAULT_ROUTE=
 DHCLIENT_TIMEOUT=
-DHCLIENT_REBOOT_TIMEOUT=
 DHCLIENT_CLIENT_ID=
 DHCLIENT_HOSTNAME_OPTION=
 DHCLIENT_VENDOR_CLASS_ID=
