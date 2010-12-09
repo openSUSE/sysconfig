@@ -27,6 +27,8 @@ Group:          System/Base
 License:        GPLv2+
 AutoReqProv:    on
 PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
+# we may create these automatically from rpm later
+Provides:       sysvinit(network)
 Requires:       iproute2 dbus-1 procps
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Source:         %name-%version.tar.bz2
