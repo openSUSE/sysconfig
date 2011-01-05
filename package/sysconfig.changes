@@ -1,4 +1,36 @@
 -------------------------------------------------------------------
+Wed Jan  5 17:15:14 UTC 2011 - mt@suse.de
+
+- Fix for udevmountd to allow mounting of multipath devices.
+  With this and the corresponding multipath-tools patch,
+  iscsi mounting works as advertised, both multipathed and
+  non-multipathed (bnc#630434).
+
+-------------------------------------------------------------------
+Wed Dec 22 15:37:44 UTC 2010 - mt@suse.de
+
+- Fixed ifup-bonding to fail and remove bond when there are no
+  active slaves at the end and not on enslave failure (bnc#660774).
+
+-------------------------------------------------------------------
+Wed Nov 17 09:57:37 UTC 2010 - mt@suse.de
+
+- Fixed link_wait scriptname check and ping usage (bnc#644738).
+- Fixed check whether ipv6 is enabled or not in /sbin/ifup-dhcp
+  (again). The last fix, disabled dhcpv6 completely (bnc#616765).
+- Fixed carrier messages in ifplugd-selectif discarding carrier
+  flag read errors (normal behavior) and initialize interface
+  type when unset to correctly print wireless instead of cable
+  messages (bnc#637183).
+
+-------------------------------------------------------------------
+Tue Sep 28 16:26:38 UTC 2010 - mt@suse.de
+
+- Fixed check whether ipv6 is enabled or not in /sbin/ifup-dhcp to
+  avoid dhcpv6 client start in case the interface is configured to
+  start both, dhcpv4 and dhcpv6 clients (bnc#616765).
+
+-------------------------------------------------------------------
 Fri Jun  4 11:01:00 UTC 2010 - mt@suse.de
 
 - Added writing of name server addresses to /etc/resolv.conf in
