@@ -257,8 +257,16 @@ remove_bond () {
 #
 case $ACTION in
 up)
-	[ -d "$sysfs_iface" ] && NOFAIL='--no-fail' || NOFAIL=
+	config_slaves=0
+	for BSVAR in ${!BONDING_SLAVE*} ; do
+		[ "x${!BSVAR}" != x ] && ((++config_slaves))
+	done
+	if [ $config_slaves -eq 0 ] ; then
+		logerror "Bonding: no slaves declared for $INTERFACE"
+		exit $R_NOCONFIG
+	fi
 
+	[ -d "$sysfs_iface" ] && NOFAIL='--no-fail' || NOFAIL=
 	if ! load_bond $NOFAIL $INTERFACE $BONDING_MODULE_OPTS ; then
 		logerror "Bonding: could not create interface $INTERFACE"
 		exit $R_NODEV
@@ -294,11 +302,7 @@ up)
 			echo "+$BONDING_SLAVE" 2>/dev/null > "$sysfs_iface/bonding/slaves"
 			if [ $? -gt 0 ]; then
 				logerror "Could not enslave interface '$BONDING_SLAVE'"
-				if [ "x$NOFAIL" = "x" ] ; then
-					logerror "Removing bonding interface '$INTERFACE'"
-					ifdown $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-					exit $R_ERROR
-				fi
+				continue
 			else
 				message "`printf "    %-9s enslaved interface: %s" \
 					"$INTERFACE" "$BONDING_SLAVE"`"
@@ -308,6 +312,15 @@ up)
 				"$INTERFACE" "$BONDING_SLAVE"`"
 		fi
 	done
+
+	# Do not remove bond when there is at least one active slave
+	# (regardless how many slaves are missed or can't be enslaved)
+	active_slaves=(`cat "$sysfs_iface/bonding/slaves" 2>/dev/null`)
+	if [ ${#active_slaves[@]} -eq 0 -a "x$NOFAIL" = "x" ] ; then
+		logerror "Removing bonding interface '$INTERFACE'"
+		ifdown $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		exit $R_ERROR
+	fi
 
 	# Some option have to be changed after enslaving (e.g. primary)
 	# Therefore we call load_bond() a second time
