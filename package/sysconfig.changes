@@ -1,4 +1,21 @@
 -------------------------------------------------------------------
+Thu Dec  9 15:13:27 UTC 2010 - mt@suse.de
+
+- version 0.74.3
+- Use iBFT primary or PXE BOOTIF inteface as primary dhcp interface
+  (sets the default route and hostname) and the "first up interface
+  wins" selection used before as fallback, when there is explicit
+  user configuration available. Updated the DHCLIENT_PRIMARY_DEVICE
+  variable description, added it also to the global network/dhcp
+  config file (bnc#653365).
+- Improved default vlan name scheme docs in ifcfg-vlan.5 man page.
+- Use startmode auto instead of onboot in ifcfg-lo (bnc#533818)
+- Dropped obsolete and confusing etc/modprobe.d/50-ipv6.conf file
+  (bnc#632530, bnc#656916).
+- Fixed link_wait scriptname check and ping usage (bnc#644738);
+  improved to allow the user to specify the steps.
+
+-------------------------------------------------------------------
 Tue Dec  7 11:22:56 UTC 2010 - coolo@novell.com
 
 - add a virtual provides for network script
