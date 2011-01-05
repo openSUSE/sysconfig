@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -63,11 +64,14 @@ char *mount_status_str[] = {
 #ifdef TEST
 #define DEFAULT_LOGLEVEL LOG_DEBUG
 #else
-#define DEFAULT_LOGLEVEL LOG_ERR
+#define DEFAULT_LOGLEVEL LOG_DEBUG
 #endif
 
 /* How log to wait for the background process to terminate */
 #define SIGNAL_TIMEOUT 10
+
+/* Multipath daemon program */
+#define MPATHD_PROG "/sbin/multipathd"
 
 /* Fsck program to call */
 #ifdef TEST
@@ -84,6 +88,7 @@ char *mount_status_str[] = {
 
 static char *dev;
 static char *mnt;
+static char *action;
 static int major;
 static int minor;
 static unsigned int passno;
@@ -144,7 +149,7 @@ static void terminate_child(int signo)
  *
  * Copied from udev.
  */
-static int run_program(char **argv)
+static int run_program(char **argv, char *buf, int len)
 {
 	int status;
 	int outpipe[2] = {-1, -1};
@@ -212,6 +217,8 @@ static int run_program(char **argv)
 		err("fork of '%s' failed: %s\n", argv[0], strerror(errno));
 		return -1;
 	default:
+		if (buf)
+			buf[0] = '\0';
 		/* read from child if requested */
 		if (outpipe[READ_END] > 0 || errpipe[READ_END] > 0) {
 			ssize_t count;
@@ -270,6 +277,8 @@ static int run_program(char **argv)
 					inbuf[count] = '\0';
 
 					pos = inbuf;
+					if (buf)
+						strncpy(buf, inbuf, len);
 					while ((line = strsep(&pos, "\n")))
 						if (pos && line[0] != '\0')
 							warn("%s\n", line);
@@ -325,6 +334,48 @@ static int run_program(char **argv)
 }
 
 /*
+ * check_dev - Check if the device number matches
+ *
+ * Check if the device number of the event matches with the
+ * device number of the device node and if the device does not
+ * has any 'holders' in /sys/block/XX. If not than we can
+ * discard this event.
+ */
+int check_dev(void)
+{
+	struct stat stbuf;
+	char buf[256];
+	DIR *dirfd;
+	struct dirent *dp;
+
+	if (stat(dev, &stbuf) < 0) {
+		fprintf(stderr,"Cannot stat '%s': %d\n", dev, errno);
+		return -ENODEV;
+	}
+
+	if (!S_ISBLK(stbuf.st_mode)) {
+		fprintf(stderr,"Not a block device\n");
+		return -ENOTBLK;
+	}
+	sprintf(buf,"/sys/dev/block/%d:%d/holders", major, minor);
+	dirfd = opendir(buf);
+	/* Can happen during remove, not an error */
+	if (!dirfd)
+		return 0;
+	while ((dp = readdir(dirfd)) != NULL) {
+		if (!strcmp(dp->d_name,".") || !strcmp(dp->d_name, ".."))
+			continue;
+		fprintf(stderr, "Device %d:%d claimed by %s\n",
+			major, minor, dp->d_name);
+		closedir(dirfd);
+		return -EBUSY;
+	}
+	closedir(dirfd);
+
+	return 0;
+}
+
+/*
  * run_fsck - Run fsck and mount
  *
  * Get an exclusive lock on the lock file and call
@@ -335,7 +386,8 @@ static int run_program(char **argv)
 int run_fsck(char *fstype, char *fsopts)
 {
 	struct flock lock;
-	char buf[256];
+	char buf[32];
+	char argbuf[32];
 	char *argv[9];
 	mount_status status = MOUNT_UNCHECKED;
 	int rc, i, num;
@@ -357,13 +409,43 @@ int run_fsck(char *fstype, char *fsopts)
 		return errno;
 	}
 
+	/* Check for multipathing */
+	info("Check for multipath on '%s'\n", dev);
+
+	memset(buf,0x0,32);
+	strcpy(buf,"waiting");
+	num = write(lock_fd, buf, 32);
+
+	sprintf(argbuf,"-kshow daemon");
+	argv[0] = MPATHD_PROG;
+	argv[1] = argbuf;
+	argv[2] = NULL;
+
+	rc = run_program(argv, argbuf, 32);
+	if (rc < 0) {
+		status = MOUNT_FAILED;
+	} else {
+		if (strlen(argbuf) > 3 && !strncmp(argbuf,"pid", 3)) {
+			/*
+			 * If multipath is running, it will notify us
+			 * again via the 'change' event.
+			 * No action required at this point.
+			 */
+			if (!strncmp(action, "add", 3)) {
+				status = MOUNT_SKIPPED;
+				goto out_unlock;
+			}
+		}
+	}
+
 	if (passno == 0)
 		goto skip_fsck;
 
 	info("Starting fsck on '%s'\n", dev);
 
+	memset(buf, 0x0, 32);
 	strcpy(buf,"checking");
-	num = write(lock_fd, buf, 20);
+	num = write(lock_fd, buf, 32);
 
 	argv[0] = FSCK_PROG;
 	argv[1] = "-p";
@@ -379,7 +461,7 @@ int run_fsck(char *fstype, char *fsopts)
 	i++;
 	argv[i] = NULL;
 
-	rc = run_program(argv);
+	rc = run_program(argv, NULL, 0);
 	if (rc < 0) {
 		status = MOUNT_FAILED;
 	} else {
@@ -407,9 +489,10 @@ int run_fsck(char *fstype, char *fsopts)
 skip_fsck:
 	info("Mounting dev '%s' on '%s'\n", dev, mnt);
 
+	memset(buf, 0x0, 32);
 	strcpy(buf, "mounting");
 	lseek(lock_fd, 0, SEEK_SET);
-	num = write(lock_fd, buf, 20);
+	num = write(lock_fd, buf, 32);
 
 	argv[0] = MOUNT_PROG;
 	i = 1;
@@ -431,16 +514,17 @@ skip_fsck:
 	i++;
 	argv[i] = NULL;
 
-	rc = run_program(argv);
+	rc = run_program(argv, NULL, 0);
 	if (rc == 0)
 		status = MOUNT_MOUNTED;
 
 	info("mount done (%d), status %s\n", rc, mount_status_str[status]);
 
 out_unlock:
+	memset(buf, 0x0, 32);
 	strcpy(buf,mount_status_str[status]);
 	lseek(lock_fd, 0, SEEK_SET);
-	num = write(lock_fd, buf, 20);
+	num = write(lock_fd, buf, 32);
 
 	lock.l_type = F_UNLCK;
 	lock.l_start = 0;
@@ -504,7 +588,7 @@ int daemonize_fsck(char *fstype, char *fsopts)
 		fd = open("/dev/null", O_RDWR);
 		fd = dup(0);
 		fd = dup(0);
-		openlog("udev.mountd", LOG_CONS, LOG_DAEMON);
+		openlog("udev.mountd", 0, LOG_DAEMON);
 		run_fsck(fstype, fsopts);
 		closelog();
 		exit(0);
@@ -590,36 +674,6 @@ int remove_lock(void)
 }
 
 /*
- * check_dev - Check if the device number matches
- *
- * Check if the device number of the event matches with the
- * device number of the device node. If not than we can
- * discard this event.
- */
-int check_dev(void)
-{
-	struct stat stbuf;
-
-	if (stat(dev, &stbuf) < 0) {
-		fprintf(stderr,"Cannot stat '%s': %d\n", dev, errno);
-		return -ENODEV;
-	}
-
-	if (!S_ISBLK(stbuf.st_mode)) {
-		fprintf(stderr,"Not a block device\n");
-		return -ENOTBLK;
-	}
-
-	if (stbuf.st_rdev != makedev(major,minor)) {
-		fprintf(stdout, "Invalid device (fstab %d:%d, event %d:%d)\n",
-			major(stbuf.st_rdev), minor(stbuf.st_rdev),
-			major, minor);
-		return -EINVAL;
-	}
-	return 0;
-}
-
-/*
  * check_mnt - Check if the device is mounted
  *
  * Compare the device number from the event
@@ -698,6 +752,12 @@ int main(int argc, char **argv, char **envp)
 	/* Scan environment */
 	while (envp && *envp) {
 		ep = *envp;
+		if (!strncmp(ep, "ACTION", 6) && strlen(ep) > 7) {
+			action = malloc(strlen(ep + 7) + 1);
+			if (!action)
+				return ENOMEM;
+			strcpy(action, ep + 7);
+		}
 		if (!strncmp(ep, "MAJOR", 5) && strlen(ep) > 6) {
 			major = strtoul(ep + 6, &ptr, 10);
 			if (ptr == ep + 6) {
@@ -788,14 +848,23 @@ int main(int argc, char **argv, char **envp)
 			fprintf(stdout,"FSCK_STATE=unknown\n");
 			return 0;
 		}
+		if (err == -ENOENT && op == MOUNT_REMOVE)
+			goto skip_mount;
+
 		return -err;
 	}
 
 	/* Check if the device is mounted */
 	err = check_mnt();
-	if (err < 0)
+	if (err < 0) {
+		if (err == -EINVAL && op == MOUNT_FSCK) {
+			fprintf(stdout,"FSCK_STATE=skipped\n");
+			return 0;
+		}
 		return EINVAL;
+	}
 
+skip_mount:
 	/* The real action */
 	if (op == MOUNT_FSCK) {
 		if (err == 0) {
