@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Wed Jan  5 17:15:14 UTC 2011 - mt@suse.de
+
+- Fix for udevmountd to allow mounting of multipath devices.
+  With this and the corresponding multipath-tools patch,
+  iscsi mounting works as advertised, both multipathed and
+  non-multipathed (bnc#630434).
+
+-------------------------------------------------------------------
+Wed Dec 22 15:37:44 UTC 2010 - mt@suse.de
+
+- Fixed ifup-bonding to fail and remove bond when there are no
+  active slaves at the end and not on enslave failure (bnc#660774).
+
+-------------------------------------------------------------------
 Thu Dec  9 15:13:27 UTC 2010 - mt@suse.de
 
 - version 0.74.3
