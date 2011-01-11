@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Wed Nov 17 11:48:06 UTC 2010 - mt@suse.de
+
+- Fixed check whether ipv6 is enabled or not in /sbin/ifup-dhcp
+  (again). The last fix, disabled dhcpv6 completely (bnc#616765).
+- Fixed link_wait scriptname check and ping usage (bnc#644738).
+
+-------------------------------------------------------------------
+Tue Nov  2 09:18:55 UTC 2010 - mt@suse.de
+
+- Fixed ifplugd-selectif script to use -1 as default carrier
+  flag and initialize interface type when unset to correctly
+  print wireless instead of cable messages (bnc#637183).
+
+-------------------------------------------------------------------
 Wed Aug 18 12:13:26 UTC 2010 - mt@suse.de
 
 - Fixed wireless hardware to wext/nl80211 WPA driver mapping.
