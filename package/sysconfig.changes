@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Tue Jan 11 14:16:26 UTC 2011 - mt@suse.de
+
+- Fix for udevmountd to allow mounting of multipath devices.
+  With this and the corresponding multipath-tools patch,
+  iscsi mounting works as advertised, both multipathed and
+  non-multipathed (bnc#630434).
+- Fixed ifup-bonding to fail and remove bond when there are no
+  active slaves at the end and not on enslave failure (bnc#660774).
+
+-------------------------------------------------------------------
 Wed Nov 17 11:48:06 UTC 2010 - mt@suse.de
 
 - Fixed check whether ipv6 is enabled or not in /sbin/ifup-dhcp
