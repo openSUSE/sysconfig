@@ -107,7 +107,7 @@ fi
 #
 explicit_dhcp4=no
 explicit_dhcp6=no
-BOOTPROTO=$(echo "$BOOTPROTO" | awk '{print tolower($0);}')
+BOOTPROTO=$(echo "$BOOTPROTO" | gawk '{print tolower($0);}')
 # Override with iSCSI Boot Firmware Table (feature 308283, bnc 542225)
 if [ "$INTERFACE" != "all" -a "${BOOTPROTO}" = "ibft" ] ; then
 	IBFT=yes # not used at the moment... remember before override
@@ -367,7 +367,7 @@ start_dhcp4_dhclient() {
 	esac
 	test -n "$DHCLIENT_HOSTNAME_OPTION" && args="$args -H $DHCLIENT_HOSTNAME_OPTION"
 
-	rm -f "$DHCPIFCONF" && awk '
+	rm -f "$DHCPIFCONF" && gawk '
 		/#/             { sub("#.*", ""); }
 		/^[ \t]*$/      { next; }
 	        	        { print $0; }
@@ -428,7 +428,7 @@ start_dhcp6_dhclient() {
 	esac
 	test -n "$DHCLIENT6_HOSTNAME_OPTION" && args="$args -H $DHCLIENT6_HOSTNAME_OPTION"
 
-	rm -f "$DHCP6IFCONF" && awk '
+	rm -f "$DHCP6IFCONF" && gawk '
 		/#/             { sub("#.*", ""); }
 		/^[ \t]*$/      { next; }
 	        	        { print $0; }
@@ -695,7 +695,7 @@ case "$ACTION" in
 				(dhcp6) test -n "$DHCP6_STATUS" || MESSAGE="$MESSAGE $BOOTPROTO" ;;
 				esac
 			done
-			MESSAGE=$(echo ${MESSAGE} | awk '{print toupper($0);}')
+			MESSAGE=$(echo ${MESSAGE} | gawk '{print toupper($0);}')
 			if [ "$RUN_FROM_RC" = "yes" ]; then
 				print_mesg mesg_n "Starting ${MESSAGE// /+} client"
 			else

@@ -377,9 +377,9 @@ while read inline; do
 						break
 						;;
 					*)
-						UNIQUESTR=`echo $netconf | awk '{print $1}'`
-						CONF=`echo $netconf | awk '{print $2}'`
-						CONFNUMBER=`echo $CONF | awk -F';' '{print $2}'`
+						UNIQUESTR=`echo $netconf | gawk '{print $1}'`
+						CONF=`echo $netconf | gawk '{print $2}'`
+						CONFNUMBER=`echo $CONF | gawk -F';' '{print $2}'`
 						if [ "$CONFNUMBER" = "" ]; then
 							CONFNUMBER="0";
 						fi;
@@ -524,9 +524,9 @@ if ( [ -r etc/rc.dialout ] && `grep --quiet "^[^# ]" etc/rc.dialout` ) ||
 					break
 					;;
 				    *)
-					UNIQUESTR=`echo $netconf | awk '{print $1}'`
-					CONF=`echo $netconf | awk '{print $2}'`
-					CONFNUMBER=`echo $CONF | awk -F';' '{print $2}'`
+					UNIQUESTR=`echo $netconf | gawk '{print $1}'`
+					CONF=`echo $netconf | gawk '{print $2}'`
+					CONFNUMBER=`echo $CONF | gawk -F';' '{print $2}'`
 					if [ "$CONFNUMBER" = "" ]; then
 					    CONFNUMBER="0";
 					fi;

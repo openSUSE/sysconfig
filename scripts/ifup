@@ -280,7 +280,7 @@ fi
 ######################################################################
 # Normalize some values in the config
 #
-BOOTPROTO=$(echo "${BOOTPROTO}" | awk '{print tolower($0);}')
+BOOTPROTO=$(echo "${BOOTPROTO}" | gawk '{print tolower($0);}')
 
 
 ######################################################################
