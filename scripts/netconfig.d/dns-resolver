@@ -105,6 +105,10 @@ function write_resolv_conf()
 EOT
 
     for nd in $1; do
+        # strip trailing dot added by dhcp 4.x dhclient(6)
+        [ "x$nd" != "x." ] && nd="${nd%.}"
+        test "x$nd" = x && continue
+
         # skip duplicates
         for od in ${SEARCHLIST[@]} ; do
             [ "x$nd" == "x$od" ] && continue 2
