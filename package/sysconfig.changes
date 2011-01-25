@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Tue Jan 25 08:52:55 UTC 2011 - mt@suse.de
+
+- version 0.74.5
+- netconfig: strip trailing dots from domains dns search list
+  as added by the dhcp 4.x dhclient(6), to skip duplicates.
+
+-------------------------------------------------------------------
+Mon Jan 24 16:24:30 UTC 2011 - mt@suse.de
+
+- Fixed gawk patch to skip oldnet2new.sh - not in dist archive.
+
+-------------------------------------------------------------------
+Tue Jan 18 10:10:56 UTC 2011 - mt@suse.de
+
+- Use gawk directly as in our dependencies instead of just awk,
+  that is a /etc/alternatives link, that may be broken in rare
+  cases (bnc#664726).
+- Fixed typo in doc/ifcfg.5, IPv4 autoip, not IPv6
+
+-------------------------------------------------------------------
 Fri Jan  7 16:31:41 UTC 2011 - mt@suse.de
 
 - version 0.74.4
