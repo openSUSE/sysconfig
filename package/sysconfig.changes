@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Feb 14 13:50:21 UTC 2011 - mt@suse.de
+
+- fixed postinstall script to avoid, that (wireless) ifcfg files
+  become world readable while installation because of a fillup
+  run; changed to explicitly set 0600 permissions (bnc#670871).
+
+-------------------------------------------------------------------
 Wed Jan  5 17:15:14 UTC 2011 - mt@suse.de
 
 - Fix for udevmountd to allow mounting of multipath devices.
