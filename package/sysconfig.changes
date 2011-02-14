@@ -1,4 +1,27 @@
 -------------------------------------------------------------------
+Mon Feb 14 13:50:21 UTC 2011 - mt@suse.de
+
+- fixed postinstall script to avoid, that (wireless) ifcfg files
+  become world readable while installation because of a fillup
+  run; changed to explicitly set 0600 permissions (bnc#670871).
+
+-------------------------------------------------------------------
+Tue Oct 26 11:51:17 UTC 2010 - mt@suse.de
+
+- Fixed carrier messages in ifplugd-selectif discarding carrier
+  flag read errors (normal behavior) and initialize interface
+  type when unset to correctly print wireless instead of cable
+  messages (bnc#637183).
+
+-------------------------------------------------------------------
+Mon Mar 15 15:57:08 UTC 2010 - mt@suse.de
+
+- Added route proto filter to ifstatus-route to evaluate only
+  routes that may have been set by ifup-route and skip routes
+  added e.g. by zebra to not to waste CPU for big zebra routing
+  tables (bnc#572205). Thanks to Adrian Ban for initial patch!
+
+-------------------------------------------------------------------
 Thu Jan 21 15:59:38 UTC 2010 - mt@suse.de
 
 - Fixed ifup-802.1q script to correctly search for the interface
