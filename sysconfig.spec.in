@@ -1,7 +1,7 @@
 #
-# spec file for package sysconfig (Version @VERSION@)
+# spec file for package sysconfig
 #
-# Copyright (c) 2010 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2011 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -172,15 +172,20 @@ if [ -e etc/sysconfig/network/scripts/convert_to_netconfig_nis ] ; then
 fi
 # remove ntp variables obsoleted by netconfig (new default is "yes")
 # as well as some another obsolete dhcp variables
+_umask=`umask`
 for file in etc/sysconfig/network/dhcp etc/sysconfig/network/ifcfg-* ; do
 	name="${file##*\/ifcfg-}"
 	case $name in
 	(lo|""|*" "*|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup) continue ;;
 	esac
+	case $file in
+		(*/ifcfg-*) umask 0177 ;;
+	esac
 	sysconfig_remove_and_set -b "" $file \
 		DHCLIENT_MODIFY_NTP_CONF     \
 		DHCLIENT_ADDITIONAL_OPTIONS  \
 		DHCLIENT_SCRIPT_EXE
+	umask $_umask
 done
 # erroneous move from network/dhcp to network/config while 11.1 beta
 sysconfig_remove_and_set network/config WRITE_HOSTNAME_TO_HOSTS
@@ -193,6 +198,8 @@ sysconfig_remove_and_set network/config WRITE_HOSTNAME_TO_HOSTS
 if test -f etc/modprobe.d/ipv6 ; then
 	mv -f etc/modprobe.d/ipv6 etc/modprobe.d/50-ipv6.conf
 fi
+# be a little bit paranoid and set the correct mode even we set umask
+chmod 0600 etc/sysconfig/network/ifcfg-*
 
 %postun
 %{insserv_cleanup}
