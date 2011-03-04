@@ -560,6 +560,26 @@ if [ "$SCRIPTNAME" = ifdown ] ; then
 	[ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"
 fi
 
+######################################################################
+# handle bonding slave "up" hotplugging event
+#
+if [ "$SCRIPTNAME" = ifup -a "$HOTPLUG" = yes -a \
+	"$DHCP" != yes -a "$BONDING_MASTER" != yes ] ; then
+
+	MASTER=`get_bonding_master "$INTERFACE"`
+	if test "x$MASTER" != x -a -d "/sys/class/net/$MASTER" ; then
+
+		scripts/${SCRIPTNAME}-bonding "$MASTER" "$MASTER" \
+			${OPTIONS:+-o $OPTIONS}
+		retcode=$?
+
+		# verify we're enslaved now
+		m=`cd -P "/sys/class/net/$INTERFACE/master" \
+			2>/dev/null && echo ${PWD##*/}`
+		test "$m" = "$MASTER" || retcode=$R_NOTRUNNING
+	fi
+fi
+
 test "$STARTMODE" = "on"      && STARTMODE=auto
 test "$STARTMODE" = "boot"    && STARTMODE=auto
 test "$STARTMODE" = "onboot"  && STARTMODE=auto

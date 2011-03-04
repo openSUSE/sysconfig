@@ -351,6 +351,33 @@ get_slaves () {
 	return 1
 }
 
+get_bonding_master () {
+	local IF="$1"
+	test "x$IF" = "x" && return 1
+
+	local a master slave
+	while IFS=- read a master; do
+		case $master in
+		""|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup)
+			continue
+		;;
+		esac
+
+		local BONDING_MASTER
+		get_variable BONDING_MASTER "$master"
+		test "$BONDING_MASTER" = yes || continue
+
+		unset ${!BONDING_SLAVE*}
+		get_variable BONDING_SLAVE "$master"
+		for slave in ${!BONDING_SLAVE*} ; do
+			if test "x$IF" = "x${!slave}" ; then
+				echo "$master"
+				return 0
+			fi
+		done
+	done < <(ls -1d /etc/sysconfig/network/ifcfg-* 2>/dev/null)
+}
+
 get_ifplugd_priority () {
 	local IFPLUGD_PRIORITY=0
 	declare -i IFPLUGD_PRIORITY
