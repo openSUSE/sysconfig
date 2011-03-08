@@ -59,20 +59,19 @@ in
 .BR (7) .
 
 .SH EXAMPLE
-In this example we use an interface with MAC address 00:de:ad:be:af:00. This
-interface is not always physically connected. As soon as you plug in the cable
-ypbind and autofs should be started. When you pull the cable they should be
-stopped. This can be reached with:
+In this example we use the eth0 interface, that is not always physically connected.
+As soon as you plug in the cable ypbind and autofs should be started. When you pull
+the cable they should be stopped. This can be reached with:
 .sp
 in file
-.I /etc/sysconfig/network/ifcfg-eth-id-00:de:ad:be:af:00
+.I /etc/sysconfig/network/ifcfg-eth0
 
     ...
     STARTMODE=ifplugd
     ...
 
 in dir
-.I /etc/sysconfig/network/ifservices-eth-id-00:de:ad:be:af:00/
+.I /etc/sysconfig/network/ifservices-eth0/
 
     S10portmap -> /etc/init.d/portmap
     S20ypbind  -> /etc/init.d/ypbind 
