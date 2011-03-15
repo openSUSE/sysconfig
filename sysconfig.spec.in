@@ -93,12 +93,11 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %config(noreplace) /etc/ppp/ip-down
 %config(noreplace) /etc/ppp/ipv6-up
 %config(noreplace) /etc/ppp/ipv6-down
-%dir /etc/udev
-%dir /etc/udev/rules.d
-%config /etc/udev/rules.d/77-network.rules
-%config /etc/udev/rules.d/81-mount.rules
 %dir /lib/udev
 /lib/udev/udevmountd
+%dir /lib/udev/rules.d
+/lib/udev/rules.d/77-network.rules
+/lib/udev/rules.d/81-mount.rules
 %dir /etc/modprobe.d
 %config /etc/sysconfig/network/ifcfg.template
 %config /etc/modprobe.d/50-blacklist.conf

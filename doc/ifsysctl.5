@@ -22,7 +22,7 @@ or
 The settings are applied by the
 .B /etc/sysconfig/network/scripts/ifup-sysctl
 script executed via
-.B /etc/udev/rules.d/77-network.rules
+.B /lib/udev/rules.d/77-network.rules
 rule (see \fBudev(7)\fR), after the creation and after the rename of the
 interface name to its persistent name (when applicable), but before the
 \fBifup <interface name> -o hotplug\fR may be executed to configure the interface.
