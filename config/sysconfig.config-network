@@ -33,6 +33,14 @@ CHECK_DUPLICATE_IP="no"
 
 ## Type:        yesno
 ## Default:     no
+# If ifup should send a gratuitous ARP to inform the receivers about its
+# static IP addresses and perhaps also a link-layer (MAC) address change.
+# Make sure that packet sockets (CONFIG_PACKET) are supported in the kernel,
+# since this feature uses arping, which depends on that.
+SEND_GRATUITOUS_ARP="no"
+
+## Type:        yesno
+## Default:     no
 # Switch on/off debug messages for all network configuration stuff. If set to no
 # most scripts can enable it locally with "-o debug".
 DEBUG="no"

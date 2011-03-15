@@ -1072,11 +1072,11 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						      "    IPADDR             = $IPADDR\n" \
 						      "    PREFIXLEN          = $PREFIXLEN\n" \
 						      "    CHECK_DUPLICATE_IP = $CHECK_DUPLICATE_IP"
-						if [ "$CHECK_DUPLICATE_IP"  = "yes" ] ; then
+						if [ "$ISv6" = "no" -a "$CHECK_DUPLICATE_IP"  = "yes" ] ; then
 							arping -q -c 2 -w 3 -D -I $INTERFACE $IPADDR \
 							    && CHECK_DUPLICATE_IP=no
 						fi
-						if [ "$CHECK_DUPLICATE_IP" = "yes" ] ; then
+						if [ "$ISv6" = "no" -a "$CHECK_DUPLICATE_IP" = "yes" ] ; then
 							logerror "Error on setting up interface" \
 							         "$INTERFACE:$LABEL:\n" \
 							         "  address $IPADDR already in use.\n  Probably" \
@@ -1111,6 +1111,10 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 									esac ;;
 								*) retcode=$R_NOTRUNNING ;;
 							esac
+							if [ "$retcode" = "$R_SUCCESS" -a "$ISv6" = "no" -a \
+								"$SEND_GRATUITOUS_ARP" = "yes" ] ; then
+								arping -q -A -c 1 -I $INTERFACE $IPADDR
+							fi
 						fi
 						ADDRCOUNT=$(($ADDRCOUNT + 1))
 					done
