@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Tue Mar 15 17:12:58 UTC 2011 - mt@suse.de
+
+- version 0.75.0
+- Moved 77-network.rules and 81-mount.rules to /lib/udev/rules.d
+  as both contain static rules.
+- Fixed spec to use 0600 mode for ifcfg-lo, because of bnc 670871.
+- Send gratuitous arp when new SEND_GRATUITOUS_ARP variable is set
+  to yes either in global network/config or in per-interface ifcfg
+  file. Fixed to use CHECK_DUPLICATE_IP for ipv4 only (bnc#617373).
+- Enslave a slaves into a bond on hotplug "up" event (bnc#669361).
+
+-------------------------------------------------------------------
 Mon Feb 14 13:50:21 UTC 2011 - mt@suse.de
 
 - fixed postinstall script to avoid, that (wireless) ifcfg files
