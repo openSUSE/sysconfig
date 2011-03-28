@@ -242,7 +242,9 @@ if [ $sf -eq 1 -a -z "$DNS_SERVERS_0" \
     DNS_SERVERS_2="$DNS_SERVERS_2 $NETCONFIG_DNS_STATIC_SERVERS"
 fi
 
-# filter out loopback addresses that would case a loop
+# filter out loopback addresses and all own IPs that would case a loop
+own_ips=(`ip addr show 2>/dev/null | \
+LANG=C LC_ALL=C gawk '/[ ]+(inet|inet6)[ ]+/ { sub("/.*","",$2); print $2; }' 2>/dev/null`)
 for idx in 0 1 2 ; do
     var="DNS_SERVERS_$idx"
     val=(${!var})
@@ -250,7 +252,13 @@ for idx in 0 1 2 ; do
     for ns in ${val[@]} ; do
         case $ns in
             127.*|::1)      ;;
-            *) new+=("$ns") ;;
+            *)
+                for ip in "${own_ips[@]}" ; do
+                    test "x$ip" = "x"    && continue
+                    test "x$ip" = "x$ns" && continue 2
+                done
+                new+=("$ns")
+            ;;
         esac
     done
     eval "${var}='${new[@]}'"
