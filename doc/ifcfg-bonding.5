@@ -19,6 +19,20 @@ must be set to 'yes' to identify this interface as a bonding interface
 .TP
 .B BONDING_SLAVE_<X>
 here you specify the interface name representing the slave network interfaces.
+
+\fBNote\fR:
+Please adopt the /etc/udev/rules.d/70-persistent-net.rules rule file to match
+the hardware by BUS id and not by the MAC address (default). Using MAC address,
+it is not possible to replace a defect NIC with a new one (having a different
+MAC), without to adopt either the MAC or the name of the slave interface in the
+configuration files.
+.br
+Note also: Bonding slave interfaces are reserved for the bonding and are not
+usable for any another purposes (unlike e.g. interfaces used for VLANs) and
+the bonding master manages the slaves itself, e.g. it sets the MAC address
+on the slaves. To configure this accordingly, set BOOTPROTO=none in the ifcfg
+file of each slave interfaces to avoids any link-layer or IP setup on these
+interfaces.
 .TP
 .B BONDING_MODULE_OPTS
 contains bonding options. Here you can set interface timeouts or working modes
@@ -47,11 +61,24 @@ Example for a bonding interface on eth0 and eth1 using the backup mode
    STARTMODE='onboot'
    BOOTPROTO='static'
    IPADDR='192.168.0.1/24'
-
    BONDING_MASTER='yes'
    BONDING_SLAVE_0='eth0'
    BONDING_SLAVE_1='eth1'
    BONDING_MODULE_OPTS='mode=active-backup miimon=100'
+.fi
+
+.I ifcfg-eth0
+.nf
+   STARTMODE='onboot'
+   BOOTPROTO='none'
+   #ETHTOOL_OPTIONS='wol g'
+.fi
+
+.I ifcfg-eth1
+.nf
+   STARTMODE='onboot'
+   BOOTPROTO='none'
+   #ETHTOOL_OPTIONS='wol g'
 .fi
 
 .SH Additional Information
