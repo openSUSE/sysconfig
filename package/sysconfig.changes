@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Mon Apr 18 14:13:44 UTC 2011 - mt@suse.de
+
+- Send gratuitous arp when new SEND_GRATUITOUS_ARP variable is set
+  to yes either in global network/config or in per-interface ifcfg
+  file. Fixed to use CHECK_DUPLICATE_IP for ipv4 only (bnc#617373).
+- Enslave a slaves into a bond on hotplug "up" event (bnc#669361).
+
+-------------------------------------------------------------------
 Mon Feb 14 13:50:21 UTC 2011 - mt@suse.de
 
 - fixed postinstall script to avoid, that (wireless) ifcfg files
