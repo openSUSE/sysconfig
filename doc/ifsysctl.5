@@ -14,7 +14,7 @@ should be applied when a network interface is created. This are
 usually interface specific settings, like:
 
 .nf
-	net.ipv6.conf.eth0.use_tempaddr = 1
+	net.ipv6.conf.eth0.use_tempaddr = 2
 or
 	net.ipv4.conf.eth0.rp_filter = 0
 .fi
@@ -64,21 +64,21 @@ Further, files with variables are not compatible to the /etc/sysctl.conf file.
 Settings for "eth0" and "eth0.1" interfaces
 .nf
 	# using "." as separator:
-	net.ipv6.conf.eth0.use_tempaddr = 1
-	net.ipv6.conf.eth0/1.use_tempaddr = 1
+	net.ipv6.conf.eth0.use_tempaddr = 2
+	net.ipv6.conf.eth0/1.use_tempaddr = 2
 
 	# using "/" as separator:
-	net/ipv6/conf/eth0/use_tempaddr = 1
-	net/ipv6/conf/eth0.0/use_tempaddr = 1
+	net/ipv6/conf/eth0/use_tempaddr = 2
+	net/ipv6/conf/eth0.0/use_tempaddr = 2
 .fi
 
 Settings with variables:
 .nf
 	# using "." as separator:
-	net.ipv6.conf.$SYSCTL_IF.use_tempaddr = 1
+	net.ipv6.conf.$SYSCTL_IF.use_tempaddr = 2
 
 	# using "/" as separator:
-	net/ipv6/conf/$INTERFACE/use_tempaddr = 1
+	net/ipv6/conf/$INTERFACE/use_tempaddr = 2
 .fi
 
 To test your ifsysctl-eth0 or ifsysctl file, use:
