@@ -22,21 +22,21 @@ EXTRA_DIST = $(sysconfig_network_DATA) \
 	     $(omc_svcinfo_DATA)
 
 install-data-hook:
-	mkdir -p  $(DESTDIR)$(prefix)@sysconfig_networkdir@/providers
-	chmod 700 $(DESTDIR)$(prefix)@sysconfig_networkdir@/providers
-	mkdir -p  $(DESTDIR)$(prefix)@sysconfig_networkdir@/if-up.d
-	mkdir -p  $(DESTDIR)$(prefix)@sysconfig_networkdir@/if-down.d
-	chmod 755 $(DESTDIR)$(prefix)@sysconfig_networkdir@/if-up.d
-	chmod 755 $(DESTDIR)$(prefix)@sysconfig_networkdir@/if-down.d
-	mkdir -p  $(DESTDIR)$(prefix)@pppdir@/ip-up.d
-	mkdir -p  $(DESTDIR)$(prefix)@pppdir@/ip-down.d
-	chmod 755  $(DESTDIR)$(prefix)@pppdir@/ip-up.d
-	chmod 755  $(DESTDIR)$(prefix)@pppdir@/ip-down.d
-	mkdir -p  $(DESTDIR)$(prefix)@sysconfig_networkdir@/ifservices.template
-	ln -s ../../../init.d/autofs $(DESTDIR)$(prefix)@sysconfig_networkdir@/ifservices.template/K60autofs 
-	ln -s ../../../init.d/ypbind $(DESTDIR)$(prefix)@sysconfig_networkdir@/ifservices.template/K70ypbind 
-	ln -s ../../../init.d/portmap $(DESTDIR)$(prefix)@sysconfig_networkdir@/ifservices.template/S10portmap 
-	ln -s ../../../init.d/ypbind $(DESTDIR)$(prefix)@sysconfig_networkdir@/ifservices.template/S30ypbind 
-	ln -s ../../../init.d/autofs $(DESTDIR)$(prefix)@sysconfig_networkdir@/ifservices.template/S40autofs 
-	chmod 644  $(DESTDIR)$(prefix)@omc_svcinfodir@/network.xml
+	mkdir -p  $(DESTDIR)@sysconfig_networkdir@/providers
+	chmod 700 $(DESTDIR)@sysconfig_networkdir@/providers
+	mkdir -p  $(DESTDIR)@sysconfig_networkdir@/if-up.d
+	mkdir -p  $(DESTDIR)@sysconfig_networkdir@/if-down.d
+	chmod 755 $(DESTDIR)@sysconfig_networkdir@/if-up.d
+	chmod 755 $(DESTDIR)@sysconfig_networkdir@/if-down.d
+	mkdir -p  $(DESTDIR)@pppdir@/ip-up.d
+	mkdir -p  $(DESTDIR)@pppdir@/ip-down.d
+	chmod 755 $(DESTDIR)@pppdir@/ip-up.d
+	chmod 755 $(DESTDIR)@pppdir@/ip-down.d
+	mkdir -p  $(DESTDIR)@sysconfig_networkdir@/ifservices.template
+	ln -s ../../../init.d/autofs  $(DESTDIR)@sysconfig_networkdir@/ifservices.template/K60autofs 
+	ln -s ../../../init.d/ypbind  $(DESTDIR)@sysconfig_networkdir@/ifservices.template/K70ypbind 
+	ln -s ../../../init.d/rpcbind $(DESTDIR)@sysconfig_networkdir@/ifservices.template/S10rpcbind 
+	ln -s ../../../init.d/ypbind  $(DESTDIR)@sysconfig_networkdir@/ifservices.template/S30ypbind 
+	ln -s ../../../init.d/autofs  $(DESTDIR)@sysconfig_networkdir@/ifservices.template/S40autofs 
+	chmod 644  $(DESTDIR)@omc_svcinfodir@/network.xml
 
