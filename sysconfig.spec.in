@@ -21,7 +21,8 @@
 Name:           sysconfig
 Version:        @VERSION@
 Release:        0
-Summary:        The sysconfig scheme
+Summary:        The system configuration scheme and traditional network scripts
+Url:            http://gitorious.org/opensuse/sysconfig
 Group:          System/Base
 License:        GPL v2 or later
 AutoReqProv:    on
@@ -31,8 +32,8 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Source:         %name-%version.tar.bz2
 
 %description
-This package provides the SuSE system configuration scheme.
-
+This package provides the SuSE system configuration scheme and the traditional
+"ifup" alias "netcontrol" network scripts.
 
 
 Authors:
