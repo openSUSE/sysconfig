@@ -62,8 +62,8 @@ show-commit-state:
 	  LC_ALL=C git status --all --quiet 2>&1 | \
 	  grep -qsE 'Untracked|to be committed' && { \
 	    echo -e "##\n## *** NOTE: There are uncommited changes:\n##" ; \
-	    git status --quiet 2>&1 ; \
-	  } ; \
+	    git status --quiet 2>&1 || : ; \
+	  } || : ; \
 	elif [ -d $(top_srcdir)/.svn ]; then \
 	  if ! svn   --version &>/dev/null ; then \
 	    echo 'ERROR: Unable to find the '\'svn\'' subversion client!' ; \
