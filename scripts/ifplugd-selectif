@@ -37,7 +37,7 @@ get_carrier() {
 	local -i carrier=-1 count=40
 	local check=/sys/class/net/${1}/carrier
 	while ((count-- > 0)) ; do
-		test -e $check && read -t 1 carrier < $check
+		test -e $check && read -t 1 carrier < $check 2>/dev/null
 		((carrier == 1)) && break
 		usleep 25000
 	done
