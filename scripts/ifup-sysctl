@@ -111,7 +111,7 @@ get_interface_sysctls()
 	test -n "$IF" -a -n "$CF" || return 1
 
 	LANG=C LC_ALL=C \
-	awk -vI="$IF" -- 'BEGIN{S=I; gsub("\\.", "/", S);}
+	gawk -vI="$IF" -- 'BEGIN{S=I; gsub("\\.", "/", S);}
 	{ gsub("\\$INTERFACE", I); gsub("\\$SYSCTL_IF", S); print $0; }
 	' `ifsysctl_files "$CF"` </dev/null
 }

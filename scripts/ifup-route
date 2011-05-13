@@ -110,7 +110,7 @@ test -f $EXTRAROUTECONF || EXTRAROUTECONF=""
 # initialize route protos used in files we should consider
 # in the ifstatus check (usually not used, see bnc#572205)
 if [ "$ACTION" = status ] ; then
-	ROUTE_PROTOS=`LANG=C LC_ALL=C awk -- \
+	ROUTE_PROTOS=`LANG=C LC_ALL=C gawk -- \
 	'$1 !~ /^(#.*)?$/ {
 		if(match($0,"proto ([^ ]+)",p)) {
 			l=length(l) > 0 ? l"|"p[1] : p[1]
@@ -124,7 +124,7 @@ fi
 
 filter_routes()
 {
-	LANG=C LC_ALL=C awk -vrp="$ROUTE_PROTOS" -- \
+	LANG=C LC_ALL=C gawk -vrp="$ROUTE_PROTOS" -- \
 	'/proto [^ ]+/ {
 		if(length(rp) > 0 && match($0,"proto ("rp")")) {
 			print $0;

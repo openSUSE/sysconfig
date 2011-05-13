@@ -96,7 +96,7 @@ fi
 #
 get_proc_name_type()
 {
-	awk -- '/^Name-Type:/ { print $2;}' /proc/net/vlan/config 2>/dev/null
+	gawk -- '/^Name-Type:/ { print $2;}' /proc/net/vlan/config 2>/dev/null
 }
 map_proc_to_vconfig()
 {
@@ -109,7 +109,7 @@ map_proc_to_vconfig()
 }
 get_vlan_iface_name()
 {
-	awk -v vid="$1" -v dev="$2" -- 'BEGIN{ nt=0; }
+	gawk -v vid="$1" -v dev="$2" -- 'BEGIN{ nt=0; }
 		/^Name-Type:/   { nt=1; next; }
 		nt && $3 == vid && $5 == dev { print $1; }' \
 		/proc/net/vlan/config 2>/dev/null

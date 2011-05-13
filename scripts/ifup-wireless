@@ -185,7 +185,7 @@ info_mesg "prefer wpa_supplicant: $PREFER_WPA_SUPPLICANT"
 ######################################################################
 # check for needed tools
 #
-for i in iwconfig hexdump sed awk ; do
+for i in iwconfig hexdump sed gawk ; do
 if [ -z "`type -p $i`" ] ; then
     err_mesg "cannot find '$i', please install"
     exit $R_ERROR
@@ -268,7 +268,7 @@ generate_keys()
 format_key()
 {
         # key has usually format XXXX-XXXX-XX [...]
-        echo $1 | awk '{ gsub("-", ""); KEY=$0 ;
+        echo $1 | gawk '{ gsub("-", ""); KEY=$0 ;
                 if (length()>10) for (i=0;i<26-length();i++) KEY=KEY"0"
                 for (i=1;i<length(KEY)-1;i+=2) FKEY=FKEY substr(KEY, i, 2)":"
                 FKEY=FKEY substr(KEY, i, 2)

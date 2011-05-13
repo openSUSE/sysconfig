@@ -156,7 +156,7 @@ netconfig_check_md5_and_move()
     _read_erx_data()
     {
         test "x${1}" = x && return 1
-        awk -v erx="${2}" '
+        gawk -v erx="${2}" '
             { if(length(erx) && match($0, erx) > 0) { print $0; next; } }
             !/^#|^[[:space:]]*$/     { print $0; }
             ' "$1"
@@ -165,7 +165,7 @@ netconfig_check_md5_and_move()
     # use old erx if set
     OLD_ERX="${NEW_ERX}"
     if test -s "$MD5FILE" ; then
-        OLD_ERX=`awk -- '/^#/ { if(NR==1) print substr($0,2); }' \
+        OLD_ERX=`gawk -- '/^#/ { if(NR==1) print substr($0,2); }' \
             "$MD5FILE" 2>/dev/null`
     fi
     SRCMD5SUM=`_read_erx_data "$SRCFILE" "$OLD_ERX" | md5sum`
@@ -242,7 +242,7 @@ netconfig_check_md5_and_move()
 netconfig_kv_filter()
 {
     # force portable "C" locale to match valid identifiers
-    LANG=C LC_ALL=C awk -- '/^[[:space:]]*$/ { next; }
+    LANG=C LC_ALL=C gawk -- '/^[[:space:]]*$/ { next; }
     /^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*='"'"'[^'"'"']*'"'"'[[:space:]]*$/ && \
     !/^[[:space:]]*_+=/ {
     	sub("^[[:space:]]+", "", $0);
