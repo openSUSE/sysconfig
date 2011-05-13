@@ -18,8 +18,6 @@
 # Author: Christian Zoz <zoz@suse.de>, 2002-2006
 #         Peter Poeml <poeml@suse.de>, 2002-2006
 #
-# $Id$
-#
 
 usage () {
 	echo $@
@@ -247,7 +245,7 @@ case "$ACTION" in
 				[ "x$HAVE_IPv6" = xyes ] || DHCLIENT6=""
 
 				case "$DHCLIENT6" in
-				(dhcp6c)
+				(dhcp6c|dhclient6)
 					if [ -x "$DHCLIENT6_BIN" ] ; then
 						clients=$((clients + 1))
 						BOOTPROTOS=(${BOOTPROTOS[@]} $BOOTPROTO)
@@ -257,14 +255,14 @@ case "$ACTION" in
 						print_mesg err_mesg \
 							"DHCP6 client ($DHCLIENT6_BIN) is not available."
 						print_mesg err_mesg \
-							"      Please install the 'dhcpv6' package"
+							"      Please install the 'dhcpv6' or 'dhcp-client' package"
 					fi
 				;;
 				"")
 					if [ "x$explicit_dhcp6" = "xyes" ] ; then
 						if [ "x$HAVE_IPv6" = xyes ] ; then
 							print_mesg err_mesg "DHCP6 client is not available."
-							print_mesg err_mesg "      Please install 'dhcpv6' package'"
+							print_mesg err_mesg "      Please install 'dhcpv6' or 'dhcp-client' package'"
 						else
 							print_mesg err_mesg "DHCP6 disabled - no IPv6 support"
 						fi
@@ -273,7 +271,7 @@ case "$ACTION" in
 				*)
 					DHCLIENT6=""
 					print_mesg err_mesg "DHCP6 client unknown/unsupported: $DHCLIENT6_BIN"
-					print_mesg err_mesg "      Please install the 'dhcpv6' package"
+					print_mesg err_mesg "      Please install the 'dhcpv6' or 'dhcp-client' package"
 				;;
 				esac
 			;;
@@ -405,6 +403,42 @@ start_dhcp6_dhcp6c() {
 	$DHCLIENT6_BIN $DHCP6C_USER_OPTIONS $args $INTERFACE </dev/null &>/dev/null &
 }
 
+start_dhcp6_dhclient() {
+	#
+	# TODO: filter out statements (e.g. inerface blocks),
+	#       apply DHCLIENT6_* variables
+	#
+	local DHCP6IFLEASE="/var/lib/dhcp6/dhclient6.${INTERFACE}.lease"
+	local DHCP6IFCONF="/var/lib/dhcp6/dhclient6.${INTERFACE}.conf"
+	local DHCP6IFPID="/var/run/dhclient6.${INTERFACE}.pid"
+
+	# don't write copyright info
+	local args="-q" 
+	test "$DHCLIENT6_DEBUG" = "yes" && args=""
+
+	# send hostname for DDNS?
+	case "$DHCLIENT6_HOSTNAME_OPTION" in
+		AUTO|auto)
+			unset DHCLIENT6_HOSTNAME_OPTION
+			test -s /etc/HOSTNAME && read -t 1 FQHOSTNAME < /etc/HOSTNAME
+			FQHOSTNAME=${FQHOSTNAME%%.*} # strip domain
+			FQHOSTNAME=${FQHOSTNAME%% *} # must not contain spaces, just in case
+			DHCLIENT6_HOSTNAME_OPTION="$FQHOSTNAME"
+		;;
+	esac
+	test -n "$DHCLIENT6_HOSTNAME_OPTION" && args="$args -H $DHCLIENT6_HOSTNAME_OPTION"
+
+	rm -f "$DHCP6IFCONF" && awk '
+		/#/             { sub("#.*", ""); }
+		/^[ \t]*$/      { next; }
+	        	        { print $0; }
+	' < /etc/dhclient6.conf > "$DHCP6IFCONF" || return 1
+
+	debug "Starting dhcp client: $DHCLIENT6_BIN -6 $DHCLIENT6_USER_OPTIONS -cf "$DHCP6IFCONF" -lf "$DHCP6IFLEASE" -pf "$DHCP6IFPID" $args $INTERFACE"
+	$DHCLIENT6_BIN -6 $DHCLIENT6_USER_OPTIONS -cf "$DHCP6IFCONF" -lf "$DHCP6IFLEASE" -pf "$DHCP6IFPID" $args $INTERFACE </dev/null &>/dev/null &
+}
+
+
 case "$ACTION" in
 	start|renew)
 		# if we were called at boot time, increase the time startproc waits,
@@ -446,6 +480,20 @@ case "$ACTION" in
 		case "$DHCLIENT6" in
 		(dhcp6c)
 			: # TODO: the new 1.0.20 version seems to write one...
+		;;
+		(dhclient6)
+			if [ -s /var/run/dhclient6.$INTERFACE.pid ]; then
+				p=$(</var/run/dhclient6.$INTERFACE.pid)
+				if [ "x$p" != x -a $((p)) -gt 0 ] ; then
+					cmdline="/proc/$p/cmdline"
+					[ -r "$cmdline" ] && \
+					grep -q "^$DHCLIENT6_BIN" "$cmdline" || {
+						message_if_not_run_from_rc \
+						"Removing stale pid file /var/run/dhclient6.$INTERFACE.pid"
+						rm -f /var/run/dhclient6.$INTERFACE.pid
+					}
+				fi
+			fi
 		;;
 		esac
 
@@ -542,6 +590,11 @@ case "$ACTION" in
 				(dhcp4)
 					# reset dhcp4 status
 					DHCP4_STATUS=""
+					case "$DHCLIENT" in
+					(dhcpcd|dhclient)
+						$DHCLIENT_BIN -x $INTERFACE
+					;;
+					esac
 					for i in `dhcpc4_on_iface`; do
 						kill -TERM $i &>/dev/null
 					done
@@ -550,6 +603,11 @@ case "$ACTION" in
 				(dhcp6)
 					# reset dhcp6 status
 					DHCP6_STATUS=""
+					case "$DHCLIENT6" in
+					(dhclient6)
+						$DHCLIENT6_BIN -6 -x $INTERFACE
+					;;
+					esac
 					for i in `dhcpc6_on_iface`; do
 						kill -TERM $i &>/dev/null
 					done
@@ -637,15 +695,22 @@ case "$ACTION" in
 						test -n "$DHCP6_STATUS" || {
 							start_dhcp6_dhcp6c && {
 								DHCP6_STARTED="yes"
+								write_cached_config_data dhcp6_client $DHCLIENT  $INTERFACE
+								write_cached_config_data dhcp6_state  started    $INTERFACE
+								commit_cached_config_data                        $INTERFACE
 							} || DHCP6_STATUS=$?
 						}
 					;;
-					#(dhclient)
-					#	test -n "$DHCP6_STATUS" || {
-					#		start_dhcp6_dhclient
-					#		DHCP6_STARTED="yes"
-					#	}
-					#;;
+					(dhclient6)
+						test -n "$DHCP6_STATUS" || {
+							start_dhcp6_dhclient && {
+								DHCP6_STARTED="yes"
+								write_cached_config_data dhcp6_client $DHCLIENT  $INTERFACE
+								write_cached_config_data dhcp6_state  started    $INTERFACE
+								commit_cached_config_data                        $INTERFACE
+							} || DHCP6_STATUS=$?
+						}
+					;;
 					esac
 				;;
 				esac
@@ -665,21 +730,22 @@ case "$ACTION" in
 				for BOOTPROTO in ${BOOTPROTOS[@]} ; do
 					case "$BOOTPROTO" in
 					(dhcp4)
+						if ! dhcpc4_on_iface -q ; then
+							((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
+							DHCP4_MESSAGE="DHCP4 client NOT running"
+							DHCP4_STATUS=$R_NOTRUNNING
+							continue
+						fi
+						[ -n "$DHCP4_STATUS" ] && continue
+
 						case "$DHCLIENT" in
 						(dhcpcd)
 							stamp=/var/lib/dhcpcd/dhcpcd-$INTERFACE.timestamp
 							info=/var/lib/dhcpcd/dhcpcd-$INTERFACE.info
 
-							if ! dhcpc4_on_iface -q ; then
-								((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
-								DHCP4_MESSAGE="DHCP4 client NOT running"
-								DHCP4_STATUS=$R_NOTRUNNING
-								continue
-							fi
-							[ -n "$DHCP4_STATUS" ] && continue
-
 							state=`read_cached_config_data dhcp4_state $INTERFACE`
 							if [ "x$state" = "xcomplete" -a -e $info -a ! $info -ot $stamp ]; then
+								DHCP4_STATUS=$R_SUCCESS
 								IP='' ; NM='' ; HN=''
 								while read line ; do
 									case "$line" in
@@ -698,23 +764,14 @@ case "$ACTION" in
 										DHCP4_MESSAGE="$DHCP4_MESSAGE ($HN)"
 									fi
 								fi
-								DHCP4_STATUS=$R_SUCCESS
 							fi
 						;;
 						(dhclient)
-							# TODO: parse the lease?!
-							if ! dhcpc4_on_iface -q ; then
-								((wab_cnt== 0 || wab_cnt==10)) && message_n .\ .\ 
-								DHCP4_MESSAGE="DHCP4 client NOT running"
-								DHCP4_STATUS=$R_NOTRUNNING
-								continue
-							fi
-							[ -n "$DHCP4_STATUS" ] && continue
-
 							lease="/var/lib/dhcp/dhclient.${INTERFACE}.lease"
 							config="/var/lib/dhcp/dhclient.${INTERFACE}.conf"
 							state=`read_cached_config_data dhcp4_state $INTERFACE`
 							if [ "x$state" = "xcomplete" -a -e "$lease" -a "$lease" -nt "$config" ] ; then
+								DHCP4_STATUS=$R_SUCCESS
 								while read a b c d e f g h i ; do
 									case "$d" in
 									169.254.*) continue ;;
@@ -723,7 +780,6 @@ case "$ACTION" in
 										DHCP4_MESSAGE="IP address: $d"
 									fi
 								done < <(ip -o -4 addr show $INTERFACE)
-								DHCP4_STATUS=$R_SUCCESS
 							fi
 						;;
 						esac
@@ -751,6 +807,22 @@ case "$ACTION" in
 									fi
 								done
 							done < <(ip -o -6 addr show $INTERFACE)
+						;;
+						(dhclient6)
+							lease="/var/lib/dhcp6/dhclient6.${INTERFACE}.lease"
+							config="/var/lib/dhcp6/dhclient6.${INTERFACE}.conf"
+							state=`read_cached_config_data dhcp6_state $INTERFACE`
+							if [ "x$state" = "xcomplete" ] ; then
+								DHCP6_STATUS=$R_SUCCESS
+								while read a b c d e f g h i ; do
+									case "$d" in
+									fe80:*) continue ;;
+									esac
+									if grep -q "${d%/*}" "$lease" &>/dev/null ; then
+										DHCP6_MESSAGE="IP address: $d"
+									fi
+								done < <(ip -o -6 addr show $INTERFACE)
+							fi
 						;;
 						esac
 					;;
@@ -850,6 +922,9 @@ case "$ACTION" in
 						then
 							$DHCLIENT_BIN --release \
 								$INTERFACE </dev/null &>/dev/null
+						else
+							$DHCLIENT_BIN --exit \
+								$INTERFACE </dev/null &>/dev/null
 						fi
 					;;
 					(dhclient)
@@ -865,6 +940,9 @@ case "$ACTION" in
 								-cf /dev/null \
 								-lf "$DHCPIFLEASE" \
 								-pf "$DHCPIFPID" \
+								$INTERFACE </dev/null &>/dev/null
+						else
+							$DHCLIENT_BIN -x \
 								$INTERFACE </dev/null &>/dev/null
 						fi
 					;;
@@ -907,7 +985,7 @@ case "$ACTION" in
 						fi
 					;;
 					(dhclient6)
-						DHCP6IFLEASE="/var/lib/dhcp/dhclient6.${INTERFACE}.lease"
+						DHCP6IFLEASE="/var/lib/dhcp6/dhclient6.${INTERFACE}.lease"
 						DHCP6IFPID="/var/run/dhclient6.${INTERFACE}.pid"
 
 						if test "$STARTMODE" = "nfsroot" ;
@@ -915,11 +993,14 @@ case "$ACTION" in
 							dhcpc6_signal="-KILL"
 						elif test "$DHCLIENT6_RELEASE_BEFORE_QUIT" = "yes" ;
 						then
-							$DHCLIENT_BIN6 -6 -r \
+							$DHCLIENT6_BIN -6 -r \
 								-cf /dev/null \
 								-lf "$DHCP6IFLEASE" \
 								-pf "$DHCP6IFPID" \
-								$INTERFACE
+								$INTERFACE </dev/null &>/dev/null
+						else
+							$DHCLIENT6_BIN -6 -x \
+								$INTERFACE </dev/null &>/dev/null
 						fi
 					;;
 					esac
@@ -1125,25 +1206,40 @@ case "$ACTION" in
 			(dhcp6)
 				if dhcpc6_on_iface -q; then
 					print_mesg mesg "DHCP6 client ($DHCLIENT6) is running"
-					DHCP6_STATUS=$R_DHCP_BG
-					DHCP6_MESSAGE=''
-					while read a b c d rest; do
-						config="/var/lib/dhcpv6/dhcp6c.${INTERFACE}.conf"
-						leases="/var/lib/dhcpv6/client6.leases*"
-						leases=$(grep -sl "^lease[ \t]\+${d}" $leases 2>/dev/null)
-						for lease in ${leases} ; do
-							if [ $lease -nt $config ] ; then
-								DHCP6_MESSAGE="IP address: $d"
-								DHCP6_STATUS=$R_SUCCESS
-								break 2
-							fi
-						done
-					done < <(ip -o -6 addr show $INTERFACE)
-					if [ -n "$DHCP6_MESSAGE" ] ; then
-						print_mesg mesg "$DHCP6_MESSAGE"
-					else
-						print_mesg mesg ". . . but is still waiting for data"
-					fi
+					case "$DHCLIENT6" in
+					(dhcp6c)
+						DHCP6_STATUS=$R_DHCP_BG
+						DHCP6_MESSAGE=''
+						while read a b c d rest; do
+							config="/var/lib/dhcpv6/dhcp6c.${INTERFACE}.conf"
+							leases="/var/lib/dhcpv6/client6.leases*"
+							leases=$(grep -sl "^lease[ \t]\+${d}" $leases 2>/dev/null)
+							for lease in ${leases} ; do
+								if [ $lease -nt $config ] ; then
+									DHCP6_MESSAGE="IP address: $d"
+									DHCP6_STATUS=$R_SUCCESS
+									break 2
+								fi
+							done
+						done < <(ip -o -6 addr show $INTERFACE)
+						if [ -n "$DHCP6_MESSAGE" ] ; then
+							print_mesg mesg "$DHCP6_MESSAGE"
+						else
+							print_mesg mesg ". . . but is still waiting for data"
+						fi
+					;;
+					dhclient6)
+						state=`read_cached_config_data dhcp6_state $INTERFACE`
+						if [ "x$state" = "xcomplete" -a \
+						     -n "`ip -o -f inet6 addr show $INTERFACE`" ]; then
+							:
+							DHCP6_STATUS=$R_SUCCESS
+						else
+							DHCP6_STATUS=$R_DHCP_BG
+							print_mesg mesg ". . . but is still waiting for data"
+						fi
+					;;
+					esac
 				else
 					print_mesg mesg "DHCP6 client NOT running"
 					DHCP6_STATUS=$R_NOTRUNNING
