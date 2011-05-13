@@ -502,21 +502,60 @@ case "$ACTION" in
 		# that is provided by the cached config data in a way that a user-defined  
 		# DHCLIENT_PRIMARY_DEVICE remains untouched.
 
-		if [ -z "$DHCLIENT_PRIMARY_DEVICE" ]; then
-
+		case $DHCLIENT_PRIMARY_DEVICE in
+		yes|no)
+			# -> explicit configuration, use as is
+		;;
+		first|*)
 			# read cached config data into PRIMARY_FROM_CACHE
 			PRIMARY_FROM_CACHE="`grep_cached_config_data primary yes`"
 
 			if [ -z "$PRIMARY_FROM_CACHE" ]; then
-				# no primary interface up-> we're the primary interface
-				DHCLIENT_PRIMARY_DEVICE='yes'
 
- 				# save this fact to cached config data		
-				write_cached_config_data primary yes $INTERFACE
-				commit_cached_config_data $INTERFACE
+				case $DHCLIENT_PRIMARY_DEVICE in
+				first)
+					# 'first' is to disable the ibft / pxe bootif checks
+					# and revert to use the old "first up wins" mode
+
+					# no primary interface up-> we're the primary interface
+					DHCLIENT_PRIMARY_DEVICE='yes'
+				;;
+				*)
+					# check if ibft is available and whether this
+					# interface is the primary ibft interface
+					ibft_primary=`is_ibft_primary_iface $INTERFACE 2>/dev/null`
+					case $ibft_primary in
+					yes|no)
+						DHCLIENT_PRIMARY_DEVICE=$ibft_primary
+					;;
+					*)
+						# check the BOOTIF PXE kernel parameter and
+						# set the primary flag when BOOTIF matches
+						# the interface or BOOTIF is not set at all
+						pxe_bootif=`is_pxe_boot_iface $INTERFACE 2>/dev/null`
+						if test "x$pxe_bootif" = xno ; then
+							# there is a BOOTIF param, but it
+							# does not match this interface
+							DHCLIENT_PRIMARY_DEVICE='no'
+						else
+							DHCLIENT_PRIMARY_DEVICE='yes'
+						fi
+					;;
+					esac
+				;;
+				esac
+
+				if test "x$DHCLIENT_PRIMARY_DEVICE" != "xno" ; then
+					# OK, we are the primary
+					DHCLIENT_PRIMARY_DEVICE=yes
+
+ 					# save this fact to cached config data		
+					write_cached_config_data primary yes $INTERFACE
+					commit_cached_config_data $INTERFACE
+				fi
 			else
 				# primary interface already up -> DHCLIENT_PRIMARY_DEVICE='no'
-				if [ "${PRIMARY_FROM_CACHE% }" = $INTERFACE ]; then
+				if [ "${PRIMARY_FROM_CACHE// /}" = $INTERFACE ]; then
 					# special case for ifrenew:
 					# we are the primary interface which is up 
 					DHCLIENT_PRIMARY_DEVICE='yes'
@@ -524,8 +563,8 @@ case "$ACTION" in
 					DHCLIENT_PRIMARY_DEVICE='no'
 				fi
 			fi
-
-		fi		
+		;;
+		esac
 
 		DHCP4_STATUS=$R_NOTCONFIGURED
 		DHCP6_STATUS=$R_NOTCONFIGURED
