@@ -46,12 +46,14 @@ period of time, it is assumed to be dead. This timeout can be set with this vari
 .B BRIDGE_PATHCOSTS <costs1 costs2 ... costsN>
 This is a space-separated list of costs corresponding to the interfaces in BRIDGE_PORTS. 
 Each interface in BRIDGE_PORTS could have a different speed and this value is used when 
-deciding which link to use. Faster interfaces should have lower costs. 
+deciding which link to use. Faster interfaces should have lower costs.
+Use '-' to skip setting of the path costs for a port in a non-empty cost list.
 .TP
 .B BRIDGE_PORTPRIORITIES <prio1 prio2 ... prioN>
 This is a space-separated list of priorities corresponding to the interfaces in BRIDGE_PORTS. 
 The priority value is an unsigned 8-bit quantity (a number between 0 and 255), and has 
 no dimension. This metric is used in the designated port and root port selection algorithms.
+Use '-' to skip setting of the priority for a port in a non-empty priority list.
 .TP
 .B BRIDGE_PRIORITY <priority>
 This option sets the bridge's priority to <priority>. The priority value is an 
