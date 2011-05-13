@@ -145,24 +145,25 @@ get_iface_type () {
 	test -d /sys/class/net/$IF || return 2
 	case "`cat /sys/class/net/$IF/type`" in
 		    1)
-			TYPE=eth    # Ethernet, may also be wireless
-			test -d /sys/class/net/$IF/wireless && TYPE=wlan
-			test -d /sys/class/net/$IF/bridge && TYPE=bridge
-			test -f /proc/net/vlan/$IF && TYPE=vlan
-			test -d /sys/class/net/$IF/bonding && TYPE=bond
-			test -d /sys/devices/virtual/net/$IF && {
-				eval local ETHTOOL_DRV_NAME=""     \
-				           ETHTOOL_DRV_BUS_INFO="" \
-				           `get_ethtool_drv_info $IF`
-				test "$ETHTOOL_DRV_NAME" = "tun"        && \
-				  TYPE="${ETHTOOL_DRV_BUS_INFO:-$TYPE}" || \
-				case $IF in
-				  (tap*)   TYPE=tap   ;;
-				  (dummy*) TYPE=dummy ;;
-				esac
-				# may be another virtual eth iface ...
-			}
-			;;
+		     	TYPE=eth
+		     	# Ethernet, may also be wireless, ...
+		     	if test -d /sys/class/net/$IF/wireless -o \
+		     	        -L /sys/class/net/$IF/phy80211 ; then
+		     	    TYPE=wlan
+		     	elif test -d /sys/class/net/$IF/bridge ; then
+		     	    TYPE=bridge
+		     	elif test -f /proc/net/vlan/$IF ; then
+		     	    TYPE=vlan
+		     	elif test -d /sys/class/net/$IF/bonding ; then
+		     	    TYPE=bond
+		     	elif test -f /sys/class/net/$IF/tun_flags ; then
+		     	    TYPE=tap
+		     	elif test -d /sys/devices/virtual/net/$IF ; then
+		     		case $IF in
+		     		  (dummy*) TYPE=dummy ;;
+		     		esac
+		     	fi
+		     	;;
 		   24)	TYPE=eth ;; # firewire ;; # IEEE 1394 IPv4 - RFC 2734
 		   32)	# InfiniBand
 		      	case $IF in
