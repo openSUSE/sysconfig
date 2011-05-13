@@ -146,6 +146,9 @@ get_next_index()
 
 need_wpa_supplicant()
 {
+    if [ -n "$WIRELESS_WPA_CONF" ]; then
+	return 0
+    fi
     case "$WIRELESS_AUTH_MODE" in
     wpa-*|WPA-*|psk|PSK|eap|EAP)
         return 0
@@ -176,7 +179,7 @@ applicable_wpa_supplicant()
 # using wpa_supplicant for non-WPA connections often makes trouble
 # so we do not prefer it if not explicitly set
 #
-test -z "$PREFER_WPA_SUPPLICANT" && PREFER_WPA_SUPPLICANT=no
+test -z "$PREFER_WPA_SUPPLICANT" && PREFER_WPA_SUPPLICANT=yes
 info_mesg "prefer wpa_supplicant: $PREFER_WPA_SUPPLICANT"
 
 ######################################################################
@@ -265,7 +268,7 @@ generate_keys()
 format_key()
 {
         # key has usually format XXXX-XXXX-XX [...]
-        echo $1 | tr -d '-' | awk '{ KEY=$0 ;
+        echo $1 | awk '{ gsub("-", ""); KEY=$0 ;
                 if (length()>10) for (i=0;i<26-length();i++) KEY=KEY"0"
                 for (i=1;i<length(KEY)-1;i+=2) FKEY=FKEY substr(KEY, i, 2)":"
                 FKEY=FKEY substr(KEY, i, 2)
@@ -359,11 +362,11 @@ EOL
 
 setup_wlanngdev()
 {
-	if [ -z "`type -p wlanctl-ng`" ] ; then
-	    err_mesg "cannot find 'wlanctl-ng', please install package 'wlan-ng'"
-	    exit $R_ERROR
-	fi
-	wlanctl lnxreq_ifstate ifstate=enable
+        if [ -z "`type -p wlanctl-ng`" ] ; then
+            err_mesg "cannot find 'wlanctl-ng', please install package 'wlan-ng'"
+            exit $R_ERROR
+        fi
+        wlanctl lnxreq_ifstate ifstate=enable
         wlanctl dot11req_reset setdefaultmib=false
         test "$WIRELESS_ESSID" = "any"  && WIRELESS_ESSID=""
         if [ "$ENCRYPTION" = "no" ]; then
@@ -446,17 +449,31 @@ old_setup()
         info_mesg "WIRELESS_MODE is unset, using Managed"
         WIRELESS_MODE="Managed"
     fi
+
+    # Set the wireless regulatory domain country code when configured
+    if [ "x$WIRELESS_REGULATORY_DOMAIN" != x ] ; then
+        if [ -z "`type -p iw`" ] ; then
+            err_mesg "cannot set wireless regulatory domain, please install 'iw' utility"
+        else
+            CMD="iw reg set $WIRELESS_REGULATORY_DOMAIN"
+            OUT=`$CMD 2>&1` ; RET=$?
+            if [ "$RET" -ne "0" -o "x$OUT" != x ] ; then
+                err_mesg "command '$CMD' returned\n $OUT"
+            fi
+        fi
+    fi
+
     # some drivers seem to have extensions like wlan-ng,
     # although they do not
     case "$DRIVER" in
 
-	prism2_*)
+        prism2_*)
         setup_wlanngdev
-	;;
+        ;;
 
-	*)
+        *)
         setup_iwdev
-	;;
+        ;;
     esac
 }
 
@@ -562,10 +579,10 @@ print_network_block()
         echo "  key_mgmt=WPA-EAP"
         eval EAP_MODE=\$WIRELESS_EAP_MODE$SUFFIX
         if [ -n "$EAP_MODE" ]; then
-	    print_network_line_unquoted eap WIRELESS_EAP_MODE "$SUFFIX"
+            print_network_line_unquoted eap WIRELESS_EAP_MODE "$SUFFIX"
         else
-	    echo "  eap=TTLS PEAP TLS"
-	fi
+            echo "  eap=TTLS PEAP TLS"
+        fi
         if [ "$WIRELESS_AP_SCANMODE" = "2" ]; then
             print_network_line_unquoted proto WIRELESS_WPA_PROTO "$SUFFIX" WPA
             print_network_line_unquoted pairwise WIRELESS_CIPHER_PAIRWISE "$SUFFIX" TKIP
@@ -584,25 +601,26 @@ print_network_block()
         print_network_line private_key_passwd WIRELESS_CLIENT_KEY_PASSWORD "$SUFFIX"
         eval PEAPVER=\$WIRELESS_PEAP_VERSION$SUFFIX
         if [ -n "$PEAPVER" ]; then
-	    echo "  phase1=\"peaplabel=0 peapver=$PEAPVER\""
+            echo "  phase1=\"peaplabel=0 peapver=$PEAPVER\""
         else
-	    echo "  phase1=\"peaplabel=0\""
-	fi
-	
+            echo "  phase1=\"peaplabel=0\""
+        fi
+
         eval EAP_AUTH=\$WIRELESS_EAP_AUTH$SUFFIX
         if [ -n "$EAP_AUTH" ]; then
-	    echo "  phase2=\"auth=$EAP_AUTH\""
-	fi
+            echo "  phase2=\"auth=$EAP_AUTH\""
+        fi
         ;;
-    esac        
+    esac
     echo "}"
 }
-    
+
 print_wpa_conf()
 {
     # header
     echo "ctrl_interface=/var/run/wpa_supplicant"
     test -n "$WIRELESS_AP_SCANMODE" && echo "ap_scan=$WIRELESS_AP_SCANMODE"
+    test -n "$WIRELESS_REGULATORY_DOMAIN" && echo "country=$WIRELESS_REGULATORY_DOMAIN"
 
     get_first_index
     local index=$?
@@ -649,8 +667,9 @@ start_wpa_supplicant()
         umask 0077
         print_wpa_conf > $WPA_SUPP_CONF
     fi
-    if [ "$DEBUG" = "yes" ]; then
-        SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid -d 2>&1 | logger &"
+    if [ "$DEBUG" = "yes" -o "$DEBUG" = "wireless" ]; then
+        SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid"
+        SUPPARGS="$SUPPARGS ${WIRELESS_WPA_DEBUG_OPTION:--dddt} 2>&1 | logger &"
     else
         SUPPARGS="-P/var/run/wpa_supplicant/${INTERFACE}.pid -B"
     fi
@@ -682,32 +701,75 @@ show_status()
         iwconfig $INTERFACE
     fi
 }
+set_default_wpa_driver()
+{
+    if [ "$WPA_DRIVER" = "unsupported" ]; then
+        message "`printf "    %-9s warning: WPA configured, but is untested" $INTERFACE`"
+        message "`printf "    %-9s warning: with this device" $INTERFACE`"
+        info_mesg "Using WPA drivers 'nl80211,wext' for interface $INTERFACE."
+        info_mesg "When you notice problems with the 'nl80211' driver, set "
+        info_mesg "e.g. WIRELESS_WPA_DRIVER='wext' and file a bug report."
+        info_mesg "See drivers list in the /usr/sbin/wpa_supplicant -h output"
+        WPA_DRIVER='nl80211,wext'
+    fi
+}
 
 case $ACTION in
     up)
+        test -n "$WIRELESS_WPA_DRIVER"    && \
+        WPA_DRIVER="$WIRELESS_WPA_DRIVER" || \
         case "${DRIVER}" in
-            ath_pci)
-                WPA_DRIVER=wext
-                ;;
-            at76c5*)
-                WPA_DRIVER=atmel
-                PREFER_WPA_SUPPLICANT=no
-                ;;
             prism54)
                 WPA_DRIVER=prism54
                 PREFER_WPA_SUPPLICANT=no
                 ;;
-            ipw2200|ipw3945|hostap_*)
+            rt61|rt73)
+                WPA_DRIVER=ralink
+                ;;
+            ath_pci)
                 WPA_DRIVER=wext
                 ;;
-            ipw2100)
+            ipw2200|ipw2100)
                 WPA_DRIVER=wext
                 ;;
             ndiswrapper|*.sys)
                 WPA_DRIVER=wext
                 ;;
-            rt2500*)
+            rt2860*|rt2870*|r8187se)
                 WPA_DRIVER=wext
+                ;;
+            r8192*|r8712*|vt665*|wl)
+                WPA_DRIVER=wext
+                ;;
+            adm8211|at76*|ar9170*)
+                WPA_DRIVER=nl80211
+                ;;
+            ath5k|ath9k)
+                WPA_DRIVER=nl80211
+                ;;
+            b43|b43legacy|ssb)
+                WPA_DRIVER=nl80211
+                ;;
+            hostap_*)
+                WPA_DRIVER=nl80211
+                ;;
+            iwlagn|ipw3945)
+                WPA_DRIVER=nl80211
+                ;;
+            libertas*)
+                WPA_DRIVER=nl80211
+            ;;
+            mwl8k|p54pci|p54usb)
+                WPA_DRIVER=nl80211
+                ;;
+            rt2400pci|rt2500usb|rt2500pci)
+                WPA_DRIVER=nl80211
+                ;;
+            rt61pci|rt73usb|rtl818*)
+                WPA_DRIVER=nl80211
+                ;;
+            wl1251|wl1271|zd1211rw)
+                WPA_DRIVER=nl80211
                 ;;
             *)
                 WPA_DRIVER=unsupported
@@ -724,15 +786,11 @@ case $ACTION in
 
         if need_wpa_supplicant ; then
             info_mesg "configuration requires wpa_supplicant"
-            if [ "$WPA_DRIVER" = "unsupported" ]; then
-                message "`printf "    %-9s warning: WPA configured but may be unsupported" $INTERFACE`"
-                message "`printf "    %-9s warning: by this device" $INTERFACE`"
-                info_mesg "using WPA driver 'wext' for interface $INTERFACE"
-                WPA_DRIVER=wext
-            fi
+            set_default_wpa_driver
             start_wpa_supplicant
         elif [ "$PREFER_WPA_SUPPLICANT" = "yes" ]; then
             if applicable_wpa_supplicant ; then
+                set_default_wpa_driver
                 start_wpa_supplicant
             else
                 info_mesg "setting up $INTERFACE w/o wpa_supplicant"

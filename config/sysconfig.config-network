@@ -343,3 +343,21 @@ NETCONFIG_NIS_STATIC_DOMAIN=""
 #
 NETCONFIG_NIS_STATIC_SERVERS=""
 
+## Type:	string
+## Default:	''
+#
+# Set this variable global variable to the ISO / IEC 3166 alpha2
+# country code specifying the wireless regulatory domain to set.
+# When not empty, ifup-wireless will be set in the wpa_supplicant
+# config or via 'iw reg set' command.
+#
+# Note: This option requires a wpa driver supporting it, like
+# the 'nl80211' driver used by default since openSUSE 11.3.
+# When you notice problems with your hardware, please file a
+# bug report and set e.g. WIRELESS_WPA_DRIVER='wext' (the old
+# default driver) in the ifcfg file.
+# See also "/usr/sbin/wpa_supplicant --help" for the list of
+# available wpa drivers.
+#
+WIRELESS_REGULATORY_DOMAIN=''
+
