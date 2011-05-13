@@ -87,7 +87,7 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 /etc/init.d/*
 %ghost /etc/sysconfig/network/config
 %ghost /etc/sysconfig/network/dhcp
-%config(noreplace) /etc/sysconfig/network/ifcfg-lo
+%config(noreplace) %attr(600,root,root) /etc/sysconfig/network/ifcfg-lo
 %config(noreplace) /etc/sysconfig/network/ifroute-lo
 %config(noreplace) /etc/ppp/ip-up
 %config(noreplace) /etc/ppp/ip-down
