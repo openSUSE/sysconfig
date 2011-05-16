@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Mon May 16 11:37:21 UTC 2011 - mt@suse.de
+
+- version 0.71.40
+- Merged features and fixes from openSUSE 11.4 (version 0.75.0):
+  * ISC DHCP 4.x dhclient6 support (fate#311357)
+  * Wireless regulatory domain support  (fate#305301)
+  * Wireless power settings support (fate#309255)
+  * Use iBFT primary or PXE BOOTIF as primary in dhcp (bnc#653365)
+  * netconfig/dns: ignore forwarders matching own IPs (bnc#676676)
+  * Use gawk directly instead of awk link (bnc#664726)
+- Updated/improved documentation (bnc#664550,bnc#605853)
+
+-------------------------------------------------------------------
 Mon Apr 18 14:13:44 UTC 2011 - mt@suse.de
 
 - Send gratuitous arp when new SEND_GRATUITOUS_ARP variable is set
