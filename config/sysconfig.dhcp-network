@@ -276,7 +276,7 @@ DHCLIENT_SLEEP="0"
 DHCLIENT_WAIT_AT_BOOT="15"
 
 ## Type:        yesno
-## Default:     yes
+## Default:     no
 ## ServiceRestart: yast2
 #
 # This option is read by YaST during network configuration.
@@ -286,5 +286,5 @@ DHCLIENT_WAIT_AT_BOOT="15"
 # host to be reached), if the real network is not reachable.
 #
 # If unset, YaST will not touch /etc/hosts.
-WRITE_HOSTNAME_TO_HOSTS="yes"
+WRITE_HOSTNAME_TO_HOSTS="no"
 
