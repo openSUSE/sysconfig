@@ -71,8 +71,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %install
 make DESTDIR=$RPM_BUILD_ROOT install
-# This directory is not used since some time (was used for ifup locking)
-mkdir -p $RPM_BUILD_ROOT/var/lock/subsys/sysconfig
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/config
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/dhcp
 # install udevmountd
@@ -114,7 +112,6 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 /usr/share/omc/svcinfo.d/network.xml
 /var/adm/fillup-templates/sysconfig.dhcp-network
 /var/adm/fillup-templates/sysconfig.config-network
-%dir /var/lock/subsys/sysconfig
 
 %pre
 if [ -f etc/sysconfig/hardware ] ; then
