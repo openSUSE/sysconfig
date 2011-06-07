@@ -555,14 +555,24 @@ has_link () {
 # This function looks for interfaces which depend on the given interface. It
 # prints a list with all depending interfaces. It returns 0 if there are
 # depending interfaces and !=0 if not.
-# Currently it checks only for vlan and bonding interfaces.
+# Currently it checks only for vlan and optionally bonding slave interfaces.
 # FIXME: Add other types of interfaces that depend on others.
 get_depending_ifaces() {
-	local VLAN_PATH BOND_PATH DEP_IFACES DEP_VLANS DEP_BONDS BASE_IFACE i
+	local VLAN_PATH BOND_PATH DEP_VLANS DEP_BONDS BASE_IFACE i
+	local -a DEP_IFACES=()
 	VLAN_PATH="/proc/net/vlan"
-	BOND_PATH="/proc/net/bonding"
+	BOND_PATH=""
+	while [ $# -gt 0 ]; do
+		case $1 in
+		--with-bonding-slaves)
+			BOND_PATH="/proc/net/bonding"
+			shift
+		;;
+		-*)	shift ;;
+		*)	break ;;
+		esac
+	done
 	BASE_IFACE="$1"
-	DEP_IFACES=""
 
 	if [ -z "$BASE_IFACE" ]; then
 		return 1
@@ -571,14 +581,14 @@ get_depending_ifaces() {
 	if [ -d "$VLAN_PATH" ]; then
 		DEP_VLANS=`cd "$VLAN_PATH"
 			grep -lws "Device: *$BASE_IFACE" *`
-		DEP_IFACES="$DEP_VLANS"
+		DEP_IFACES+=($DEP_VLANS)
 	fi
 
-	if [ -d "$BOND_PATH" ]; then
+	if [ -n "$BOND_PATH" -a -d "$BOND_PATH" ]; then
 		DEP_BONDS=`cd "$BOND_PATH"
 			grep -s '^Slave Interface:' $BASE_IFACE |
 			while IFS=':' read text iface ; do echo -n "$iface" ; done`
-		DEP_IFACES="$DEP_IFACES${DEP_BONDS:+ $DEP_BONDS}"
+		DEP_IFACES+=($DEP_BONDS)
 	fi
 
 	case $BASE_IFACE in
@@ -587,18 +597,18 @@ get_depending_ifaces() {
 			for i in `ls -1 /sys/class/net/ 2>/dev/null` ; do
 				test -d /sys/class/net/$i || continue
 				case $i in (${BASE_IFACE}.*)
-					DEP_IFACES="${DEP_IFACES}${i:+ $i}"
+					DEP_IFACES+=($i)
 				;;
 				esac
 		     	done
 		;;
 	esac
 
-	if [ -z "$DEP_IFACES" ]; then
-		return 1
-	else
-		echo "$DEP_IFACES"
+	if [ ${#DEP_IFACES[*]} -gt 0 ]; then
+		echo "${DEP_IFACES[*]}"
 		return 0
+	else
+		return 1
 	fi
 }
 
