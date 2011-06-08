@@ -301,7 +301,7 @@ EOL
                         # special hack for madwifi
                         test "$DRIVER" = "ath_pci" && run_iw_tool priv authmode 2
                         ;;
-                open|opensystem|"") WIRELESS_SEC_MODE="open";;
+                open|opensystem|no-encryption|"") WIRELESS_SEC_MODE="open";;
                 esac
         fi
         if [ -n "$WIRELESS_KEY_0" -a \
@@ -400,7 +400,7 @@ setup_wlanngdev()
                         wlanctl dot11req_mibset mibattribute=dot11ExcludeUnencrypted=true
                         AUTHTYPE=sharedkey
                         ;;
-                        open|opensystem|"")
+                        open|opensystem|no-encryption|"")
                         wlanctl dot11req_mibset mibattribute=dot11ExcludeUnencrypted=false
                         AUTHTYPE=opensystem
                         ;;
@@ -537,7 +537,7 @@ print_network_block()
     print_network_line ssid WIRELESS_ESSID "$SUFFIX"
     print_network_line_unquoted priority WIRELESS_PRIORITY "$SUFFIX"
     case "`eval echo \\$WIRELESS_AUTH_MODE$SUFFIX`" in
-    open)
+    open|no-encryption)
         echo "  key_mgmt=NONE"
         for i in 0 1 2 3 ; do
             KEY="`eval print_key \\"\\$WIRELESS_KEY_$i$SUFFIX\\" \\$WIRELESS_KEY_LENGTH$SUFFIX`"
