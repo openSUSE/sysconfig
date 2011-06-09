@@ -1,4 +1,22 @@
 -------------------------------------------------------------------
+Thu Jun  9 14:58:52 UTC 2011 - mt@suse.de
+
+- Fixed get_depending_ifaces to not return bonding slaves by
+  default as it is not required to stop the slaves before the
+  bonding master goes down and in fact it may cause a system
+  hang, when the slaves are infiniband child interfaces, that
+  are deleted while ifdown (bnc#698478).
+- Fixed to use 600 mode in spec attr for ifcfg-lo to avoid that
+  rpm -V report it as modified because of the chmod added to the
+  post-install script in bnc#670871.
+
+-------------------------------------------------------------------
+Tue Jun  7 19:20:43 CEST 2011 - vbotka@suse.cz
+
+- Added WIRELESS_AUTH_MODE='no-encryption' option handling to
+  ifup-wireless, because YaST sets it (bnc#648830).
+
+-------------------------------------------------------------------
 Mon Feb 14 13:50:21 UTC 2011 - mt@suse.de
 
 - fixed postinstall script to avoid, that (wireless) ifcfg files
