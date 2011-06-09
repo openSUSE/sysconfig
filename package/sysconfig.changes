@@ -1,5 +1,5 @@
 -------------------------------------------------------------------
-Tue Jun  7 15:42:04 UTC 2011 - mt@suse.de
+Thu Jun  9 07:53:24 UTC 2011 - mt@suse.de
 
 - version 0.71.31
 - Fixed get_depending_ifaces to not return bonding slaves by
