@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Thu Jun  9 07:53:24 UTC 2011 - mt@suse.de
+
+- Fixed get_depending_ifaces to not return bonding slaves by
+  default as it is not required to stop the slaves before the
+  bonding master goes down and in fact it may cause a system
+  hang, when the slaves are infiniband child interfaces, that
+  are deleted while ifdown (bnc#698478).
+
+-------------------------------------------------------------------
 Mon May 16 11:37:21 UTC 2011 - mt@suse.de
 
 - version 0.71.40
