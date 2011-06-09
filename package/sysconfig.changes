@@ -1,7 +1,9 @@
 -------------------------------------------------------------------
-Thu Jun  9 07:53:24 UTC 2011 - mt@suse.de
+Thu Jun  9 14:07:37 UTC 2011 - mt@suse.de
 
 - version 0.71.31
+- Added WIRELESS_AUTH_MODE='no-encryption' option handling to
+  ifup-wireless, because YaST sets it (bnc#648830).
 - Fixed get_depending_ifaces to not return bonding slaves by
   default as it is not required to stop the slaves before the
   bonding master goes down and in fact it may cause a system
