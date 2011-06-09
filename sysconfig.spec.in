@@ -21,7 +21,7 @@
 Name:           sysconfig
 Version:        @VERSION@
 Release:        0
-Summary:        The system configuration scheme and traditional network scripts
+Summary:        The sysconfig scheme and traditional network scripts
 Url:            http://gitorious.org/opensuse/sysconfig
 Group:          System/Base
 License:        GPL v2 or later
