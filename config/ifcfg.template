@@ -39,7 +39,7 @@ STARTMODE=
 #
 IFPLUGD_PRIORITY=
 
-## Type:    list(static,dhcp,dhcp4,dhcp6,autoip,dhcp+autoip,6to4)
+## Type:    list(static,dhcp,dhcp4,dhcp6,autoip,dhcp+autoip,6to4,ibft,none)
 ## Default: static
 #
 # With BOOTPROTO you can choose in which mode the interface will be set up:
