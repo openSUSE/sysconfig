@@ -48,8 +48,10 @@ IFPLUGD_PRIORITY=
 # - dhcp4:       Start a dhcp client (IPv4 only) on that interface.
 # - dhcp6:       Start a dhcp client (IPv6 only) on that interface.
 # - autoip:      Automatic search for a free address and assign it statically.
-# - dhcp+autoip: Try dhcp and use autoip if dhcp fails.
+# - dhcp+autoip: Try dhcp4 and use autoip if dhcp fails.
 # - 6to4:        Set up ipv6 over ipv4 tunnel (see man ifcfg-tunnel)
+# - ibft:        Use iSCSI  Boot  Firmware Table (iBFT)
+# - none:        Do not set up the link or ip, a (bonding) master will do it.
 # If you use dhcp or autoip you may additionally specify static address(es).
 #
 BOOTPROTO=
