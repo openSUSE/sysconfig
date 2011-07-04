@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Jul  4 11:32:04 UTC 2011 - mt@suse.de
+
+- version 0.71.41
+- Added missed dhcp4,dhcp6,ibft,none BOOTPROTO values to
+  ifcfg.template (bnc#701000).
+
+-------------------------------------------------------------------
 Fri Jun 10 17:17:32 UTC 2011 - mt@suse.de
 
 - Added WIRELESS_AUTH_MODE='no-encryption' option handling to
