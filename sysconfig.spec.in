@@ -54,7 +54,7 @@ Authors:
 
 %build
 autoreconf --force --install
-CFLAGS="$RPM_OPT_FLAGS -fno-strict-aliasing -fPIC" \
+CFLAGS="$RPM_OPT_FLAGS -fPIC" \
 ./configure --prefix=/ \
             --sbindir=/sbin \
             --libdir=/%_lib \
