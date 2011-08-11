@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Thu Aug 11 12:34:32 UTC 2011 - mt@suse.de
+
+- Warn and ask the user to report a bug when the ifcfg defines the
+  INTERFACETYPE variable to override behaviour of ifup: There is a
+  bug in ifup when it is required to define it (bnc#711762).
+  Improved also variable description in ifcfg.5 manual page.
+
+-------------------------------------------------------------------
 Mon Jul  4 11:32:04 UTC 2011 - mt@suse.de
 
 - version 0.71.41
