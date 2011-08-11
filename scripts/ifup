@@ -173,7 +173,9 @@ esac
 ######################################################################
 # Find out the type of the interface
 # This may be overwritten in the configuration file
+# in cases the detection fails.
 #
+unset INTERFACETYPE
 test -z "$INTERFACETYPE" && INTERFACETYPE=`get_iface_type $INTERFACE`
 test -z "$INTERFACETYPE" && INTERFACETYPE=`get_iface_type_from_config $INTERFACE`
 # at least ifup-wireless needs $INTERFACETYPE, so we have to export it
@@ -225,13 +227,33 @@ fi
 ######################################################################
 # Now source the configuration file and check if we have an interface
 #
+declare -r _INTERFACETYPE="$INTERFACETYPE"
+INTERFACETYPE=""
 if [ -n "$CONFIG" -a -r ifcfg-$CONFIG ] ; then
 	. ifcfg-$CONFIG
+
+	# Complain when INTERFACETYPE is set in the config
+	# and ask the user to report a bug as it should be
+	# used only when detection fails, _not_ by default.
+	if test "X$INTERFACETYPE" != "X" ; then
+		IM=`printf "    %-9s" $INTERFACE`
+		BM=`printf "    %-9s" "" "      Please open a bug report."`
+		if test "X$INTERFACETYPE" = "X$_INTERFACETYPE" ; then
+			logerror "$IM Warning: ifcfg-$CONFIG"\
+			         "overrides interface type detection.\n$BM"
+		else
+			logerror "$IM Warning: ifcfg-$CONFIG"\
+			         "modifies interface type from"\
+			         "'$_INTERFACETYPE' to '$INTERFACETYPE'.\n$BM"
+		fi
+	fi
+
 	# Store config name persistently for use in ifplugd-selectif after
 	# interface has gone. Without that info it will not activate
 	# alternative interface in this case. Used in get_ifplugd_priority()
 	echo $CONFIG > $RUN_FILES_BASE/config-$INTERFACE
 fi
+test "X$INTERFACETYPE" = "X" && export INTERFACETYPE="$_INTERFACETYPE"
 
 ######################################################################
 # Check if the interface is available
