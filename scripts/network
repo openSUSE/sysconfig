@@ -104,8 +104,10 @@ test -f scripts/functions.common \
 
 systemd_running () {
 # We simply test whether systemd cgroup hierarchy is mounted
-	/bin/mountpoint -q /sys/fs/cgroup/systemd
-	return $?
+	if /bin/mountpoint -q /sys/fs/cgroup/systemd ; then 
+		return 1
+	fi
+	return 0
 }
 
 
@@ -117,7 +119,8 @@ systemd_running () {
 # because they are also used in ifup
 #
 if [ "$NETWORKMANAGER" = yes ] ; then
-	if [ "$FS_FILTER" = "localfs" -o systemd_running ] ; then
+	systemd_running ; sd=$?
+	if [ "$FS_FILTER" = "localfs" -o $sd = 1 ] ; then
 		# NetworkManager is not supported without remotefs
 		# and will be started later via network-remotefs.
 		# NetworkManager should be started with its own .service
