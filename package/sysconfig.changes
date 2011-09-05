@@ -1,3 +1,54 @@
+------------------------------------------------------------------
+Mon Sep  5 09:07:58 UTC 2011 - mt@suse.com
+
+- version 0.75.1
+- Warn and ask the user to report a bug when the ifcfg defines the
+  INTERFACETYPE variable to override behaviour of ifup: There is a
+  bug in ifup when it is required to define it (bnc#711762).
+  Improved also variable description in ifcfg.5 manual page.
+- Added missed dhcp4,dhcp6,ibft,none BOOTPROTO values to
+  ifcfg.template (bnc#701000).
+- Added WIRELESS_AUTH_MODE='no-encryption' option handling to
+  ifup-wireless, because YaST sets it (bnc#648830).
+- Fixed get_depending_ifaces to not return bonding slaves by
+  default as it is not required to stop the slaves before the
+  bonding master goes down and in fact it may cause a system
+  hang, when the slaves are infiniband child interfaces, that
+  are deleted while ifdown (bnc#698478).
+
+-------------------------------------------------------------------
+Mon Aug 29 10:03:13 UTC 2011 - fcrozat@suse.com
+
+- Fix incorrect systemd detection in disable-NM-under-systemd.patch
+
+-------------------------------------------------------------------
+Fri Aug 26 22:02:59 UTC 2011 - mt@suse.com
+
+- Added vpnc to the default list of preferred services for DNS
+  ranking (NETCONFIG_DNS_RANKING=auto).
+
+-------------------------------------------------------------------
+Thu Aug 25 09:32:55 UTC 2011 - fcrozat@suse.com
+
+- Add disable-NM-under-systemd.patch: don't handle NM startup with
+  network initscript when running under systemd.
+
+-------------------------------------------------------------------
+Wed Aug 11 20:29:55 UTC 2011 - mt@suse.de
+
+- Fixed to apply wireless power settings and allow any setting as
+  defined in the iwconfig(8) manual page.
+
+-------------------------------------------------------------------
+Wed Aug 10 03:05:20 UTC 2011 - crrodriguez@opensuse.org
+
+- Do not use -fno-strict-aliasing when not needed
+
+-------------------------------------------------------------------
+Thu Aug  4 13:21:52 UTC 2011 - lnussel@suse.de
+
+- remove /var/lock/subsys references
+
 -------------------------------------------------------------------
 Tue Mar 15 17:12:58 UTC 2011 - mt@suse.de
 
