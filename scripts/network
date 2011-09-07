@@ -325,10 +325,21 @@ mkdir -p ${RUN_FILES_BASE}/tmp
 # service network was started interfaces will be set up via hotplug. And it must
 # be started before checking which interfaces are already available and might
 # still have to be set up because the were registered to early. Bug 39005)
-if [ "$ACTION" = start ] ; then
+case $ACTION in
+start)
 	IFS=. read a b < /proc/uptime
 	echo "$a" > $NETWORK_RUNFILE
-fi
+	case $FS_FILTER in
+	remotefs|"") echo "$a" > ${NETWORK_RUNFILE}-remotefs ;;
+	esac
+;;
+stop)
+	# when stopping localfs, stop also remotefs when started
+	if [ "x$FS_FILTER" = "xlocalfs" ] ; then
+		test -e ${NETWORK_RUNFILE}-remotefs && unset FS_FILTER
+	fi
+;;
+esac
 
 if [ -n "$TYPE" ] ; then
 	type_filter() {
@@ -953,14 +964,17 @@ case "$ACTION" in
 			rc_reset
 		done
 
-		if [ -z "$INTERFACE" -a -z "$TYPE" -a "$FS_FILTER" != remotefs ] ; then
-			# At last stop any remaining dhcp client
-			$FAKE ifdown-dhcp all -o rc
-			rc_status
-			rm -f $RUN_FILES_BASE/if-*
-			rm -f $RUN_FILES_BASE/config-*
-#			rm -f $STAMPFILE_STUB*
-			rm -f $NETWORK_RUNFILE
+		if [ -z "$INTERFACE" -a -z "$TYPE" ] ; then
+			if [ "$FS_FILTER" != remotefs ] ; then
+				# At last stop any remaining dhcp client
+				$FAKE ifdown-dhcp all -o rc
+				rc_status
+				rm -f $RUN_FILES_BASE/if-*
+				rm -f $RUN_FILES_BASE/config-*
+				rm -f ${NETWORK_RUNFILE}*
+			else
+				rm -f ${NETWORK_RUNFILE}-remotefs
+			fi
 			echo -n "Shutting down service ${FS_FILTER:+(${FS_FILTER}) }network  .  .  .  .  .  .  .  .  ."
 			rc_status -v
 		fi
@@ -1052,7 +1066,11 @@ case "$ACTION" in
 			rc_status
 		fi
 
-		if [ ! -f $NETWORK_RUNFILE ] ; then
+		if [ "$FS_FILTER" = remotefs -a \
+		     ! -f ${NETWORK_RUNFILE}-remotefs ] ;
+		then
+			rc_failed 3 # unused
+		elif [ ! -f $NETWORK_RUNFILE ] ; then
 			rc_failed 3 # unused
 		fi
 
