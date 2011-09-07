@@ -134,13 +134,14 @@ load_bond() {
 	fi
 
 	if [ ! -r "$sysfs_npath/bonding_masters" ] ; then
-		/sbin/modprobe bonding
-		# If we add module option max_bonds=0 in the modprobe command above
-		# then we may skip the following lines in this if-fi block.
+		/sbin/modprobe bonding max_bonds=0
+		# We're using the option max_bonds=0 in modprobe command above,
+		# to avoid automatic interface creation...
 		for ((count=400; count >= 0; count--)) ; do
 			test -r "$sysfs_npath/bonding_masters" && break
 			usleep 25000
 		done
+		# OK, the following should be obsolete, but does not hurt.
 		NIF=`cat "$sysfs_npath/bonding_masters"`
 		if [ -n "$NIF" -a "$NIF" != "$INTERFACE" ] ; then
 			ip link set "$NIF" name $INTERFACE
@@ -271,9 +272,6 @@ up)
 		logerror "Bonding: could not create interface $INTERFACE"
 		exit $R_NODEV
 	fi
-
-	# get up the bonding device before enslaving
-	ip link set $INTERFACE up 2>&1
 
 	# enslave all BONDING_SLAVE* from configuration file
 	for BSVAR in ${!BONDING_SLAVE*} ; do
