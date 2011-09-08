@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Thu Sep  8 13:24:59 UTC 2011 - mt@suse.com
+
+- version 0.71.2
+- Added additional state for network-remotefs, so correct status
+  is shown after remotefs has been stopped. Stopping localfs,
+  stops remotefs when it is started as well (bnc#592270).
+- Removed obsolete /var/lock/subsys references from spec file.
+- Use max_bonds=0 bond modprobe option to avoid automatic bond0
+  interface creation as we may need a different name.
+  Do not set the bond interface link up before enslaving - this
+  is not needed by bonding any more with current kernels.
+
+-------------------------------------------------------------------
 Thu Aug 11 12:34:32 UTC 2011 - mt@suse.de
 
 - Warn and ask the user to report a bug when the ifcfg defines the
