@@ -1,7 +1,7 @@
 -------------------------------------------------------------------
 Thu Sep  8 13:24:59 UTC 2011 - mt@suse.com
 
-- version 0.71.2
+- version 0.71.42
 - Added additional state for network-remotefs, so correct status
   is shown after remotefs has been stopped. Stopping localfs,
   stops remotefs when it is started as well (bnc#592270).
