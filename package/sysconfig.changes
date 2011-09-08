@@ -1,4 +1,16 @@
 ------------------------------------------------------------------
+Thu Sep  8 13:56:50 UTC 2011 - mt@suse.com
+
+- version 0.75.2
+- Added additional state for network-remotefs, so correct status
+  is shown after remotefs has been stopped. Stopping localfs,
+  stops remotefs when it is started as well (bnc#592270).
+- Use max_bonds=0 bond modprobe option to avoid automatic bond0
+  interface creation as we may need a different name.
+  Do not set the bond interface link up before enslaving - this
+  is not needed by bonding any more with current kernels.
+
+------------------------------------------------------------------
 Mon Sep  5 09:07:58 UTC 2011 - mt@suse.com
 
 - version 0.75.1
