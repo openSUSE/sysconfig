@@ -978,11 +978,8 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 			;;
 			ifstatus)
 				if is_iface_up $INTERFACE ; then
-					message_if_not_run_from_rc "$INTERFACE is up"
+					message "`printf "    %-9s is up" "$INTERFACE"`"
 					message_if_not_run_from_rc "$(ip addr show $INTERFACE)"
-					while read a b c d e f g h i; do
-						message "`printf "    %-9s IP address: %s" "$i" "$d"`"
-					done < <(ip -o -4 addr show $INTERFACE)
 					ifstatus-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 					retcode=$R_SUCCESS
 				else
@@ -1146,7 +1143,34 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						ADDRCOUNT=$(($ADDRCOUNT + 1))
 					done
 				fi
+
 				ifup-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+
+				#
+				# OK, everything is set up here .. lets check the state
+				#
+
+				# - link
+				link_ready_wait "$INTERFACE" "${LINK_READY_WAIT:-$((WAIT_FOR_INTERFACES/2))}"
+				link_ret=$?
+				if [ "$retcode" = "$R_SUCCESS" ] ; then
+					# do not override codes when already set (e.g. $R_DHCP_BG)
+					case "$link_ret" in
+					1|2|3) retcode=$R_NOTRUNNING ;;
+					esac
+				fi
+
+				# - dad
+				if [ "$retcode" = "$R_SUCCESS" -a -d /proc/sys/net/ipv6 ] ; then
+					IPV6_DAD_WAIT=${IPV6_DAD_WAIT:-$((WAIT_FOR_INTERFACES/5))}
+					ipv6_addr_dad_wait "$INTERFACE" "$IPV6_DAD_WAIT"
+					dad_ret=$?
+					case $dad_ret in
+					1|2) retcode=$R_NOTRUNNING ;;
+					3)   retcode=$R_DHCP_BG    ;;
+					esac
+				fi
+
 				;;
 			ifdown)
 				case "$BOOTPROTO" in
@@ -1168,13 +1192,55 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 				;;
 			ifstatus)
 				if is_iface_up $INTERFACE ; then
-					message_if_not_run_from_rc "$INTERFACE is up"
 					message_if_not_run_from_rc "$(ip addr show $INTERFACE)"
-					while read a b c d e f g h i; do
-						message "`printf "    %-9s IP address: %s" "$i" "$d"`"
-					done < <(ip -o -4 addr show $INTERFACE)
+					if [ "$RUN_FROM_RC" = "yes" ]; then
+						while read a b c d e f g h i; do
+							message "`printf "    %-9s IP address: %s" "$i" "$d"`"
+						done < <(ip -o -4 addr show $INTERFACE)
+						while read a b c d e f g h i; do
+							test "$f" = "global" || continue
+							message "`printf "    %-9s IP address: %s" "$b" "$d"`"
+						done < <(ip -o -6 addr show $INTERFACE)
+					fi
+
 					ifstatus-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+
 					retcode=$R_SUCCESS
+					dad_ret=0
+					link_ret=0
+
+					# Check the link
+					if [ -n "$LINK_READY_WAIT" -a $((LINK_READY_WAIT)) -gt 0 ] ; then
+						# check the link
+						link_ready_check "$INTERFACE" || link_ret=$?
+						case $link_ret in
+						1|2|3) retcode=$R_NOTRUNNING ;;
+						esac
+					fi
+
+					# Check ipv6 dad
+					if [ "$retcode" = "$R_SUCCESS" -a -d /proc/sys/net/ipv6 ] ; then
+						IPV6_DAD_WAIT=${IPV6_DAD_WAIT:-$((WAIT_FOR_INTERFACES/5))}
+						if [ $((IPV6_DAD_WAIT)) -gt 0 ] ; then
+							ipv6_addr_dad_check "$INTERFACE"
+							dad_ret=$?
+						fi
+					fi
+
+					# OK, now show the results
+					case $link_ret in
+					0)
+					   # in link problem cases, IPv6 dad status is not yet interesting
+					   msg="is up"
+					   case $dad_ret in
+					   2) msg="is up, but ipv6 duplicate address check failed";;
+					   3) msg="is up, but has tentative ipv6 address";;
+					   esac
+					   message "`printf "    %-9s $msg" "$INTERFACE"`" ;;
+					1) message "`printf "    %-9s is not up" "$INTERFACE"`" ;;
+					2) message "`printf "    %-9s is dormant" "$INTERFACE"`" ;;
+					3) message "`printf "    %-9s has no carrier" "$INTERFACE"`" ;;
+					esac
 				else
 					# message_if_not_run_from_rc "$INTERFACE is down"
 					message "`printf "    %-9s is down" $INTERFACE`"
