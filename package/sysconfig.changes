@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Sep 16 12:54:41 UTC 2011 - mt@suse.com
+
+- version 0.71.43
+- Fixed to wait until link becomes ready and ipv6 duplicate address
+  detection finished what can cause failures of further services.
+  Added LINK_READY_WAIT and IPV6_DAD_WAIT variables (bnc#697929).
+
+-------------------------------------------------------------------
 Thu Sep  8 13:24:59 UTC 2011 - mt@suse.com
 
 - version 0.71.42
