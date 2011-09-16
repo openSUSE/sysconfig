@@ -135,6 +135,23 @@ MANDATORY_DEVICES=""
 #
 WAIT_FOR_INTERFACES="30"
 
+## Type:        integer
+## Default:     ""
+#
+# The number of seconds to wait for link to become useable / ready.
+# Default is to use WAIT_FOR_INTERFACES/2 seconds. Set to 0 to disable.
+#
+LINK_READY_WAIT=""
+
+## Type:        integer
+## Default:     ""
+#
+# The number of seconds to wait for the end of IPv6 duplicate address
+# detection. Default is to use WAIT_FOR_INTERFACES/5 seconds. Set to
+# 0 to disable.
+#
+IPV6_DAD_WAIT=""
+
 ## Type:	yesno
 ## Default:	yes
 #
