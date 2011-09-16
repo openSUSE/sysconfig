@@ -110,6 +110,81 @@ is_iface_up () {
 	esac
 }
 
+link_ready_check () {
+        local c=`cat /sys/class/net/${1}/carrier 2>/dev/null`
+        local d=`cat /sys/class/net/${1}/dormant 2>/dev/null`
+        local o=`cat /sys/class/net/${1}/operstate 2>/dev/null`
+
+        #debug "link ready ${1}: carrier=$c, dormant=$d, operstate=$o"
+        if test -e "/sys/class/net/${1}/operstate" ; then
+                # SLE 11 has carrier + operstate + dormant
+		test "$d" = "0" || return 3
+		test "$c" = "1" || return 2
+		test \( "$o" = "up" -o "$o" = "unknown" \) || return 1
+        else
+                # e.g. SLE 10 does not have operstate/dormant
+                test "$c" = "1" || return 1
+        fi
+	return 0
+}
+
+link_ready_wait () {
+	local iface=$1
+	local wsecs=${2:-0}
+	local uwait=25000
+	local loops=$(((wsecs * 100000) / $uwait))
+	local loop ret=0
+	for((loop=0; loop < $loops; loop++)) ; do
+		link_ready_check "$iface" ; ret=$?
+		test $ret -ne 0 && usleep $uwait || break
+	done
+	return $ret
+}
+
+ipv6_addr_dad_check()
+{
+	local iface="$1" word i
+	local nodad=1 tentative=1 dadfailed=1
+	test -f "/sys/class/net/$iface/ifindex" || return 1
+	while read -a word ; do
+		test "${word[0]}" != "inet6" && continue
+		for((i=2; i<${#word[@]}; ++i)) ; do
+			case ${word[$i]} in
+			nodad)		nodad=0     ;;
+			tentative)	tentative=0 ;;
+			dadfailed)	dadfailed=0 ;;
+			flags)  ((i++))
+				rx='^[[:xdigit:]]+$'
+				[[ "${word[$i]}" =~ $rx ]] || continue
+				hx="0x${word[$i]}"
+				test $(( $hx & 0x02 )) -ne 0 && nodad=0
+				test $(( $hx & 0x08 )) -ne 0 && dadfailed=0
+				test $(( $hx & 0x40 )) -ne 0 && tentative=0
+			;;
+			esac
+		done
+		#debug "ipv6 dad $iface: nodad=$nodad, dadfailed=$dadfailed, tentative=$tentative"
+		test $nodad     -eq 0 && continue
+		test $dadfailed -eq 0 && return 2
+		test $tentative -eq 0 && return 3
+	done < <(LC_ALL=C ip -6 addr show ${iface:+dev "$iface"} 2>/dev/null)
+	return $R_SUCCESS
+}
+
+ipv6_addr_dad_wait()
+{
+	local iface=$1
+	local wsecs=${2:-0}
+	local uwait=25000
+	local loops=$(((wsecs * 100000) / $uwait))
+	local loop ret=0
+	for((loop=0; loop < $loops; loop++)) ; do
+		ipv6_addr_dad_check "$iface" ; ret=$?
+		test $ret -eq 3 && usleep $uwait || break
+	done
+	return $ret
+}
+
 get_ethtool_drv_info () {
 	test -n "$1" || return 1
 	local ethtool="/sbin/ethtool"
