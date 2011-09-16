@@ -1027,41 +1027,46 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						fi
 						IPADDR=${!IPVAR}
 						test -z "$IPADDR" && continue
-						if [ -z "$PREFIXLEN" ] ; then
-							PREFIXLEN=`mask2pfxlen $NETMASK`
-						fi
 						case $IPADDR in
 							*/*)
 								PREFIXLEN=${IPADDR#*/}
 								IPADDR=${IPADDR%/*}
-								;;
-							*) ;;         # IP=$IP${PREFIXLEN:+/$PREFIXLEN} ;;
+								test -z "$IPADDR" && continue
+							;;
 						esac
-						if [ -z "$NETMASK" ] ; then
-							NETMASK=`pfxlen2mask $PREFIXLEN`
-						fi
-						if [ -z "$BROADCAST" ]; then
-							BROADCAST=$DEFAULT_BROADCAST
-						fi
-						# Don't set broadcast for IPv6
 						case $IPADDR in
 							*:*)
 								ISv6=yes
-								BROADCAST='';;
-							*)
-								ISv6=no;;
-						esac
+								LABEL=''
+								NETMASK=''
+								BROADCAST=''
+								# ip warns when unset, let it do
+								#PREFIXLEN=${PREFIXLEN:-128}
 
-						# Make sure we have ipv6 support or skip this address
-						if [ "$ISv6" = "yes" ]; then
-							if test ! -d /proc/sys/net/ipv6 ; then
-								if ! modprobe net-pf-10 2>/dev/null; then
-									logerror "Missing IPv6 support." \
-									         "Ommitting address $IPADDR."
-									continue
+								# Make sure we have ipv6 support or skip this address
+								if test ! -d /proc/sys/net/ipv6 ; then
+									if ! modprobe net-pf-10 2>/dev/null; then
+										logerror "Missing IPv6 support." \
+										         "Ommitting address $IPADDR."
+										continue
+									fi
 								fi
-							fi
-						fi
+							;;
+							*)
+								ISv6=no
+								if [ -z "$PREFIXLEN" -a -n "$NETMASK" ] ; then
+									PREFIXLEN=`mask2pfxlen $NETMASK`
+								fi
+								if [ -z "$NETMASK" -a -n "$PREFIXLEN" ] ; then
+									NETMASK=`pfxlen2mask $PREFIXLEN`
+								fi
+								if [ -z "$BROADCAST" ]; then
+									BROADCAST=$DEFAULT_BROADCAST
+								fi
+								# ip warns when unset, let it do
+								#PREFIXLEN=${PREFIXLEN:-32}
+							;;
+						esac
 
 						if [ "$RUN_FROM_RC" = yes ]; then
 							# show IP address etc.
