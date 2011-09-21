@@ -118,8 +118,8 @@ systemd_running () {
 # /etc/sysconfig/network/scripts/functions
 # because they are also used in ifup
 #
+systemd_running ; sd=$?
 if [ "$NETWORKMANAGER" = yes ] ; then
-	systemd_running ; sd=$?
 	if [ "$FS_FILTER" = "localfs" -o $sd = 1 ] ; then
 		# NetworkManager is not supported without remotefs
 		# and will be started later via network-remotefs.
@@ -127,8 +127,18 @@ if [ "$NETWORKMANAGER" = yes ] ; then
 		# under systemd
 		case $ACTION in
 			(status) exit 3 ;;
-			(start)  exit 0 ;;
+			(start)  if [ $sd = 1 ]; then
+					systemctl start NetworkManager.service
+				 fi
+				 exit 0 ;;
 			(stop)          ;;
+			(reload) if [ $sd = 1 -a netcontrol_running ]; then
+					cd "$OLDPWD"
+					./$0 stop
+					./$0 start
+					systemctl start NetworkManager.service
+			         fi
+				 exit 0 ;;
 			(*)      exit 6 ;;
 		esac
 	elif [ ! -x "$NETWORKMANAGER_BIN" ] ; then
@@ -137,6 +147,10 @@ if [ "$NETWORKMANAGER" = yes ] ; then
 		         "Please set" \
 	        	 "\n/etc/sysconfig/network/config:NetworkManager=no" \
 		         "or install NetworkManager."
+	fi
+else
+	if [ $sd = 1 -a nm_running ]; then
+		systemctl stop NetworkManager.service
 	fi
 fi
 
