@@ -154,7 +154,7 @@ if [ "$NETWORKMANAGER" = yes ] ; then
 			(start) 
 				if netcontrol_running ; then
 					cd "$OLDPWD"
-					$0 stop
+					./$0 stop
 				fi
 				systemctl start NetworkManager.service
 				exit 0
@@ -165,8 +165,8 @@ if [ "$NETWORKMANAGER" = yes ] ; then
 			(reload)
 				if netcontrol_running ; then
 					cd "$OLDPWD"
-					$0 stop
-					$0 start
+					./$0 stop
+					./$0 start
 				fi
 				systemctl start NetworkManager.service
 				exit 0
