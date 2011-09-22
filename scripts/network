@@ -119,33 +119,25 @@ test -f scripts/functions.common \
    || exit $R_INTERNAL
 
 
+
 ######################################################################
-# Start NetworkManager if wanted
+# Handle NetworkManager start when requested
 #
 # Some variables and functions are defined in
 # /etc/sysconfig/network/scripts/functions
 # because they are also used in ifup
 #
 if [ "$NETWORKMANAGER" = yes ] ; then
-	if [ "$FS_FILTER" = "localfs" -o "$SD_RUNNING" = "yes" ] ; then
-		# NetworkManager is not supported without remotefs
-		# and will be started later via network-remotefs.
-		# NetworkManager should be started with its own .service
-		# under systemd
+	if [ "$FS_FILTER" = "localfs" ] ; then
+		# Under systemd, NetworkManager is started via its
+		# own .service file, thus never while localfs is set.
+		# Otherwise, NetworkManager will be started later via
+		# network-remotefs init script (it is installed in
+		# /usr, thus depends on already started remotefs).
 		case $ACTION in
 			(status) exit 3 ;;
-			(start)  if [ "$SD_RUNNING" = "yes" ]; then
-					systemctl start NetworkManager.service
-				 fi
-				 exit 0 ;;
+			(start)  exit 0 ;;
 			(stop)          ;;
-			(reload) if [ "$SD_RUNNING" = "yes" ] && netcontrol_running ; then
-					cd "$OLDPWD"
-					./$0 stop
-					./$0 start
-					systemctl start NetworkManager.service
-			         fi
-				 exit 0 ;;
 			(*)      exit 6 ;;
 		esac
 	elif [ ! -x "$NETWORKMANAGER_BIN" ] ; then
@@ -154,11 +146,38 @@ if [ "$NETWORKMANAGER" = yes ] ; then
 		         "Please set" \
 	        	 "\n/etc/sysconfig/network/config:NetworkManager=no" \
 		         "or install NetworkManager."
+	elif [ "$SD_RUNNING" = "yes" ] ; then
+		# NetworkManager is started via own .service file under
+		# systemd, but we forward the restart/reload (sub)actions
+		# to catch configuration change from/to the NetworkManager.
+		case $ACTION in
+			(start) 
+				if netcontrol_running ; then
+					cd "$OLDPWD"
+					$0 stop
+				fi
+				systemctl start NetworkManager.service
+				exit 0
+			;;
+			(stop)
+				systemctl stop NetworkManager.service
+			;;
+			(reload)
+				if netcontrol_running ; then
+					cd "$OLDPWD"
+					$0 stop
+					$0 start
+				fi
+				systemctl start NetworkManager.service
+				exit 0
+			;;
+			(status) exit 3 ;;
+			(*)      exit 6 ;;
+		esac
 	fi
-else
-	if [ "$SD_RUNNING" = "yes" ] && nm_running ; then
-		systemctl stop NetworkManager.service
-	fi
+elif [ "$SD_RUNNING" = "yes" ] && nm_running  ; then
+	# NetworkManager is disabled, stop it
+	systemctl stop NetworkManager.service
 fi
 
 check_firewall() {
