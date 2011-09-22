@@ -55,10 +55,27 @@ fi
 
 test "$DEBUG" = "EXTRA" && . scripts/extradebug
 
+systemd_running () {
+	# We simply test whether systemd cgroup hierarchy is mounted
+	# where we return 0, non-zero if not.
+	/bin/mountpoint -q /sys/fs/cgroup/systemd
+}
+systemd_booting () {
+	# returns 0 when we boot, 1 in running system
+	systemctl show -p ActiveState default.target | grep -qi inactive
+}
+
 # Only use ifup option 'onboot' if booting or changing runlevel
-# Therefore we check if we were called from init
+# Therefore we check if we were called from init or systemd is booting.
 FS_FILTER=""
-if [ -n "$INIT_VERSION" -a -z "$YAST_IS_RUNNING" ] ; then
+SD_RUNNING=no
+SD_BOOTING=no
+if systemd_running ; then
+	SD_RUNNING=yes
+	systemd_booting && SD_BOOTING=yes
+fi
+if [ \( -n "$INIT_VERSION" -o "$SD_BOOTING" = yes \) -a \
+	-z "$YAST_IS_RUNNING" ] ; then
 	MODE=onboot
 	FS_FILTER=localfs
 fi
@@ -102,15 +119,6 @@ test -f scripts/functions.common \
    || exit $R_INTERNAL
 
 
-systemd_running () {
-# We simply test whether systemd cgroup hierarchy is mounted
-	if /bin/mountpoint -q /sys/fs/cgroup/systemd ; then 
-		return 1
-	fi
-	return 0
-}
-
-
 ######################################################################
 # Start NetworkManager if wanted
 #
@@ -118,21 +126,20 @@ systemd_running () {
 # /etc/sysconfig/network/scripts/functions
 # because they are also used in ifup
 #
-systemd_running ; sd=$?
 if [ "$NETWORKMANAGER" = yes ] ; then
-	if [ "$FS_FILTER" = "localfs" -o $sd = 1 ] ; then
+	if [ "$FS_FILTER" = "localfs" -o "$SD_RUNNING" = "yes" ] ; then
 		# NetworkManager is not supported without remotefs
 		# and will be started later via network-remotefs.
 		# NetworkManager should be started with its own .service
 		# under systemd
 		case $ACTION in
 			(status) exit 3 ;;
-			(start)  if [ $sd = 1 ]; then
+			(start)  if [ "$SD_RUNNING" = "yes" ]; then
 					systemctl start NetworkManager.service
 				 fi
 				 exit 0 ;;
 			(stop)          ;;
-			(reload) if [ $sd = 1 -a netcontrol_running ]; then
+			(reload) if [ "$SD_RUNNING" = "yes" ] && netcontrol_running ; then
 					cd "$OLDPWD"
 					./$0 stop
 					./$0 start
@@ -149,7 +156,7 @@ if [ "$NETWORKMANAGER" = yes ] ; then
 		         "or install NetworkManager."
 	fi
 else
-	if [ $sd = 1 -a nm_running ]; then
+	if [ "$SD_RUNNING" = "yes" ] && nm_running ; then
 		systemctl stop NetworkManager.service
 	fi
 fi
