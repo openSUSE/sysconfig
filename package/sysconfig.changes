@@ -1,4 +1,14 @@
 ------------------------------------------------------------------
+Mon Sep 26 10:09:23 UTC 2011 - mt@suse.com
+
+- version 0.75.3
+- Handle changing between ifup and NM with systemd and fixed
+  to enable boot flags in /etc/init.d/network while booting
+  under systemd (bnc#719214).
+- Wait/check until the end of ipv6 duplicate address detection
+  to not cause failures of following services (bnc#697929).
+
+------------------------------------------------------------------
 Thu Sep  8 13:56:50 UTC 2011 - mt@suse.com
 
 - version 0.75.2
