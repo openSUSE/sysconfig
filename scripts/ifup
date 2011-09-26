@@ -1140,11 +1140,11 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						if [ "$BOOTING" = yes -a "$RUN_FROM_RC" = yes ] ; then
 							link_ready_check "$INTERFACE"
 							link_ret=$?
-							test "$link_ret" && retcode=$R_DHCP_BG
+							test "$link_ret" -eq 0 || retcode=$R_DHCP_BG
 						else
 							link_ready_wait "$INTERFACE" "${LINK_READY_WAIT}"
 							link_ret=$?
-							test "$link_ret" && retcode=$R_NOTRUNNING
+							test "$link_ret" -eq 0 || retcode=$R_NOTRUNNING
 						fi
 					fi
 				fi
@@ -1219,9 +1219,9 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 						link_ready_check "$INTERFACE"
 						link_ret=$?
 						if [ "$BOOTING" = yes -a "$RUN_FROM_RC" = yes ] ; then
-							test "$link_ret" && retcode=$R_DHCP_BG
+							test "$link_ret" -eq 0 || retcode=$R_DHCP_BG
 						else
-							test "$link_ret" && retcode=$R_NOTRUNNING
+							test "$link_ret" -eq 0 || retcode=$R_NOTRUNNING
 						fi
 					fi
 
