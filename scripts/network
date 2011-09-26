@@ -673,8 +673,7 @@ status() {
 	for IFACE in $@; do
 		$FAKE /sbin/ifstatus $CONFIG $IFACE -o rc $CHECK $MODE
 		RET=$?
-		debug && printf "    %-9s returned %s\n" $IFACE $RET || \
-		         printf "    %-9s\n" $IFACE
+		debug && printf "    %-9s returned %s\n" $IFACE $RET
 		case $RET in
 			$R_SUCCESS|$R_BUSY)
 				# : $((R++))
@@ -744,8 +743,7 @@ case "$ACTION" in
 			done
 			$FAKE ifup $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
-			         printf "    %-9s\n" $IFACE
+			debug && printf "    %-9s returned %s\n" $IFACE $RET
 			case "$RET" in
 	 			$R_SUCCESS)
 	 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
@@ -830,7 +828,7 @@ case "$ACTION" in
 
 			debug "Time to wait: $((WAIT_FOR_INTERFACES - TTWAIT))"
 			if [ "$NEWLINE" != yes ] ; then
-				echo "Waiting for mandatory devices: $MANDATORY_DEVICES"
+				echo "Waiting for mandatory devices: ${MANDATORY_DEVICES//__NSC__/}"
 			fi
 			echo -n "$((WAIT_FOR_INTERFACES - TTWAIT)) "
 			NEWLINE=yes
@@ -860,7 +858,7 @@ case "$ACTION" in
 		debug SUCCESS_IFACES=$SUCCESS_IFACES
 		debug MANDATORY_DEVICES=$MANDATORY_DEVICES
 		debug FAILED=$FAILED
-
+		debug TTWAIT=$TTWAIT
 
 		if [ -z "$INTERFACE" ] ; then
 			for IFACE in $VIRTUAL_IFACES ; do
@@ -869,8 +867,7 @@ case "$ACTION" in
 				done
 				$FAKE ifup $CONFIG $IFACE -o rc $MODE
 				RET=$?
-				debug && printf "    %-9s returned %s\n" $IFACE $RET || \
-				         printf "    %-9s\n" $IFACE
+				debug && printf "    %-9s returned %s\n" $IFACE $RET
 				case "$RET" in
 		 			$R_SUCCESS)
 		 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
@@ -885,7 +882,7 @@ case "$ACTION" in
 					$R_NOCONFIG)
 						rc_failed 6
 						rc_status -v1
-						: $((FAILED++))
+						# : $((FAILED++))
 						;;
 		 			$R_NOTCONFIGURED|$R_INACTIVE)
 		 				SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
@@ -895,13 +892,69 @@ case "$ACTION" in
 		 			*)
 		 				rc_failed 7
 		 				rc_status -v1
-						: $((FAILED++))
+						# : $((FAILED++))
 		 				;;
 				esac
 				rc_reset
 			done
-		fi
 
+			LINE=""
+			NEWLINE=no
+			while true; do
+				debug ... still waiting for virtual devices:
+				debug SUCCESS_IFACES=$SUCCESS_IFACES
+				debug VIRTUAL_IFACES=$VIRTUAL_IFACES
+
+				TMP=$VIRTUAL_IFACES
+				VIRTUAL_IFACES=
+				for IFACE in $TMP ; do
+					for S in $SUCCESS_IFACES; do
+						test "$IFACE" = "$S" && continue 2
+					done
+					IFACE="`type_filter $IFACE`"
+					test -z "$IFACE" && continue
+					status -m $IFACE &>/dev/null
+					RET=$?
+					if [ $RET = 0 ] ; then
+						SUCCESS_IFACES="$SUCCESS_IFACES $IFACE"
+						if [ "$NEWLINE" = yes ] ; then
+							echo
+							NEWLINE=no
+						fi
+						status $IFACE
+						continue
+					fi
+					VIRTUAL_IFACES="$VIRTUAL_IFACES $IFACE"
+				done
+	
+				IFS=. read a b < /proc/uptime
+				TTWAIT2=$((a - (TTWAIT + `cat $NETWORK_RUNFILE`)))
+				test $TTWAIT2 -gt $((WAIT_FOR_INTERFACES)) \
+					-o -z "$VIRTUAL_IFACES" && break
+
+				debug "Time to wait: $((WAIT_FOR_INTERFACES - TTWAIT2))"
+				if [ "$NEWLINE" != yes ] ; then
+					echo "Waiting for virtual interfaces: $VIRTUAL_IFACES"
+				fi
+				echo -n "$((WAIT_FOR_INTERFACES - TTWAIT2)) "
+				NEWLINE=yes
+				sleep 1
+			done
+
+			if [ "$NEWLINE" = yes ] ; then
+				echo
+			fi
+
+			for IFACE in $VIRTUAL_IFACES; do
+				if [ -d /sys/class/net/$IFACE ] ; then
+					status -m $IFACE && continue
+					printf "    %-9s interface is not ready until now\n" $IFACE
+				fi
+				rc_failed
+				rc_status -v1
+				: $((FAILED++))
+			done
+		fi
 
 		rc_reset
 		if [ -z "$INTERFACE" ] ; then
@@ -939,8 +992,7 @@ case "$ACTION" in
 			# printf "    %-9s " $IFACE
 			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
-			         printf "    %-9s\n" $IFACE
+			debug && printf "    %-9s returned %s\n" $IFACE $RET
 			rc_failed $RET
 			case "$RET" in
 				$R_NODEV|$R_NOTCONFIGURED|$R_INACTIVE)
@@ -987,8 +1039,7 @@ case "$ACTION" in
 			fi
 			$FAKE ifdown $CONFIG $IFACE -o rc $MODE
 			RET=$?
-			debug && printf "    %-9s returned %s\n" $IFACE $RET || \
-			         printf "    %-9s\n" $IFACE
+			debug && printf "    %-9s returned %s\n" $IFACE $RET
 			rc_failed $RET
 			case "$RET" in
 				$R_NODEV|$R_NOTCONFIGURED|$R_INACTIVE)
