@@ -96,6 +96,7 @@ test "$1" = "-o" && shift
 OPTIONS=$@
 MODE=manual
 HOTPLUG=no
+BOOTING=no
 CONTROL_IFPLUGD=yes # Start/Stop ifplugd?
 # Don't log messages from ifstatus in syslog by default (Bug 261350). This
 # overwrites the config variable /etc/sysconfig/network/config:USE_SYSLOG
@@ -103,7 +104,7 @@ export DONT_USE_SYSLOG=no
 test "$SCRIPTNAME" == ifstatus && DONT_USE_SYSLOG=yes
 while [ $# -gt 0 ]; do
 	case $1 in
-		boot|onboot) MODE=auto ;;
+		boot|onboot) MODE=auto ; BOOTING=yes ;;
 		auto)        MODE=auto ;;
 		hotplug)     MODE=auto
 		             HOTPLUG=yes ;;
@@ -445,7 +446,7 @@ setexitstate () {
 			esac
 			commit_cached_config_data $INTERFACE
 			commit_cached_config_data $INTERFACE PFX=ifup-
-			;;
+		;;
 		ifdown)
 			test "$HOTPLUG" = yes && RET_STATE=removed
 			test "$RUN_FROM_RC" = yes && RET_STATE=removed
@@ -469,7 +470,7 @@ setexitstate () {
 			commit_cached_config_data $INTERFACE
 			delete_from_cached_config_data '*' '' $INTERFACE PFX=ifup-
 			commit_cached_config_data $INTERFACE PFX=ifup-
-			;;
+		;;
 	esac
 }
 
@@ -523,6 +524,11 @@ DEVNAME=
 if [ -n "$VENDORID$PRODUCTID" -a "$BUSNAME" = pci -a -x /sbin/lspci ] ; then
 	DEVNAME=`lspci -d $VENDORID:$PRODUCTID 2>/dev/null | sed -n 1p`
 	DEVNAME=${DEVNAME#*: }
+	if [ "$RUN_FROM_RC" = yes ] ; then
+		DEVNAME=${DEVNAME%%[(\[]*}
+		DEVNAME=${DEVNAME:0:45}
+		NAME=${NAME:0:45}
+	fi
 elif [ "$BUSNAME" = pcmcia ] ; then
 	DEVNAME=`cat /sys/class/net/$INTERFACE/device/prod_id* 2>/dev/null`
 fi
@@ -1084,9 +1090,6 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 								# else
 								#	message_n "`printf "IP/Netmask: %s / %s  " $IPADDR $NETMASK`"
 								fi
-								if [ "$INTERFACETYPE" == bond ] ; then
-									message_n " as bonding master"
-								fi
 								message " "
 								;;
 							esac
@@ -1147,28 +1150,57 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 				ifup-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 
 				#
-				# OK, everything is set up here .. lets check the state
+				# OK, all setup done ... check the state now
 				#
+				# Do not override codes when already set (e.g. $R_DHCP_BG);
+				# it is the final action to check the link / dad status.
+				#
+				# When called from rcnetwork, do not wait as rcnetwork does.
+				#
+				dad_ret=0
+				link_ret=0
 
-				# - link
-				link_ready_wait "$INTERFACE" "${LINK_READY_WAIT:-$((WAIT_FOR_INTERFACES/2))}"
-				link_ret=$?
+				# - check the link (carrier, ...)
+				#   per interface setting, disabled by default
 				if [ "$retcode" = "$R_SUCCESS" ] ; then
-					# do not override codes when already set (e.g. $R_DHCP_BG)
-					case "$link_ret" in
-					1|2|3) retcode=$R_NOTRUNNING ;;
-					esac
+					if [ $((LINK_READY_WAIT)) -gt 0 ] ; then
+						if [ "$BOOTING" = yes -a "$RUN_FROM_RC" = yes ] ; then
+							link_ready_check "$INTERFACE"
+							link_ret=$?
+							test "$link_ret" && retcode=$R_DHCP_BG
+						else
+							link_ready_wait "$INTERFACE" "${LINK_READY_WAIT}"
+							link_ret=$?
+							test "$link_ret" && retcode=$R_NOTRUNNING
+						fi
+					fi
 				fi
 
-				# - dad
-				if [ "$retcode" = "$R_SUCCESS" -a -d /proc/sys/net/ipv6 ] ; then
-					IPV6_DAD_WAIT=${IPV6_DAD_WAIT:-$((WAIT_FOR_INTERFACES/5))}
-					ipv6_addr_dad_wait "$INTERFACE" "$IPV6_DAD_WAIT"
-					dad_ret=$?
-					case $dad_ret in
-					1|2) retcode=$R_NOTRUNNING ;;
-					3)   retcode=$R_DHCP_BG    ;;
-					esac
+				# - check ipv6 dad
+				#   global (and per interface) setting, enabled by default
+				#   when the link isn't ready yet, the addresses are marked tentative
+				#   dad starts when the link becomes ready and we wait until success
+				#   or dad failure.
+				if [ "$retcode" = "$R_SUCCESS" ] ; then
+					IPV6_DAD_WAIT=${IPV6_DAD_WAIT:-$((WAIT_FOR_INTERFACES/2))}
+					if [ $((IPV6_DAD_WAIT)) -gt 0 ] ; then
+						if [ "$BOOTING" = yes -a "$RUN_FROM_RC" = yes ] ; then
+							ipv6_addr_dad_check "$INTERFACE"
+							dad_ret=$?
+						else
+							ipv6_addr_dad_wait "$INTERFACE" "${IPV6_DAD_WAIT}"
+							dad_ret=$?
+						fi
+						case $dad_ret in
+							1|2) retcode=$R_NOTRUNNING ;;
+							3)   retcode=$R_DHCP_BG    ;;
+						esac
+					fi
+				fi
+
+				# inform ifstatus to update status connecting flag
+				if [ $retcode -eq $R_DHCP_BG -a \( $link_ret -ne 0 -o $dad_ret -ne 0 \) ] ; then
+					write_cached_config_data verify status $INTERFACE
 				fi
 
 				;;
@@ -1205,25 +1237,31 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 
 					ifstatus-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 
-					retcode=$R_SUCCESS
 					dad_ret=0
 					link_ret=0
+					retcode=$R_SUCCESS
 
-					# Check the link
-					if [ -n "$LINK_READY_WAIT" -a $((LINK_READY_WAIT)) -gt 0 ] ; then
-						# check the link
-						link_ready_check "$INTERFACE" || link_ret=$?
-						case $link_ret in
-						1|2|3) retcode=$R_NOTRUNNING ;;
-						esac
+					# - check the link
+					if [ $((LINK_READY_WAIT)) -gt 0 ] ; then
+						link_ready_check "$INTERFACE"
+						link_ret=$?
+						if [ "$BOOTING" = yes -a "$RUN_FROM_RC" = yes ] ; then
+							test "$link_ret" && retcode=$R_DHCP_BG
+						else
+							test "$link_ret" && retcode=$R_NOTRUNNING
+						fi
 					fi
 
-					# Check ipv6 dad
-					if [ "$retcode" = "$R_SUCCESS" -a -d /proc/sys/net/ipv6 ] ; then
-						IPV6_DAD_WAIT=${IPV6_DAD_WAIT:-$((WAIT_FOR_INTERFACES/5))}
-						if [ $((IPV6_DAD_WAIT)) -gt 0 ] ; then
+					# - check ipv6 dad
+					if [ "$retcode" = "$R_SUCCESS" ] ; then
+						IPV6_DAD_WAIT=$((${IPV6_DAD_WAIT:-$((WAIT_FOR_INTERFACES/2))}))
+						if [ $((IPV6_DAD_WAIT)) -ge 0 ] ; then
 							ipv6_addr_dad_check "$INTERFACE"
 							dad_ret=$?
+							case $dad_ret in
+								1|2) retcode=$R_NOTRUNNING ;;
+								3)   retcode=$R_DHCP_BG    ;;
+							esac
 						fi
 					fi
 
@@ -1241,12 +1279,21 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 					2) message "`printf "    %-9s is dormant" "$INTERFACE"`" ;;
 					3) message "`printf "    %-9s has no carrier" "$INTERFACE"`" ;;
 					esac
+
+					if [ "$retcode" = "$R_SUCCESS" ] ; then
+						v=`read_cached_config_data verify $INTERFACE`
+						s=`read_cached_config_data status $INTERFACE`
+						if test "$v" = "status" -a "$s" = "connecting" ; then
+							write_cached_config_data status connected $INTERFACE
+							commit_cached_config_data $INTERFACE
+						fi
+					fi
 				else
 					# message_if_not_run_from_rc "$INTERFACE is down"
 					message "`printf "    %-9s is down" $INTERFACE`"
 					retcode=$R_NOTRUNNING
 					case "$STARTMODE" in
-					manual|off) retcode=$R_INACTIVE ;;
+						manual|off) retcode=$R_INACTIVE ;;
 					esac
 				fi
 				;;
@@ -1272,7 +1319,7 @@ if [ "$DHCP" != yes ] ; then
 		test "$CHECK" = yes -a $ret != 0 && retcode=$ret
 		DEP_IFACES=`get_depending_ifaces $INTERFACE`
 		if [ "$?" = 0 -a "$NODEPS" != yes ] ; then
-			message "`printf "    %-9s is still used from interfaces %s" \
+			message "`printf "    %-9s is used from interfaces %s" \
 			                 $INTERFACE "$DEP_IFACES"`"
 			#for DI in $DEP_IFACES; do
 			#  ifstatus $DI -o $OPTIONS
