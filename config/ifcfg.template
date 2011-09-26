@@ -171,6 +171,28 @@ LLADDR=
 #
 LINK_OPTIONS=
 
+## Type:        integer
+## Default:     0
+#
+# The number of seconds to wait for link to become useable / ready.
+# Default is 0, causing to not wait for a ready link (0), because link
+# detection can't be enabled in all cases (e.g. bridges without ports).
+# Please use per interface settings to enable it.
+#
+LINK_READY_WAIT=
+
+## Type:        integer
+## Default:     ""
+#
+# The number of seconds to wait for the end of IPv6 duplicate address
+# detection in ifup.
+# Default is to use WAIT_FOR_INTERFACES/2 seconds in normal ifup runs.
+# When ifup is called by /etc/init.d/network at boot time, the check
+# is done, but /etc/init.d/network waits WAIT_FOR_INTERFACES seconds
+# for all interfaces togerther. Set to 0 to disable it.
+#
+IPV6_DAD_WAIT=
+
 ## Type:    string
 ## Default: ""
 #

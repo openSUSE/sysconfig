@@ -128,19 +128,6 @@ link_ready_check () {
 	return 0
 }
 
-link_ready_wait () {
-	local iface=$1
-	local wsecs=${2:-0}
-	local uwait=25000
-	local loops=$(((wsecs * 100000) / $uwait))
-	local loop ret=0
-	for((loop=0; loop < $loops; loop++)) ; do
-		link_ready_check "$iface" ; ret=$?
-		test $ret -ne 0 && usleep $uwait || break
-	done
-	return $ret
-}
-
 ipv6_addr_dad_check()
 {
 	local iface="$1" word i
@@ -171,16 +158,34 @@ ipv6_addr_dad_check()
 	return $R_SUCCESS
 }
 
+link_ready_wait ()
+{
+	local iface=$1
+	local -i wsecs=${2:-0}
+	local -i uwait=25000
+	local -i loops=$(((wsecs * 100000) / $uwait))
+	local -i loop=0 ret=0
+
+	link_ready_check "$iface" ; ret=$?
+	while ((ret != 0 && loop++ < loops)) ; do
+		usleep $uwait
+		link_ready_check "$iface" ; ret=$?
+	done
+	return $ret
+}
+
 ipv6_addr_dad_wait()
 {
 	local iface=$1
-	local wsecs=${2:-0}
-	local uwait=25000
-	local loops=$(((wsecs * 100000) / $uwait))
-	local loop ret=0
-	for((loop=0; loop < $loops; loop++)) ; do
+	local -i wsecs=${2:-0}
+	local -i uwait=25000
+	local -i loops=$(((wsecs * 100000) / $uwait))
+	local -i loop=0 ret=0
+
+	ipv6_addr_dad_check "$iface" ; ret=$?
+	while ((ret == 3 && loop++ < loops)) ; do
+		usleep $uwait
 		ipv6_addr_dad_check "$iface" ; ret=$?
-		test $ret -eq 3 && usleep $uwait || break
 	done
 	return $ret
 }
