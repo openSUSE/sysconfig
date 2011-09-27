@@ -1278,8 +1278,11 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 					if [ "$retcode" = "$R_SUCCESS" ] ; then
 						v=`read_cached_config_data verify $INTERFACE`
 						s=`read_cached_config_data status $INTERFACE`
-						if test "$v" = "status" -a "$s" = "connecting" ; then
-							write_cached_config_data status connected $INTERFACE
+						if test "$v" = "status" ; then
+							if test "$s" = "connecting" ; then
+								write_cached_config_data status connected $INTERFACE
+							fi
+							delete_from_cached_config_data verify ""  $INTERFACE
 							commit_cached_config_data $INTERFACE
 						fi
 					fi
