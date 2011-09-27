@@ -777,11 +777,27 @@ case $ACTION in
                 ;;
         esac
 
+        # Note, that this setting is not supported by all cards resp. drivers
+        # and shall be tested before the user decides to set it.
         case $WIRELESS_POWER in
             ""|none) ;;
-            yes)     run_iw_tool config power period 2 ;;
-            no)      run_iw_tool config power off ;;
-            *)       run_iw_tool config power $WIRELESS_POWER ;;
+            yes)    run_iw_tool config power period 2
+                    if [ $RETVAL -eq 250 ]; then
+                        # The power operation is invalid or unsupported.
+                        iwconfig $INTERFACE power off 2> /dev/null
+                        # If the power operation is unsupported, ignore the error.
+                        [ $? -eq 250 ] && RETVAL=$R_SUCCESS
+                    fi ;;
+            no|off) run_iw_tool config power off
+                    # If the power operation is unsupported, ignore the error.
+                    [ $RETVAL -eq 250 ] && RETVAL=$R_SUCCESS ;;
+            *)      run_iw_tool config power $WIRELESS_POWER
+                    if [ $RETVAL -eq 250 ]; then
+                        # The power operation is invalid or unsupported.
+                        iwconfig $INTERFACE power off 2> /dev/null
+                        # If the power operation is unsupported, ignore the error.
+                        [ $? -eq 250 ] && RETVAL=$R_SUCCESS
+                    fi ;;
         esac
 
         if need_wpa_supplicant ; then
