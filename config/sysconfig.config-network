@@ -226,7 +226,7 @@ IFPLUGD_OPTIONS="-f -I -b"
 NETWORKMANAGER=no
 
 ## Type:	int
-## Default:	30
+## Default:	0
 #
 # When using NetworkManager you may define a timeout to wait for NetworkManager
 # to connect in /etc/init.d/network(-remotefs) script.  Other network services
@@ -234,7 +234,7 @@ NETWORKMANAGER=no
 # 
 # This variable has no effect if NETWORKMANAGER=no.
 #
-NM_ONLINE_TIMEOUT="30"
+NM_ONLINE_TIMEOUT="0"
 
 ## Type:        string
 ## Default:     "dns-resolver dns-bind ntp-runtime nis"
