@@ -1,4 +1,10 @@
 ------------------------------------------------------------------
+Fri Oct 21 11:35:06 UTC 2011 - mt@suse.com
+
+- Changed NM_ONLINE_TIMEOUT default back to 0 to avoid
+  unneeded waiting for NM interfaces at boot (bnc#722304)
+
+------------------------------------------------------------------
 Wed Oct  5 08:12:14 UTC 2011 - mt@suse.com
 
 - version 0.75.4
