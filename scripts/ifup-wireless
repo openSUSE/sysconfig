@@ -81,12 +81,11 @@ done
 #
 test -f ./wireless && . ./wireless
 # ifcfg-* is more important and fragile then wireless
-if [ -f ./ifcfg-$CONFIG ] ; then
-   . ./ifcfg-$CONFIG
-elif [ "$ACTION" != down ] ; then
-   err_mesg "could not find configuration file ifcfg-$CONFIG"
-fi
-
+source_iface_config "$CONFIG" || {
+   if [ "$ACTION" != down ] ; then
+     err_mesg "could not find interface configuration: $CONFIG"
+   fi
+}
 
 ######################################################################
 # get the interface and check if it is available and wireless

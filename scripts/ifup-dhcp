@@ -82,7 +82,9 @@ done
 # check presence of configuration files
 #
 test -f ./dhcp && . ./dhcp
-test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+if [ "$INTERFACE" != "all" ] ; then
+	source_iface_config "$CONFIG"
+fi
 
 ######################################################################
 # get the interface and check if it is up
@@ -108,11 +110,6 @@ fi
 explicit_dhcp4=no
 explicit_dhcp6=no
 BOOTPROTO=$(echo "$BOOTPROTO" | gawk '{print tolower($0);}')
-# Override with iSCSI Boot Firmware Table (feature 308283, bnc 542225)
-if [ "$INTERFACE" != "all" -a "${BOOTPROTO}" = "ibft" ] ; then
-	IBFT=yes # not used at the moment... remember before override
-	eval BOOTPROTO=none `parse_ifname_ibft_settings "$INTERFACE"`
-fi
 BOOTPROTOS=()
 AUTOIP=no
 add_bootproto_once() {
@@ -314,6 +311,15 @@ start_dhcp4_dhcpcd() {
 
 	# hardcoded in the dhcpcd binary when --netconfig is in use, but ...
 	args="$args -c /etc/sysconfig/network/scripts/dhcpcd-hook"
+
+	# in iBFT mode, try to request iBFT IP address
+	if test "x$IBFT" = "xyes" ; then
+		case $IBFT_IPADDR in
+		[1-9]*.*.*.*)
+			args="-r $IBFT_IPADDR $args"
+		;;
+		esac
+	fi
 
 	# avoid deconfiguration of the interface at startup in nfsroot case (bnc#397484)
 	test "$STARTMODE" = "nfsroot" && args="-p $args"
@@ -668,7 +674,7 @@ case "$ACTION" in
 				unset DHCLIENT_SET_HOSTNAME \
 				      DHCLIENT_SET_DEFAULT_ROUTE
 
-				test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+				source_iface_config "$CONFIG"
 			fi
 
 			# remember the hostname to handle a change later
@@ -1119,6 +1125,8 @@ case "$ACTION" in
 		# now verify it & "kill them all"
 		# catching also INTERFACE=all case
 		for INTERFACE in ${ALL_INTERFACES[@]} ; do
+			source_iface_config "$INTERFACE"
+
 			# Read temporary startmode and use kill -9 to stop
 			tmp_startmode=`read_cached_config_data startmode $INTERFACE`
 			[ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"

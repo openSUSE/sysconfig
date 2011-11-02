@@ -103,11 +103,9 @@ done
 ######################################################################
 # check presence of configuration file and source it
 #
-if [ -f ifcfg-$CONFIG ] ; then
-	. ifcfg-$CONFIG
-else
-	message "could not find configuration file ifcfg-$CONFIG"
-fi
+source_iface_config "$CONFIG" || {
+	message "could not find interface configuration: $CONFIG"
+}
 
 ######################################################################
 # Check needed tools

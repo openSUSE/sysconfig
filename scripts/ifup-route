@@ -97,7 +97,8 @@ fi
 ######################################################################
 # check presence of configuration files and source one 
 #
-test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+source_iface_config "$CONFIG"
+
 # The global route configuration file must not be read if we were called from
 # dhcp client. In this case we only read the ifroute-* file.
 if [ "$DHCP" != yes ] ; then

@@ -80,7 +80,7 @@ test -n "$PREPARE" -a "$ACTION" != start && exit $R_SUCCESS
 # check presence of configuration files
 #
 test -f ./autoip && . ./autoip
-test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+source_iface_config "$CONFIG"
 
 ######################################################################
 # get the interface and check if it is up
@@ -193,8 +193,7 @@ case "$ACTION" in
 
 			case "$BOOTPROTO" in 
 				*autoip*) ;;
-				*)      message $INTERFACE not configured for autoip in
-/etc/sysconfig/network/ifcfg-$CONFIG 
+				*)      message "$INTERFACE not configured for autoip"
 					message " "
 					exit $R_NOTCONFIGURED
 					;;

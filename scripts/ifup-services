@@ -95,7 +95,7 @@ done
 ######################################################################
 # check presence of configuration file and source it
 #
-test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+source_iface_config "$CONFIG"
 if [ -d "ifservices-$CONFIG" ] ; then
 	cd ifservices-$CONFIG
 elif [ -d "ifservices-$INTERFACE" ] ; then

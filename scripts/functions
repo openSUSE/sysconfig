@@ -82,6 +82,24 @@ add_to_wordlist() {
 	eval "$v='${l[@]}'"
 }
 
+nm_running () {
+	local MSG RET
+	test -x "$NETWORKMANAGER_BIN" || return
+	MSG=`checkproc $NETWORKMANAGER_BIN 2>&1`
+	RET=$?
+	info_mesg "$MSG"
+	return $RET
+}
+
+netcontrol_running() {
+	test -f $NETWORK_RUNFILE
+}
+
+# returns 0 if ifup is currently working on this interface
+ifup_on_iface() {
+	ps axhww | grep -qs "[i]fup.* $INTERFACE\>"
+}
+
 is_iface_available () {
 	local IFNAME=${1}
 	local IFTYPE=${2:-$INTERFACETYPE}
@@ -108,6 +126,21 @@ is_iface_up () {
 		*$1*UP*) ;;
 		*) return 1 ;;
 	esac
+}
+
+is_connected () {
+	case `read_cached_config_data status $1` in
+		connected) return 0 ;;
+		connecting) return 0 ;; # might be wrong, test for link to
+	esac
+	return 1
+}
+
+has_link () {
+	case `read_cached_config_data link $1` in
+		yes) return 0 ;;
+	esac
+	return 1
 }
 
 link_ready_check () {
@@ -264,6 +297,9 @@ get_iface_type_from_config () {
 	local INTERFACETYPE WIRELESS WIRELESS_MODE BONDING_MASTER ETHERDEVICE
 	local BRIDGE TUNNEL PPPMODE MODEM_DEVICE ENCAP
 	test -z "$IF" && return 3
+
+	get_ibft_iface_type "$IF" && return 0
+
 	test -r ifcfg-$IF || return 2
 	# If variable (1st word) has the right value (2nd word) then this
 	# interface is of this type (3rd word). If variable can have any
@@ -319,37 +355,6 @@ get_iface_type_from_config () {
 	fi
 	# There is a config file, but it has no special type: This must be ethernet
 	test -n "$TYPE" && echo $TYPE || echo eth
-}
-
-#
-# supported_on_localfs($INTERFACE [, $INTERFACETYPE])
-#
-# Returns 0 (true) when we support to start the interface
-# (configuration) on local-fs only, or 1 (false) when
-# also remote-fs is required (e.g. because of utilities
-# in /usr that may be on NFS) or 2 (false) on errors.
-#
-supported_on_localfs() {
-	local IFNAME=$1
-	local IFTYPE=${2:-$INTERFACETYPE}
-
-	test "x$IFNAME" = x && return 2
-	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type             $IFNAME)
-	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type_from_config $IFNAME)
-
-	# Currently it is sufficient to check the type only.
-	local result=1	# remote-fs requirement as default
-	case $IFTYPE in
-		"")                     result=2 ;;
-		lo|dummy|tap)           result=0 ;;
-		eth|tr)                 result=0 ;;
-		ib|ibchild)             result=0 ;;
-		vlan|bridge|bond)       result=0 ;;
-	esac
-	# tunnels in principle too, but it may be not possible
-	# to resolve the base / slave interface correctly ...
-	#tun|sit|gre|ipip)              result=0 ;;
-	return $result
 }
 
 get_hwaddress () {
@@ -409,13 +414,422 @@ get_variable () {
 	local line
 	while read line; do
 		eval $line
-	done < <(grep "^[[:space:]]*$1" ifcfg-$2 2>/dev/null)
+	done < <(read_iface_config_data "$2" | grep "^[[:space:]]*$1" 2>/dev/null)
 }
 
 get_startmode () {
 	local STARTMODE
 	get_variable STARTMODE $1
 	echo  "$STARTMODE"
+}
+
+get_ifplugd_priority () {
+	local IFPLUGD_PRIORITY=0
+	declare -i IFPLUGD_PRIORITY
+	get_variable IFPLUGD_PRIORITY $1
+	echo "$IFPLUGD_PRIORITY"
+}
+
+# return vlan interface name for given base device and vlan id
+get_vlan_ifname()
+{
+	test "x$1" = x -o "x$2" = x && return 1
+	LANG=C LC_ALL=C awk -F '[ \t]*[|][ \t]*' -v dev="$1" -v vid="$2" -- \
+	'$3 == dev && $2 == vid { print $1; }' /proc/net/vlan/config 2>/dev/null
+}
+# return base device (e.g. eth0) of given vlan interface (e.g. eth0.42)
+get_vlan_if_dev()
+{
+	test "x$1" = x && return 1
+	LANG=C LC_ALL=C awk -F '[ \t]*[|][ \t]*' -v vif="$1" -- \
+	'$1 == vif { print $3; }' /proc/net/vlan/config 2>/dev/null
+}
+# return vlan id (e.g. 42) of given vlan interface (e.g. eth0.42)
+get_vlan_if_vid()
+{
+	test "x$1" = x && return 1
+	LANG=C LC_ALL=C awk -F '[ \t]*[|][ \t]*' -v vif="$1" -- \
+	'$1 == vif { print $2; }' /proc/net/vlan/config 2>/dev/null
+}
+
+# Parse iSCSI Boot Firmare Table settings of given interface
+# and provide as adequate ifcfg/netcontrol scripts settings
+# (basically STARTMODE and BOOTPROTO variables) on stdout.
+get_ibft_iface_ref_glob()
+{
+	local edir=$1 # /sys/firmware/ibft/ethernetX
+
+	# iBFT refers NICs by PCI Bus/Dev/Func, but in case
+	# of at least virtio, the interface isn't attached
+	# directly as PCI device ($edir/device/virtio0/net/).
+	if test -d "$edir/device/net" ; then
+		echo "$edir/device/net/*"
+	else
+		echo "$edir/device/*/net/*"
+	fi
+	return 0
+}
+
+read_ibft_iface_config()
+{
+	local ifname=$1
+	case $ifname in ""|.|..|*/*) return 1 ;; esac
+
+	# check if ibft firmware info is available
+	local sysfs_ibft="/sys/firmware/ibft"
+	# done in initrd on hosts using ibft
+	#test -d "$sysfs_ibft" || modprobe -qs iscsi_ibft 2>/dev/null
+	test -d "$sysfs_ibft" || return 1
+
+	local edir ibft_e_flags ibft_e_origin ibft_e_vlan
+	local restore_nullglob=`shopt -p nullglob`
+	shopt -s nullglob
+	for edir in "$sysfs_ibft/ethernet"* ; do
+		# Flag Bits: Block Valid, FW Boot Selected, Global/Link Local
+		read -s ibft_e_flags 2>/dev/null < "$edir/flags"
+
+		# Check flag bit 0: Block Valid Flag (0 = no, 1 = yes)
+		# and ignore when the IBFT settings not marked valid
+		((ibft_e_flags & 0x01)) || continue
+
+		# Read the vlan id from iBFT and compare
+		read -s ibft_e_vlan 2>/dev/null < "$edir/vlan"
+
+		local vid="${ibft_e_vlan:-0}"
+		if test "${vid}" != "0" ; then
+			local ref dev vif
+			for ref in `get_ibft_iface_ref_glob "$edir"` ; do
+				test -d "$ref"          || continue 2
+				dev="${ref##*/}"
+				vif=`get_vlan_ifname "${dev}" "${vid}"`
+				vif="${vif:-${dev}.${vid}}"
+				break
+			done
+
+			# no ibft -> iface reference?!
+			test -n "$dev" || continue
+
+			# check if it is the physical iBFT vlan base
+			if test "$dev" = "$ifname" ; then
+				# just a minimal set here ...
+				echo "STARTMODE='nfsroot'"
+				echo "BOOTPROTO='none'"
+				echo "IBFT='yes'"
+				echo "IBFT_NIC='${edir##*/}'"
+				return 0
+			fi
+
+			# check if ifname is a vlan iBFT interface
+			test "$vif" = "$ifname" || continue
+
+			echo "ETHERDEVICE='$dev'"
+			echo "VLAN_ID='$vid'"
+		else
+			# check if ifname is a physical iBFT interface
+			for ref in `get_ibft_iface_ref_glob "$edir"` ; do
+				test -d "$ref"          || continue 2
+				dev="${ref##*/}"
+				test "$dev" = "$ifname" || continue 2
+				break
+                        done
+		fi
+
+		# iBFT interfaces are always nfsroot
+		echo "STARTMODE='nfsroot'"
+
+		# Enum: Other,Manual,WellKnown,Dhcp,RouterAdv
+		read -s ibft_e_origin  2>/dev/null < "$edir/origin"
+		case $ibft_e_origin in
+		0)	# Other, but it is used e.g. on kvm gPXE
+			# (11.4), even the data is from dhcp.
+			case $ibft_e_dhcp in
+				[1-9]*.*.*.*) echo "BOOTPROTO='dhcp4'" ;;
+				*)            echo "BOOTPROTO='none'"  ;;
+			esac
+		;;
+		3)	# IpPrefixOriginDhcp
+			echo "BOOTPROTO='dhcp4'"
+		;;
+		*)	echo "BOOTPROTO='none'"	;;
+		esac
+
+		# the complete set of IBFT variables
+		echo "IBFT='yes'"
+		# Check bit 1, FW Boot Selected (0 = no, 1 = yes)
+		# and set IBFT_PRIMARY=yes (force a dhcp primary)
+		if ((ibft_e_flags & 0x02)) ; then
+			echo "IBFT_PRIMARY='yes'"
+		fi
+		echo "IBFT_NIC='${edir##*/}'"
+		echo "IBFT_VLAN='$ibft_e_vlan'"
+		echo "IBFT_FLAGS='$ibft_e_flags'"
+		echo "IBFT_ORIGIN='$ibft_e_origin'"
+		# read the other ibft ethernet variables
+		local v
+		for v in ip-addr primary-dns secondary-dns gateway index dhcp mac ; do
+			local vv=''
+			read  vv 2>/dev/null < "$edir/$v"
+			case $v in
+				ip-addr)	echo "IBFT_IPADDR='$vv'" ;;
+				primary-dns)	echo "IBFT_DNS_1='$vv'"  ;;
+				secondary-dns)	echo "IBFT_DNS_2='$vv'"  ;;
+				gateway)	echo "IBFT_GATEWAY='$vv'";;
+				index)		echo "IBFT_INDEX='$vv'"  ;;
+				dhcp)		echo "IBFT_DHCP='$vv'"   ;;
+				mac)		echo "IBFT_MAC='$vv'"    ;;
+				#index|dhcp|gateway|mac)
+				#	echo "IBFT_${f^^}='$vv'"
+				#;;
+			esac
+		done
+		eval $restore_nullglob
+		return 0
+	done
+	eval $restore_nullglob
+	return 1
+}
+
+# prints (the "eth" or "vlan") interface type of given ibft interface
+# note, that when a ibft vlan interface name does not exist yet, the
+# default <physical interface name>.<vlan id> name scheme is used.
+get_ibft_iface_type()
+{
+	local ifname=$1
+	case $ifname in ""|.|..|*/*) return 1 ;; esac
+
+	# check if ibft firmware info is available
+	local sysfs_ibft="/sys/firmware/ibft"
+	# done in initrd on hosts using ibft
+	#test -d "$sysfs_ibft" || modprobe -qs iscsi_ibft 2>/dev/null
+	test -d "$sysfs_ibft" || return 1
+
+	local iftype=""
+	local edir ibft_e_flags ibft_e_origin ibft_e_vlan
+	local restore_nullglob=`shopt -p nullglob`
+	shopt -s nullglob
+	for edir in "$sysfs_ibft/ethernet"* ; do
+		# Flag Bits: Block Valid, FW Boot Selected, Global/Link Local
+		read -s ibft_e_flags 2>/dev/null < "$edir/flags"
+
+		# Check flag bit 0: Block Valid Flag (0 = no, 1 = yes)
+		# and ignore when the IBFT settings not marked valid
+		((ibft_e_flags & 0x01)) || continue
+
+		# Read the vlan id from iBFT and compare
+		read -s ibft_e_vlan 2>/dev/null < "$edir/vlan"
+
+		local vid="${ibft_e_vlan:-0}"
+		if test "${vid}" != "0" ; then
+			local ref dev vif
+			for ref in `get_ibft_iface_ref_glob "$edir"` ; do
+				test -d "$ref"          || continue 2
+				dev="${ref##*/}"
+				vif=`get_vlan_ifname "${dev}" "${vid}"`
+				vif="${vif:-${dev}.${vid}}"
+				break
+			done
+
+			# no ibft -> iface reference?!
+			test -n "$dev" || continue
+
+			# check if it is the physical iBFT vlan base
+			if test "$dev" = "$ifname" ; then
+				iftype="eth"
+				break
+			fi
+
+			# check if ifname is a vlan iBFT interface
+			test "$vif" = "$ifname" || continue
+
+			iftype="vlan"
+			break
+		else
+			# check if ifname is a physical iBFT interface
+			for ref in `get_ibft_iface_ref_glob "$edir"` ; do
+				test -d "$ref"          || continue 2
+				dev="${ref##*/}"
+				test "$dev" = "$ifname" || continue 2
+				break
+                        done
+			iftype="eth"
+			break
+		fi
+	done
+	eval $restore_nullglob
+	test -n "$iftype" && echo "$iftype"
+}
+
+# returns names of physical _and_ vlan interface names referenced by ibft
+get_ibft_config_names()
+{
+	local ifname_list=""
+	local restore_nullglob=`shopt -p nullglob`
+
+	# check if ibft firmware info is available
+	local sysfs_ibft="/sys/firmware/ibft"
+	# done in initrd on hosts using ibft
+	#test -d "$sysfs_ibft" || modprobe -qs iscsi_ibft 2>/dev/null
+	if test -d "$sysfs_ibft" ; then
+		local edir ref ibft_e_flags ibft_e_vlan
+		shopt -s nullglob
+		for edir in "$sysfs_ibft/ethernet"* ; do
+			# Flag Bits: Block Valid, FW Boot Selected, Global/Link Local
+			read -s ibft_e_flags 2>/dev/null < "$edir/flags"
+			read -s ibft_e_vlan  2>/dev/null < "$edir/vlan"
+
+			# Check flag bit 0: Block Valid Flag (0 = no, 1 = yes)
+			# and ignore when the IBFT settings not marked valid
+			((ibft_e_flags & 0x01)) || continue
+
+			for ref in `get_ibft_iface_ref_glob "$edir"` ; do
+				test -d "$ref"          || continue 2
+				local dev="${ref##*/}"
+				add_to_wordlist ifname_list "$dev"
+				if test "${ibft_e_vlan:-0}" != 0 ; then
+					local vid="${ibft_e_vlan:-0}"
+					local vif=`get_vlan_ifname "${dev}" "${vid}"`
+					add_to_wordlist ifname_list "${vif:-${dev}.${vid}}"
+				fi
+				break
+			done
+		done
+		echo $ifname_list
+	fi
+
+	eval $restore_nullglob
+	return 0
+}
+
+# returns ifcfg configured interface names
+# note: config name is ifcfg-<interface name>,
+#       there is no ifcfg-bus-pci... any more
+get_ifcfg_config_names()
+{
+	local ifname_list=""
+	local restore_nullglob=`shopt -p nullglob`
+
+	local ifcfg_dir=/etc/sysconfig/network
+	local ifcfg_pfx=ifcfg-
+	for ifcfg in "${ifcfg_dir}/${ifcfg_pfx}"* ; do
+		local ifname=${ifcfg##*/${ifcfg_pfx}}
+		case "$ifname" in
+			""|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup)
+			continue
+		;;
+		esac
+		add_to_wordlist ifname_list "$ifname"
+	done
+
+	eval $restore_nullglob
+	echo $ifname_list
+	return 0
+}
+
+# returns a list of ibft and ifcfg configured interface names
+get_iface_config_names()
+{
+	local ifname_list=""
+
+	# TODO: ibft may return eth0.42 (that does not exists yet)
+	#       what when there is a ifcfg-vlan42 on top of eth0 ?
+	#	basically the second one will fail to create ...
+	add_to_wordlist ifname_list `get_ibft_config_names`
+	add_to_wordlist ifname_list `get_ifcfg_config_names`
+
+	echo $ifname_list
+}
+
+# reads interface configuration data to stdout
+read_iface_config_data()
+{
+	case $1 in ""|.|..|*/*) return 1 ;; esac
+
+	read_ibft_iface_config "$1" && return 0
+	test -f "./ifcfg-$1" && cat "./ifcfg-$1" 2>/dev/null
+}
+
+# sources interface config from ibft or from ifcfg file
+source_iface_config()
+{
+	case $1 in ""|.|..|*/*) return 1 ;; esac
+
+	eval `read_ibft_iface_config "$1"` && return 0
+	test -f "./ifcfg-$1" && . "./ifcfg-$1" 2>/dev/null
+}
+
+# returns true when interface is configured in ibft
+# or when a ifcfg-<interface name> config file exists
+exists_iface_config()
+{
+	case $1 in ""|.|..|*/*) return 1 ;; esac
+
+	for name in `get_ibft_config_names` ; do
+		test "x$1" = "x$name" && return 0
+	done
+	test -f "./ifcfg-$1"
+}
+
+# return the content of the BOOTIF variable from /proc/cmdline
+get_pxe_bootif_param()
+{
+	local cmdline=$(cat /proc/cmdline 2>/dev/null)
+	local rx='^(.*[[:space:]])?BOOTIF=([[:xdigit:]]{2}([-[:xdigit:]]{2})+)([[:space:]].*)?$'
+	if [[ ${cmdline} =~ ${rx} ]] ; then
+		echo "${BASH_REMATCH[2]}"
+	fi
+}
+
+is_pxe_boot_iface()
+{
+	# params <interface name>
+	# output 'yes': bootif param available, $1 interface match
+	#        'no' : bootif param available, no $1 interface match
+	#        ''   : otherwise (no bootif param, errors)
+	# returns 0 on success, 1 on errors
+	local bootif=`get_pxe_bootif_param 2>/dev/null`
+	test "x$bootif" = x && return 0
+
+	local ifname="$1"
+	test  "x$ifname" != x -a -d "/sys/class/net/$ifname" || return 1
+	local iftype=`cat "/sys/class/net/$ifname/type" 2>/dev/null`
+	local ifaddr=`get_hwaddress "$ifname"`
+	test "x$iftype" != x -a "x$ifaddr" != x || return 1
+
+	local maddr=${bootif//-/:}
+	local addrs="$ifaddr" addr
+	case $iftype in
+	1)
+		# TODO: bridge and vlan inherit hwaddrs as well
+		if test -d "/sys/class/net/$ifname/bonding" ; then
+			addrs=`get_bonding_slave_hwaddrs "$ifname" 2>/dev/null`
+		fi
+	;;
+	esac
+	for addr in ${addrs} ; do
+		local x=`printf "%02x:%s" "$iftype" "$addr" 2>/dev/null`
+		if test "x$maddr" = "x$x" ; then
+			echo "yes"
+			return 0
+		fi
+	done
+	echo "no"
+}
+
+is_ibft_primary_iface()
+{
+	# params <interface name>
+	# output 'yes': ibft interfaces available, $1 interface is ibft primary
+	#        'no' : ibft interfaces available, $1 interface is not primary
+	#        ''   : otherwise (no ibft, errors)
+	# returns 0 on success, 1 on errors
+
+	if test "x$IBFT" = "xyes" ; then
+		echo ${IBFT_PRIMARY:-no}
+		return 0
+	else
+		echo ''
+		return 0
+	fi
 }
 
 get_slaves () {
@@ -466,11 +880,310 @@ get_bonding_master () {
 	done < <(ls -1d /etc/sysconfig/network/ifcfg-* 2>/dev/null)
 }
 
-get_ifplugd_priority () {
-	local IFPLUGD_PRIORITY=0
-	declare -i IFPLUGD_PRIORITY
-	get_variable IFPLUGD_PRIORITY $1
-	echo "$IFPLUGD_PRIORITY"
+# This function looks for interfaces which depend on the given interface. It
+# prints a list with all depending interfaces. It returns 0 if there are
+# depending interfaces and !=0 if not.
+# Currently it checks only for vlan and optionally bonding slave interfaces.
+# FIXME: Add other types of interfaces that depend on others.
+get_depending_ifaces() {
+	local VLAN_PATH BOND_PATH DEP_VLANS DEP_BONDS BASE_IFACE i
+	local -a DEP_IFACES=()
+	VLAN_PATH="/proc/net/vlan"
+	BOND_PATH=""
+	while [ $# -gt 0 ]; do
+		case $1 in
+		--with-bonding-slaves)
+			BOND_PATH="/proc/net/bonding"
+			shift
+		;;
+		-*)	shift ;;
+		*)	break ;;
+		esac
+	done
+	BASE_IFACE="$1"
+
+	if [ -z "$BASE_IFACE" ]; then
+		return 1
+	fi
+
+	if [ -d "$VLAN_PATH" ]; then
+		DEP_VLANS=`cd "$VLAN_PATH"
+			grep -lws "Device: *$BASE_IFACE" *`
+		DEP_IFACES+=($DEP_VLANS)
+	fi
+
+	if [ -n "$BOND_PATH" -a -d "$BOND_PATH" ]; then
+		DEP_BONDS=`cd "$BOND_PATH"
+			grep -s '^Slave Interface:' $BASE_IFACE |
+			while IFS=':' read text iface ; do echo -n "$iface" ; done`
+		DEP_IFACES+=($DEP_BONDS)
+	fi
+
+	case $BASE_IFACE in
+		(ib*.*)	;;
+		(ib*)	# the infiniband children -- is there a better way?
+			for i in `ls -1 /sys/class/net/ 2>/dev/null` ; do
+				test -d /sys/class/net/$i || continue
+				case $i in (${BASE_IFACE}.*)
+					DEP_IFACES+=($i)
+				;;
+				esac
+		     	done
+		;;
+	esac
+
+	if [ ${#DEP_IFACES[*]} -gt 0 ]; then
+		echo "${DEP_IFACES[*]}"
+		return 0
+	else
+		return 1
+	fi
+}
+
+#
+# supported_on_localfs($INTERFACE [, $INTERFACETYPE])
+#
+# Returns 0 (true) when we support to start the interface
+# (configuration) on local-fs only, or 1 (false) when
+# also remote-fs is required (e.g. because of utilities
+# in /usr that may be on NFS) or 2 (false) on errors.
+#
+supported_on_localfs() {
+	local IFNAME=$1
+	local IFTYPE=${2:-$INTERFACETYPE}
+
+	test "x$IFNAME" = x && return 2
+	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type             $IFNAME)
+	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type_from_config $IFNAME)
+
+	# Currently it is sufficient to check the type only.
+	local result=1	# remote-fs requirement as default
+	case $IFTYPE in
+		"")                     result=2 ;;
+		lo|dummy|tap)           result=0 ;;
+		eth|tr)                 result=0 ;;
+		ib|ibchild)             result=0 ;;
+		vlan|bridge|bond)       result=0 ;;
+	esac
+	# tunnels in principle too, but it may be not possible
+	# to resolve the base / slave interface correctly ...
+	#tun|sit|gre|ipip)              result=0 ;;
+	return $result
+}
+
+resolve_iface_startorder()
+{
+    #
+    # resolve_iface_startorder <name of the result variable>
+    #                          <list of interfaces to resolve>
+    #                          [ <skip list> [filter fuction] ]
+    #
+    # This function creates a start ordered list of virtual interfaces
+    # as bondings, vlans and bridges known by the get_slaves() function.
+    # It reads the base or "slave" interfaces of each virtual interface
+    # recursively and inserts the slaves into the result list before the
+    # virtual interface itself. Further it detects interface usage loops
+    # like: interface "a" needs "b" and "b" needs "a" and skips them.
+    #
+    # The optional skip list allows to stop the recursion insertion at
+    # e.g. already started / existing physical slave interfaces.
+    # Addding interfaces to resolve to this skip list causes resolving
+    # of the recursive list of slave interfaces without the requested
+    # interfaces themself (resolve_iface_startorder slaves "br0" "br0").
+    #
+    # The optional filter function allows to filter out interfaces as
+    # well as all depending interfaces. For example a vlan interface
+    # will be filtered out, when the underlying interface gets filtered
+    # out. This happens also, when the function does not cause to filter
+    # out the vlan interface directly. Main purpose is to filter out
+    # interfaces, that are not supported without a mounted remotefs.
+    #
+    # $1:  the name of the result start ordered list variable to set
+    # $2:  list of virtual interfaces to resolve the start order for
+    # $3:  optional list of interfaces to skip/stop reading
+    # $4:  optional (white list) filter function returning true for
+    #      acceptable interfaces and false to filter out an interface.
+    #
+    # returns 0 on success,
+    #         1 on empty result list name,
+    #         [2 on interface usage loop error; disabled]
+    #
+    local NAME="$1"
+    local TODO="$2"
+    local SKIP="$3"
+    local FUNC="$4"
+    local LIST=()
+
+    _resolve_iface_startorder() {
+	local  todo="$1"
+	local  skip="$2"
+	local  func="$3"
+	local guard="$4"
+	local level="$5"
+	local slaves iface i ret
+	local result=0
+	for iface in ${todo} ; do
+		for i in ${guard} ; do
+			if [ "x${i}" = "x${iface}" ] ; then
+				err_mesg "Interface dependency loop " \
+				         "detected: ${guard} ${iface}"
+				# guard non-empty in level > 0
+				return 2
+			fi
+		done
+
+		if [ "x$func" != x ] && ! $func "$iface" &>/dev/null ; then
+			[ $level -eq 0 ] && continue || return 3
+		fi
+
+		slaves=(`get_slaves $iface 2>/dev/null`)
+		if [ $? = 0 -a ${#slaves[@]} -gt 0 ] ; then
+			ret=0
+			_resolve_iface_startorder \
+				"${slaves[*]}"    \
+				"${skip}"         \
+				"${func}"         \
+				"${guard} $iface" \
+                                $(($level+1))     \
+				|| ret=$?
+			if [ $ret -ne 0 ] ; then
+				if [ $level -eq 0 ] ; then
+					#result=$ret
+					continue
+				else
+					return $ret
+				fi
+			fi
+		fi
+
+		for i in ${LIST[@]} ${skip} ; do
+			[ "x$i" = "x$iface" ] && continue 2
+		done
+
+		LIST=(${LIST[@]} $iface)
+	done
+	return $result
+    }
+
+    [ "x$NAME" = x ] && return 1
+
+    _resolve_iface_startorder "$TODO" "$SKIP" "$FUNC" "" 0 || return $?
+
+    eval "$NAME='${LIST[@]}'"
+}
+
+
+# returns 0 if there is a dhcp client running on this interface
+# prints pids of all dhcp clients on this interface
+# prints nothing if called with option '-q'
+# Usually it should not happen that more then one dhcpcd is running on one
+# interface, but it may happen. So better safe than sorry!
+dhcpc4_on_iface() {
+	local pid line
+	typeset -i retval=1
+	if [ "x$DHCLIENT"  != x -a \
+	     "x$INTERFACE" != x ] ; then
+	    # when the dhcp client forks, it may be not visible
+	    # in the process list for a short (usleep) while...
+	    typeset -i retries=3
+	    for ((; retries > 0; retries--)) ; do
+		while read pid line; do
+			retval=0
+			test "x$1" == "x-q" && break
+			echo $pid
+		done < <(ps axhww | grep -Es "[ /]$DHCLIENT\>.*\<$INTERFACE\>$")
+		(( retval == 0 )) && break || usleep 100000
+	    done
+	fi
+	return $retval
+}
+dhcpc6_on_iface() {
+	local pid line
+	typeset -i retval=1
+	if [ "x$DHCLIENT6"  != x -a \
+	     "x$INTERFACE" != x ] ; then
+	    # when the dhcp client forks, it may be not visible
+	    # in the process list for a short (usleep) while...
+	    typeset -i retries=3
+	    for ((; retries > 0; retries--)) ; do
+		while read pid line; do
+			retval=0
+			test "x$1" == "x-q" && break
+			echo $pid
+		done < <(ps axhww | grep -Es "[ /]$DHCLIENT6\>.*\<$INTERFACE\>$")
+		(( retval == 0 )) && break || usleep 100000
+	    done
+	fi
+	return $retval
+}
+dhcpc_on_iface() {
+	local pid line
+	typeset -i retval=1
+	if [ "x$DHCLIENT"  != x -a \
+	     "x$DHCLIENT6" != x -a \
+	     "x$INTERFACE" != x ] ; then
+	    # when the dhcp client forks, it may be not visible
+	    # in the process list for a short (usleep) while...
+	    typeset -i retries=3
+	    for ((; retries > 0; retries--)) ; do
+		while read pid line; do
+			retval=0
+			test "$1" == "-q" && break
+			echo $pid
+		done < <(ps axhww | grep -Es "[ /]($DHCLIENT|$DHCLIENT6)\>.*\<$INTERFACE\>$")
+		(( retval == 0 )) && break || usleep 100000
+	    done
+	fi
+	return $retval
+}
+any_dhcpc_on_iface()
+{
+	typeset -i retval=1
+	if [ "x$INTERFACE" != x ] ; then
+		eval local `grep -h '^DHCLIENT_BIN=' \
+		           /etc/sysconfig/network/dhcp`
+		eval local `grep -h '^DHCLIENT6_BIN=' \
+		           /etc/sysconfig/network/dhcp`
+		: ${DHCLIENT_BIN:=dhcpcd}
+		: ${DHCLIENT6_BIN:=dhcp6c}
+		local dhclients=()
+		for x in "${DHCLIENT_BIN##*/}" \
+		         "${DHCLIENT6_BIN##*/}" \
+		         dhcpcd dhclient \
+		         dhcp6c dhclient6 ;
+		do
+			[ "x$x" == x ] && continue
+			for d in ${dhclients[@]} ; do
+				[ "x$d" = "x$x" ] && continue 2
+			done
+			dhclients=(${dhclients[@]} "$x")
+		done
+		if [ ${#dhclients[@]} -gt 0 ] ; then
+		    local pid line
+		    dhclients=${dhclients[@]}
+		    dhclients=${dhclients// /|}
+		    # when the dhcp client forks, it may be not visible
+		    # in the process list for a short (usleep) while...
+		    typeset -i retries=3
+		    for ((; retries > 0; retries--)) ; do
+			while read pid line; do
+				retval=0
+				test "$1" == "-q" && break
+				echo $pid
+			done < <(ps axhww | grep -Es "[ /]($dhclients)\>.*\<$INTERFACE\>$")
+			(( retval == 0 )) && break || usleep 100000
+		    done
+		fi
+	fi
+	return $retval
+}
+dhcp_interfaces() {
+	for INTERFACE in `ls -1 /sys/class/net`; do
+		if test -d "/sys/class/net/$INTERFACE" ; then
+			any_dhcpc_on_iface -q && echo "$INTERFACE"
+		fi
+	done
+	return 0
 }
 
 # We have to write status files per interface or per configuration for at least
@@ -642,418 +1355,5 @@ commit_cached_config_data () {
 	else
 		rm -f $FILE
 	fi
-}
-
-is_connected () {
-	case `read_cached_config_data status $1` in
-		connected) return 0 ;;
-		connecting) return 0 ;; # might be wrong, test for link to
-	esac
-	return 1
-}
-
-has_link () {
-	case `read_cached_config_data link $1` in
-		yes) return 0 ;;
-	esac
-	return 1
-}
-
-# This function looks for interfaces which depend on the given interface. It
-# prints a list with all depending interfaces. It returns 0 if there are
-# depending interfaces and !=0 if not.
-# Currently it checks only for vlan and optionally bonding slave interfaces.
-# FIXME: Add other types of interfaces that depend on others.
-get_depending_ifaces() {
-	local VLAN_PATH BOND_PATH DEP_VLANS DEP_BONDS BASE_IFACE i
-	local -a DEP_IFACES=()
-	VLAN_PATH="/proc/net/vlan"
-	BOND_PATH=""
-	while [ $# -gt 0 ]; do
-		case $1 in
-		--with-bonding-slaves)
-			BOND_PATH="/proc/net/bonding"
-			shift
-		;;
-		-*)	shift ;;
-		*)	break ;;
-		esac
-	done
-	BASE_IFACE="$1"
-
-	if [ -z "$BASE_IFACE" ]; then
-		return 1
-	fi
-
-	if [ -d "$VLAN_PATH" ]; then
-		DEP_VLANS=`cd "$VLAN_PATH"
-			grep -lws "Device: *$BASE_IFACE" *`
-		DEP_IFACES+=($DEP_VLANS)
-	fi
-
-	if [ -n "$BOND_PATH" -a -d "$BOND_PATH" ]; then
-		DEP_BONDS=`cd "$BOND_PATH"
-			grep -s '^Slave Interface:' $BASE_IFACE |
-			while IFS=':' read text iface ; do echo -n "$iface" ; done`
-		DEP_IFACES+=($DEP_BONDS)
-	fi
-
-	case $BASE_IFACE in
-		(ib*.*)	;;
-		(ib*)	# the infiniband children -- is there a better way?
-			for i in `ls -1 /sys/class/net/ 2>/dev/null` ; do
-				test -d /sys/class/net/$i || continue
-				case $i in (${BASE_IFACE}.*)
-					DEP_IFACES+=($i)
-				;;
-				esac
-		     	done
-		;;
-	esac
-
-	if [ ${#DEP_IFACES[*]} -gt 0 ]; then
-		echo "${DEP_IFACES[*]}"
-		return 0
-	else
-		return 1
-	fi
-}
-
-resolve_iface_startorder()
-{
-    #
-    # resolve_iface_startorder <name of the result variable>
-    #                          <list of interfaces to resolve>
-    #                          [ <skip list> [filter fuction] ]
-    #
-    # This function creates a start ordered list of virtual interfaces
-    # as bondings, vlans and bridges known by the get_slaves() function.
-    # It reads the base or "slave" interfaces of each virtual interface
-    # recursively and inserts the slaves into the result list before the
-    # virtual interface itself. Further it detects interface usage loops
-    # like: interface "a" needs "b" and "b" needs "a" and skips them.
-    #
-    # The optional skip list allows to stop the recursion insertion at
-    # e.g. already started / existing physical slave interfaces.
-    # Addding interfaces to resolve to this skip list causes resolving
-    # of the recursive list of slave interfaces without the requested
-    # interfaces themself (resolve_iface_startorder slaves "br0" "br0").
-    #
-    # The optional filter function allows to filter out interfaces as
-    # well as all depending interfaces. For example a vlan interface
-    # will be filtered out, when the underlying interface gets filtered
-    # out. This happens also, when the function does not cause to filter
-    # out the vlan interface directly. Main purpose is to filter out
-    # interfaces, that are not supported without a mounted remotefs.
-    #
-    # $1:  the name of the result start ordered list variable to set
-    # $2:  list of virtual interfaces to resolve the start order for
-    # $3:  optional list of interfaces to skip/stop reading
-    # $4:  optional (white list) filter function returning true for
-    #      acceptable interfaces and false to filter out an interface.
-    #
-    # returns 0 on success,
-    #         1 on empty result list name,
-    #         [2 on interface usage loop error; disabled]
-    #
-    local NAME="$1"
-    local TODO="$2"
-    local SKIP="$3"
-    local FUNC="$4"
-    local LIST=()
-
-    _resolve_iface_startorder() {
-	local  todo="$1"
-	local  skip="$2"
-	local  func="$3"
-	local guard="$4"
-	local level="$5"
-	local slaves iface i ret
-	local result=0
-	for iface in ${todo} ; do
-		for i in ${guard} ; do
-			if [ "x${i}" = "x${iface}" ] ; then
-				err_mesg "Interface dependency loop " \
-				         "detected: ${guard} ${iface}"
-				# guard non-empty in level > 0
-				return 2
-			fi
-		done
-
-		if [ "x$func" != x ] && ! $func "$iface" &>/dev/null ; then
-			[ $level -eq 0 ] && continue || return 3
-		fi
-
-		slaves=(`get_slaves $iface 2>/dev/null`)
-		if [ $? = 0 -a ${#slaves[@]} -gt 0 ] ; then
-			ret=0
-			_resolve_iface_startorder \
-				"${slaves[*]}"    \
-				"${skip}"         \
-				"${func}"         \
-				"${guard} $iface" \
-                                $(($level+1))     \
-				|| ret=$?
-			if [ $ret -ne 0 ] ; then
-				if [ $level -eq 0 ] ; then
-					#result=$ret
-					continue
-				else
-					return $ret
-				fi
-			fi
-		fi
-
-		for i in ${LIST[@]} ${skip} ; do
-			[ "x$i" = "x$iface" ] && continue 2
-		done
-
-		LIST=(${LIST[@]} $iface)
-	done
-	return $result
-    }
-
-    [ "x$NAME" = x ] && return 1
-
-    _resolve_iface_startorder "$TODO" "$SKIP" "$FUNC" "" 0 || return $?
-
-    eval "$NAME='${LIST[@]}'"
-}
-
-nm_running () {
-	local MSG RET
-	test -x "$NETWORKMANAGER_BIN" || return
-	MSG=`checkproc $NETWORKMANAGER_BIN 2>&1`
-	RET=$?
-	info_mesg "$MSG"
-	return $RET
-}
-
-netcontrol_running() {
-	test -f $NETWORK_RUNFILE
-}
-
-# returns 0 if ifup is currently working on this interface
-ifup_on_iface() {
-	ps axhww | grep -qs "[i]fup.* $INTERFACE\>"
-}
-
-# returns 0 if there is a dhcp client running on this interface
-# prints pids of all dhcp clients on this interface
-# prints nothing if called with option '-q'
-# Usually it should not happen that more then one dhcpcd is running on one
-# interface, but it may happen. So better safe than sorry!
-dhcpc4_on_iface() {
-	local pid line
-	typeset -i retval=1
-	if [ "x$DHCLIENT"  != x -a \
-	     "x$INTERFACE" != x ] ; then
-	    # when the dhcp client forks, it may be not visible
-	    # in the process list for a short (usleep) while...
-	    typeset -i retries=3
-	    for ((; retries > 0; retries--)) ; do
-		while read pid line; do
-			retval=0
-			test "x$1" == "x-q" && break
-			echo $pid
-		done < <(ps axhww | grep -Es "[ /]$DHCLIENT\>.*\<$INTERFACE\>$")
-		(( retval == 0 )) && break || usleep 100000
-	    done
-	fi
-	return $retval
-}
-dhcpc6_on_iface() {
-	local pid line
-	typeset -i retval=1
-	if [ "x$DHCLIENT6"  != x -a \
-	     "x$INTERFACE" != x ] ; then
-	    # when the dhcp client forks, it may be not visible
-	    # in the process list for a short (usleep) while...
-	    typeset -i retries=3
-	    for ((; retries > 0; retries--)) ; do
-		while read pid line; do
-			retval=0
-			test "x$1" == "x-q" && break
-			echo $pid
-		done < <(ps axhww | grep -Es "[ /]$DHCLIENT6\>.*\<$INTERFACE\>$")
-		(( retval == 0 )) && break || usleep 100000
-	    done
-	fi
-	return $retval
-}
-dhcpc_on_iface() {
-	local pid line
-	typeset -i retval=1
-	if [ "x$DHCLIENT"  != x -a \
-	     "x$DHCLIENT6" != x -a \
-	     "x$INTERFACE" != x ] ; then
-	    # when the dhcp client forks, it may be not visible
-	    # in the process list for a short (usleep) while...
-	    typeset -i retries=3
-	    for ((; retries > 0; retries--)) ; do
-		while read pid line; do
-			retval=0
-			test "$1" == "-q" && break
-			echo $pid
-		done < <(ps axhww | grep -Es "[ /]($DHCLIENT|$DHCLIENT6)\>.*\<$INTERFACE\>$")
-		(( retval == 0 )) && break || usleep 100000
-	    done
-	fi
-	return $retval
-}
-any_dhcpc_on_iface()
-{
-	typeset -i retval=1
-	if [ "x$INTERFACE" != x ] ; then
-		eval local `grep -h '^DHCLIENT_BIN=' \
-		           /etc/sysconfig/network/dhcp`
-		eval local `grep -h '^DHCLIENT6_BIN=' \
-		           /etc/sysconfig/network/dhcp`
-		: ${DHCLIENT_BIN:=dhcpcd}
-		: ${DHCLIENT6_BIN:=dhcp6c}
-		local dhclients=()
-		for x in "${DHCLIENT_BIN##*/}" \
-		         "${DHCLIENT6_BIN##*/}" \
-		         dhcpcd dhclient \
-		         dhcp6c dhclient6 ;
-		do
-			[ "x$x" == x ] && continue
-			for d in ${dhclients[@]} ; do
-				[ "x$d" = "x$x" ] && continue 2
-			done
-			dhclients=(${dhclients[@]} "$x")
-		done
-		if [ ${#dhclients[@]} -gt 0 ] ; then
-		    local pid line
-		    dhclients=${dhclients[@]}
-		    dhclients=${dhclients// /|}
-		    # when the dhcp client forks, it may be not visible
-		    # in the process list for a short (usleep) while...
-		    typeset -i retries=3
-		    for ((; retries > 0; retries--)) ; do
-			while read pid line; do
-				retval=0
-				test "$1" == "-q" && break
-				echo $pid
-			done < <(ps axhww | grep -Es "[ /]($dhclients)\>.*\<$INTERFACE\>$")
-			(( retval == 0 )) && break || usleep 100000
-		    done
-		fi
-	fi
-	return $retval
-}
-dhcp_interfaces() {
-	for INTERFACE in `ls -1 /sys/class/net`; do
-		if test -d "/sys/class/net/$INTERFACE" ; then
-			any_dhcpc_on_iface -q && echo "$INTERFACE"
-		fi
-	done
-	return 0
-}
-
-# Parse iSCSI Boot Firmare Table settings of given interface
-# and provide as adequate ifcfg/netcontrol scripts settings.
-parse_ifname_ibft_settings()
-{
-	case $1 in ""|.|..|*/*) return 1 ;; esac
-	test -d "/sys/class/net/$1" || return 1
-
-	local IF="$1" sysfs_ibft="/sys/firmware/ibft"
-	#test -d "$sysfs_ibft" || modprobe -qs iscsi_ibft 2>/dev/null
-	test -d "$sysfs_ibft" || return 1
-
-	local edir ibft_e_origin
-	for edir in $(ls -1d "$sysfs_ibft/ethernet"* 2>/dev/null) ;
-	do
-		if test -d "$edir/device/net/$IF" ; then
-			# Check another flags (flags bit 1, FW Boot Selected)?
-			# IpPrefixOrigin: Other,Manual,WellKnown,Dhcp,RouterAdv
-			ibft_e_origin=`cat "$edir/origin" 2>/dev/null`
-			case $ibft_e_origin in
-			3)	# IpPrefixOriginDdhcp
-				echo "BOOTPROTO='dhcp'"
-			;;
-			*)	# ... everything else ('static' ?!)
-				echo "BOOTPROTO='none'"
-			;;
-			esac
-			return 0
-		fi
-	done
-	return 1
-}
-
-get_pxe_bootif_param()
-{
-	local cmdline=$(cat /proc/cmdline 2>/dev/null)
-	local rx='^(.*[[:space:]])?BOOTIF=([[:xdigit:]]{2}([-[:xdigit:]]{2})+)([[:space:]].*)?$'
-	if [[ ${cmdline} =~ ${rx} ]] ; then
-		echo "${BASH_REMATCH[2]}"
-	fi
-}
-
-is_pxe_boot_iface()
-{
-	# params <interface name>
-	# output 'yes': bootif param available, $1 interface match
-	#        'no' : bootif param available, no $1 interface match
-	#        ''   : otherwise (no bootif param, errors)
-	# returns 0 on success, 1 on errors
-	local bootif=`get_pxe_bootif_param 2>/dev/null`
-	test "x$bootif" = x && return 0
-
-	local ifname="$1"
-	test  "x$ifname" != x -a -d "/sys/class/net/$ifname" || return 1
-	local iftype=`cat "/sys/class/net/$ifname/type" 2>/dev/null`
-	local ifaddr=`get_hwaddress "$ifname"`
-	test "x$iftype" != x -a "x$ifaddr" != x || return 1
-
-	local maddr=${bootif//-/:}
-	local addrs="$ifaddr" addr
-	case $iftype in
-	1)
-		# TODO: bridge and vlan inherit hwaddrs as well
-		if test -d "/sys/class/net/$ifname/bonding" ; then
-			addrs=`get_bonding_slave_hwaddrs "$ifname" 2>/dev/null`
-		fi
-	;;
-	esac
-	for addr in ${addrs} ; do
-		local x=`printf "%02x:%s" "$iftype" "$addr" 2>/dev/null`
-		if test "x$maddr" = "x$x" ; then
-			echo "yes"
-			return 0
-		fi
-	done
-	echo "no"
-}
-
-is_ibft_primary_iface()
-{
-	# params <interface name>
-	# output 'yes': ibft interfaces available, $1 interface is ibft primary
-	#        'no' : ibft interfaces available, $1 interface is not primary
-	#        ''   : otherwise (no ibft, errors)
-	# returns 0 on success, 1 on errors
-	case $1 in ""|.|..|*/*) return 1 ;; esac
-	test -d "/sys/class/net/$1" || return 1
-
-	local IF="$1" sysfs_ibft="/sys/firmware/ibft"
-	test -d "$sysfs_ibft" || return 1
-
-	# ibft ethernet0 is the primary ibft => dhcp primary
-	local ibft_nic0 enic edir="$sysfs_ibft/ethernet0"
-	if test -d "$edir" -a -d "$edir/device/net" ; then
-		for enic in `ls -1 $edir/device/net/ 2>/dev/null` ; do
-			test -d "$edir/device/net/$enic" || continue
-			ibft_nic0=$enic
-			break
-		done
-	fi
-
-	if test "x$ibft_nic0" != "x" ; then
-		test "x$ibft_nic0" = "x$IF" && echo yes || echo no
-	fi
-	return 0
 }
 

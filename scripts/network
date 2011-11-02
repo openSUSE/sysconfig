@@ -403,12 +403,7 @@ fi
 
 # At first sort into VIRTUAL interface set and the subsets BONDING,
 # BRIDGE, DIALUP, TUNNEL and VLAN.
-while IFS=- read a b; do
-	case "$b" in
-		""|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup)
-			continue
-		;;
-	esac
+for b in `get_iface_config_names` ; do
 	b=`type_filter $b`
 	t=`get_iface_type_from_config $b`
 	case $t in
@@ -444,7 +439,7 @@ while IFS=- read a b; do
 			err_mesg "$b has unknown interface type. Please file a bug report."
 		;;
 	esac
-done < <(ls -1d /etc/sysconfig/network/ifcfg-*)
+done
 
 # Now get all available interfaces drop lo and separate them into physical and
 # not physical. Then get AVAILABLE_IFACES sorted to shutdown the not physical
@@ -494,12 +489,7 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 	# -  which are virtual, dialup or tunnel interfaces
 	# -  which serve as slave interfaces for bonding, vlan
 	#    or tunnels, except the slave interfaces are physical
-	while IFS=- read a b; do
-		case "$b" in
-			""|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup|lo)
-				continue
-			;;
-		esac
+	for b in `get_iface_config_names` ; do
 		case "`get_startmode $b`" in
 			on|boot|onboot|auto|ifplugd) : ;;
 			*) continue ;;
@@ -527,7 +517,7 @@ if [ -z "$MANDATORY_DEVICES" ] ; then
 			fi
 		done
 		MANDATORY_DEVICES="$MANDATORY_DEVICES $b"
-	done < <(ls -1d /etc/sysconfig/network/ifcfg-*)
+	done
 	if [    -n "$MANDATORY_DEVICES" \
 	     -a "$MODE" != onboot \
 	     -a "$ACTION" = start ] ; then
