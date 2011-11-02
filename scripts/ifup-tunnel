@@ -84,13 +84,12 @@ done
 ######################################################################
 # check presence of configuration file and source it
 #
-if [ -f ifcfg-$CONFIG ] ; then
-	. ifcfg-$CONFIG
-elif test "$ACTION" != down ; then
-	message "could not find configuration file ifcfg-$CONFIG"
+source_iface_config "$CONFIG" || {
+     if test "$ACTION" != down ; then
+	message "could not find interface configuration: $CONFIG"
 	exit $R_NOCONFIG
-fi
-
+     fi
+}
 
 ######################################################################
 # function adding a static ip tunnel

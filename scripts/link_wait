@@ -99,7 +99,7 @@ is_iface_available "$INTERFACE" || exit 0
 unset LINK_WAIT
 unset LINK_WAIT_SECS
 unset LINK_WAIT_PING_IPV4
-test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG || exit 0
+source_iface_config "$CONFIG" || exit 0
 
 # usage: ifprint <err_mesg|mesg|...> message text...
 ifprint() {

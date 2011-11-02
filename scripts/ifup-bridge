@@ -78,7 +78,7 @@ fi
 ######################################################################
 # check presence of configuration file and source it
 #
-test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+source_iface_config "$CONFIG"
 
 ######################################################################
 # global variables

@@ -42,6 +42,7 @@ usage () {
 	echo "    dhcp     : we are called from dhcp client" 
 	echo "    prov=<n> : use provider <n> (for dial up interface)"
 	echo "    nodeps   : don't shut down interfaces depending on this" 
+	echo "    force    : force action, e.g. ifdown of nfsroot interface"
 	echo "    debug    : be verbose"
 	if [ "$SCRIPTNAME" = "ifstatus" ] ; then
 		echo "    syslog   : write to syslog if USE_SYSLOG=yes"
@@ -97,6 +98,7 @@ OPTIONS=$@
 MODE=manual
 HOTPLUG=no
 BOOTING=no
+FORCE=no
 CONTROL_IFPLUGD=yes # Start/Stop ifplugd?
 # Don't log messages from ifstatus in syslog by default (Bug 261350). This
 # overwrites the config variable /etc/sysconfig/network/config:USE_SYSLOG
@@ -120,6 +122,7 @@ while [ $# -gt 0 ]; do
 		prov=*)      PROVIDER=${1##*=} ;;
 		dhcp)        DHCP=yes; CONTROL_IFPLUGD=no ;;
 		nodeps)      NODEPS=yes ;;
+		force)       FORCE=yes ;;
 		*)           debug "unknown option $1 ignored" ;;
 	esac
 	shift
@@ -148,7 +151,7 @@ case $SCRIPTNAME in
 			IFUPFILE=$RUN_FILES_BASE/if-$INTERFACE
 		fi
 		if [ -e $IFUPFILE ] ; then
-			if [ ! -e "ifcfg-$CONFIG" ] ; then
+			if ! exists_iface_config "$CONFIG" ; then
 				message "`printf "    %-9s config file removed: %s" \
 				         $INTERFACE "--> restart interface!"`"
 				exit $R_NOT_UP2DATE
@@ -161,7 +164,7 @@ case $SCRIPTNAME in
 				         $INTERFACE "$FILE" "--> restart interface!"`"
 				exit $R_NOT_UP2DATE
 			done
-		elif [ -e "ifcfg-$CONFIG" ] ; then
+		elif [ exists_iface_config "$CONFIG" ] ; then
 			message "`printf "    %-9s config file created: %s" \
 			         $INTERFACE "--> restart interface!"`"
 			exit $R_NOT_UP2DATE
@@ -230,8 +233,8 @@ fi
 #
 declare -r _INTERFACETYPE="$INTERFACETYPE"
 INTERFACETYPE=""
-if [ -n "$CONFIG" -a -r ifcfg-$CONFIG ] ; then
-	. ifcfg-$CONFIG
+if [ -n "$CONFIG" ] ; then
+	source_iface_config "$CONFIG"
 
 	# Complain when INTERFACETYPE is set in the config
 	# and ask the user to report a bug as it should be
@@ -305,16 +308,6 @@ fi
 #
 BOOTPROTO=$(echo "${BOOTPROTO}" | gawk '{print tolower($0);}')
 
-
-######################################################################
-# Parse iSCSI Boot Firmware Table (feature 308283, bnc 542225) to
-# either start dhcp client or keep anything untouched, because it
-# is already configured in the initrd.
-#
-if [ "${BOOTPROTO}" = "ibft" ] ; then
-	IBFT=yes # not used at the moment... remember before override
-	eval BOOTPROTO=none `parse_ifname_ibft_settings "$INTERFACE"`
-fi
 
 ######################################################################
 # work around bug 85849
@@ -545,16 +538,12 @@ fi
 # - fail
 # - get it automatically
 # - ask the user
-if [    "$SCRIPTNAME" != ifdown  \
-     -a \(      -z "$CONFIG"     \
-           -o ! -r ifcfg-$CONFIG \) ] ; then
+if [    "$SCRIPTNAME" != ifdown ] && ! exists_iface_config "$CONFIG" ; then
 	RET_STATE=removed
 	logerror "              No configuration found for $INTERFACE"
 	exit $R_NOCONFIG
 fi
-if [    "$SCRIPTNAME" = ifdown  \
-     -a \(      -z "$CONFIG"     \
-           -o ! -r ifcfg-$CONFIG \) ] ; then
+if [    "$SCRIPTNAME" = ifdown  ] && ! exists_iface_config "$CONFIG" ; then
 	RET_STATE=removed
 	LOCK_RET_STATE=yes
 	if is_iface_available $INTERFACE; then
@@ -615,7 +604,7 @@ test "$STARTMODE" = "hotplug" && STARTMODE=auto
 if [ "$STARTMODE" = "nfsroot" ] ; then
 	STARTMODE=auto
 	# if this interface serves nfs root, then don't shut it down via rcnetwork
-	if [ "$SCRIPTNAME" = ifdown -a "$RUN_FROM_RC" = yes ] ; then
+	if [ "$SCRIPTNAME" = ifdown -a "$FORCE" != "yes" ] ; then
 		message "`printf "    %-9s serves root filesystem. Leave it up." \
 		                 "$INTERFACE"`"
 		RET_STATE=keep_state
@@ -967,10 +956,24 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 		ifup-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		retcode=$?
 	;;
-	none)
+	none|ibft)
 		# stop dhcp client, ... on slaves or it may continue
 		# running and have IPs, when the config changed ...
 		case $SCRIPTNAME in
+			ifup)
+				# The iSCSI Boot Firmware Table is sourced automatically now.
+				# In iBFT mode, we either start a dhcp client or do nothing,
+				# since the ip configuration happened in initrd already.
+				# In non-dhcp case, we apply (never remove) nameservers here
+				# via netconfig...
+				if [ "$IBFT" = "yes" -a "${BOOTPROTO:0:4}" != "dhcp" ] ; then
+					if test -n "$IBFT_DNS_1" ; then
+						# note: -m dns causes to execute dns related scripts only
+						/sbin/netconfig modify -m dns -s iBFT -i "$INTERFACE" \
+						<<<"DNSSERVERS='${IBFT_DNS_1}${IBFT_DNS_2:+ $IBFT_DNS_2}'" >/dev/null
+					fi
+				fi
+			;;
 			ifdown)
 				ifdown-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 				ifdown-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}

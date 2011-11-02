@@ -72,7 +72,7 @@ fi
 ######################################################################
 # check presence of configuration file and source it
 #
-test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
+source_iface_config "$CONFIG"
 
 ######################################################################
 # get the base interface and check if it is available or up
