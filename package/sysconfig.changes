@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Wed Nov  2 14:44:23 UTC 2011 - mt@suse.com
+
+- version 0.71.44
+- Fixed iBFT support to not use any ifcfg files, added workaround
+  for virtio iBFT references (additional path component), try to
+  request the iBFT IP-Address in DHCP mode and apply the iBFT DNS
+  name servers (when any) via netconfig (bnc#723796).
+- Disabled ip addr flush in ifdown as this causes removal of ipv6
+  sysctl tree (see bnc#580018 / bnc#559170) and this may cause that
+  ifup-sysctl is unable to apply sysctl's.
+
+-------------------------------------------------------------------
 Fri Sep 16 12:54:41 UTC 2011 - mt@suse.com
 
 - version 0.71.43
