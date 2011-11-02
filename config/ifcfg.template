@@ -39,7 +39,7 @@ STARTMODE=
 #
 IFPLUGD_PRIORITY=
 
-## Type:    list(static,dhcp,dhcp4,dhcp6,autoip,dhcp+autoip,6to4,ibft,none)
+## Type:    list(static,dhcp,dhcp4,dhcp6,autoip,dhcp+autoip,6to4,none)
 ## Default: static
 #
 # With BOOTPROTO you can choose in which mode the interface will be set up:
@@ -50,7 +50,6 @@ IFPLUGD_PRIORITY=
 # - autoip:      Automatic search for a free address and assign it statically.
 # - dhcp+autoip: Try dhcp4 and use autoip if dhcp fails.
 # - 6to4:        Set up ipv6 over ipv4 tunnel (see man ifcfg-tunnel)
-# - ibft:        Use iSCSI  Boot  Firmware Table (iBFT)
 # - none:        Do not set up the link or ip, a (bonding) master will do it.
 # If you use dhcp or autoip you may additionally specify static address(es).
 #

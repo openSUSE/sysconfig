@@ -75,8 +75,9 @@ Nearly like
 but interfaces with this startmode will never be shut down via 
 .I rcnetwork 
 .IR stop .
-.I ifdown <interface> 
+.I ifdown <interface> -o force
 still works. Use this when you use a root filesystem via network.
+This mode is used automatically for all interfaces with iBFT firmware.
 .TP
 .B off
 .br
@@ -95,7 +96,7 @@ when the cable is plugged. Note: This is not supported for e.g. bridge interface
 or bridge ports.
 
 .TP 
-.BR BOOTPROTO\  { static* | dhcp | dhcp4 | dhcp6 | autoip | dhcp+autoip | 6to4 | none | ibft }
+.BR BOOTPROTO\  { static* | dhcp | dhcp4 | dhcp6 | autoip | dhcp+autoip | 6to4 | none }
 Setup protocol. If this variable is empty or missing, it defaults to \fBstatic\fR.
 .RS
 .PD 0
@@ -144,11 +145,12 @@ is done in the initrd and inconsistencies could break it.
 .br
 .B ibft
 .br
-For interfaces with iSCSI Boot Firmware Table (iBFT) firmware, defined in
-ACPI 3.0b specification, intended to use together with STARTMODE=nfsroot.
-Causes reading of the iBFT settings (/sys/firmware/ibft) for the interface
-and override the BOOTPROTO setting internally to \fBdhcp\fR when the origin
-flag is set to \fIIpPrefixOriginDdhcp\fR (3), otherwise to \fBnone\fR.
+This mode is \fBobsolete\fR.
+The iSCSI Boot Firmware Table (iBFT) firmware (/sys/firmware/ibft), is always
+read. When the iBFT settings are available for the interface, only the ibft
+settings are used and the ifcfg config file isn't read / ignored completely.
+When specified in the ifcfg file of a non-iBFT interface, behaviour is same
+to \fBnone\fR.
 .PD
 .RE
 
