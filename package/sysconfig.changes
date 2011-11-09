@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Nov  9 09:58:49 UTC 2011 - mt@suse.com
+
+- Fixed to wait for the end of ipv6 duplicate address detection,
+  that can cause failures of further services.
+  Added LINK_READY_WAIT and IPV6_DAD_WAIT variables (bnc#697929).
+
+-------------------------------------------------------------------
 Thu Jun  9 14:58:52 UTC 2011 - mt@suse.de
 
 - Fixed get_depending_ifaces to not return bonding slaves by
