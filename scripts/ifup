@@ -980,9 +980,8 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 				# Calling 'ip' if there is no interface (ifdown called from udev for
 				# remove event) would trigger automatic module loading (Bug 199456)
 				if [ -d /sys/class/net/$INTERFACE ] ; then
-					# do not flush (bnc#580018, bnc#559170)
-					#ip addr flush dev $INTERFACE &>/dev/null
 					ip link set dev $INTERFACE down &>/dev/null
+					ip addr flush dev $INTERFACE &>/dev/null
 				fi
 				retcode=0 # $?
 			;;
@@ -1221,9 +1220,8 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 				# Calling 'ip' if there is no interface (ifdown called from udev for
 				# remove event) would trigger automatic module loading (Bug 199456)
 				if [ -d /sys/class/net/$INTERFACE ] ; then
-					# do not flush (bnc#580018, bnc#559170)
-					#ip addr flush dev $INTERFACE &>/dev/null
 					ip link set dev $INTERFACE down &>/dev/null
+					ip addr flush dev $INTERFACE &>/dev/null
 				fi
 				retcode=0 # $?
 				;;
