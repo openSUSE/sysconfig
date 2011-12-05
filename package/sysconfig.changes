@@ -5,7 +5,7 @@ Mon Dec  5 16:41:06 UTC 2011 - mt@suse.com
 - Do not suggest dhcp6c client from dropped dhcpv6 package
   in ifup-dhcp, marked dhcp6c as deprecated in network/dhcp
   and changed to use dhclient6 as first choice (bnc#734723).
-- Added X-Systemd-RemainAfterExit: true LSB init header
+- Added X-Systemd-RemainAfterExit: true LSB header (bnc#727771)
 - Fixed iBFT support to not use any ifcfg files, added workaround
   for virtio iBFT references (additional path component), try to
   request the iBFT IP-Address in DHCP mode and apply the iBFT DNS
