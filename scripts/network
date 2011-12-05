@@ -39,6 +39,7 @@
 # Short-Description:	Configure the localfs depending network interfaces
 # Description:		Configure the localfs depending network interfaces
 #                       and set up routing
+# X-Systemd-RemainAfterExit: true
 ### END INIT INFO
 
 . /etc/rc.status
