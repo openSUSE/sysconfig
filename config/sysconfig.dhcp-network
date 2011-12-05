@@ -16,23 +16,26 @@
 # of these options -- NetworkManager is not using any sysconfig settings.
 #
 
-## Type:	string
+## Type:	list(dhcpcd,dhclient,)
 ## Default:	""
 ## ServiceRestart: network
 #
 # Which DHCPv4 client should be used? 
-# If empty, dhcpcd is tried, then dhclient 
-# Other possible values:
+# Currently the following client are supported:
 # 	dhcpcd   (DHCP client daemon)
 # 	dhclient (ISC dhclient)
+# If empty, dhcpcd is tried, then dhclient 
 DHCLIENT_BIN=""
 
-## Type:	string
+## Type:	list(dhclient6,)
 ## Default:	""
 ## ServiceRestart: network
 #
 # Which DHCPv6 client should be used? 
-# Currently only the dhcp6c client is supported.
+# Currently the following client are supported:
+#       dhclient6  (ISC dhcp 4.x client)
+#       dhcp6c     (dhcpv6 client -- deprecated, package dropped)
+# If empty, dhclient6 is tried, then dhcp6c
 #
 DHCLIENT6_BIN=""
 
