@@ -1,4 +1,20 @@
 -------------------------------------------------------------------
+Mon Dec  5 16:41:06 UTC 2011 - mt@suse.com
+
+- version 0.76.0
+- Do not suggest dhcp6c client from dropped dhcpv6 package
+  in ifup-dhcp, marked dhcp6c as deprecated in network/dhcp
+  and changed to use dhclient6 as first choice (bnc#734723).
+- Added X-Systemd-RemainAfterExit: true LSB init header
+- Fixed iBFT support to not use any ifcfg files, added workaround
+  for virtio iBFT references (additional path component), try to
+  request the iBFT IP-Address in DHCP mode and apply the iBFT DNS
+  name servers (when any) via netconfig (bnc#723796).
+- Changed to call ip addr flush in ifdown, but after ip link set
+  down as it does not cause ipv6 sysctl tree side effects then
+  at least with more recent kernels (bnc#580018,bnc#559170).
+
+-------------------------------------------------------------------
 Sun Nov 27 06:57:47 UTC 2011 - coolo@suse.com
 
 - add libtool as buildrequire to avoid implicit dependency
