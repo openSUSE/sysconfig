@@ -1,3 +1,8 @@
+-------------------------------------------------------------------
+Sun Nov 27 06:57:47 UTC 2011 - coolo@suse.com
+
+- add libtool as buildrequire to avoid implicit dependency
+
 ------------------------------------------------------------------
 Fri Oct 21 11:35:06 UTC 2011 - mt@suse.com
 
