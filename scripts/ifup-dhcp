@@ -174,7 +174,7 @@ done
 DHCLIENT6=""
 for x in "$DHCLIENT6_BIN" \
 	 "/sbin/${DHCLIENT6_BIN##*/}" \
-	 "/sbin/dhcp6c" "/sbin/dhclient6" ;
+	 "/sbin/dhclient6" "/sbin/dhcp6c" ;
 do
 	if [ "x$x" != x -a "${x##/*}" != "$x" -a -x "$x" ] ; then
 		DHCLIENT6_BIN="$x"
@@ -255,14 +255,14 @@ case "$ACTION" in
 						print_mesg err_mesg \
 							"DHCP6 client ($DHCLIENT6_BIN) is not available."
 						print_mesg err_mesg \
-							"      Please install the 'dhcpv6' or 'dhcp-client' package"
+							"      Please install the 'dhcp-client' package"
 					fi
 				;;
 				"")
 					if [ "x$explicit_dhcp6" = "xyes" ] ; then
 						if [ "x$HAVE_IPv6" = xyes ] ; then
 							print_mesg err_mesg "DHCP6 client is not available."
-							print_mesg err_mesg "      Please install 'dhcpv6' or 'dhcp-client' package'"
+							print_mesg err_mesg "      Please install 'dhcp-client' package'"
 						else
 							print_mesg err_mesg "DHCP6 disabled - no IPv6 support"
 						fi
@@ -271,7 +271,7 @@ case "$ACTION" in
 				*)
 					DHCLIENT6=""
 					print_mesg err_mesg "DHCP6 client unknown/unsupported: $DHCLIENT6_BIN"
-					print_mesg err_mesg "      Please install the 'dhcpv6' or 'dhcp-client' package"
+					print_mesg err_mesg "      Please install the 'dhcp-client' package"
 				;;
 				esac
 			;;
