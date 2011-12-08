@@ -1005,6 +1005,15 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 			ifup)
 				retcode=$R_SUCCESS
 				if [ -n "$MTU" ] ; then
+					read mtu 2>/dev/null < "/sys/class/net/$INTERFACE/mtu"
+					[ "$MTU" = "$mtu" ] && unset MTU
+				fi
+				if [ -n "$LLADDR" ] ; then
+					read lladdr 2>/dev/null < "/sys/class/net/$INTERFACE/address"
+					[ "$LLADDR" = "$lladdr" ] && unset LLADDR
+				fi
+
+				if [ -n "$MTU" ] ; then
 					ip link set $INTERFACE mtu $MTU
 					retcode_mtu=$?
 				fi
