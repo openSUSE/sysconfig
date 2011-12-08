@@ -195,6 +195,9 @@ fi
 if [ -f /etc/udev/rules.d/30-net_persistent_names.rules.to_convert ] ; then
 	etc/sysconfig/network/scripts/convert_persistent_name_rules
 fi
+# correct persistent name rules using ATTRS{address} instead ATTR{address}
+# they may exist, when system were updated from SLE-10 to SLE-11-GA before
+etc/sysconfig/network/scripts/correct_persistent_name_attrs_rules || :
 # convert hwdescs to interface names in config filenames and variables
 if [ -f etc/sysconfig/network/__convert_hwdesc_to_iface__ ] ; then
 	pushd etc/sysconfig/network
