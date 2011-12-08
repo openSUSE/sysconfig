@@ -1,4 +1,25 @@
 -------------------------------------------------------------------
+Thu Dec  8 16:46:43 UTC 2011 - mt@suse.com
+
+- Added correction script for persistent name rules converted on
+  SLE-11-GA while update from SLE-10 using ATTRS{address} instead
+  of ATTR{address} match (bnc#733704, due typo in bnc#546575).
+- Do not try to set MTU or LLADDR in ifup when it is already set
+  (bnc#728059).
+
+-------------------------------------------------------------------
+Fri Nov 18 12:31:01 UTC 2011 - mt@suse.com
+
+- Reverted to call ip addr flush in ifdown (bnc#580018/bnc#559170),
+  but after ip link set down as it does not cause ipv6 sysctl tree
+  side effects at least with 3.0 kernels (bnc#731213).
+
+-------------------------------------------------------------------
+Tue Nov  8 14:42:23 UTC 2011 - mt@suse.com
+
+- Fixed ugly bug causing to never source ifcfg files
+
+-------------------------------------------------------------------
 Wed Nov  2 14:44:23 UTC 2011 - mt@suse.com
 
 - version 0.71.44
@@ -9,6 +30,14 @@ Wed Nov  2 14:44:23 UTC 2011 - mt@suse.com
 - Disabled ip addr flush in ifdown as this causes removal of ipv6
   sysctl tree (see bnc#580018 / bnc#559170) and this may cause that
   ifup-sysctl is unable to apply sysctl's.
+
+-------------------------------------------------------------------
+Mon Sep 26 10:09:23 UTC 2011 - mt@suse.com
+
+- Fixed to wait for ipv6 dad in /etc/init.d/network and disabled
+  link ready check by default as it breaks several interfaces as
+  host-only bridges. The link check can be enabled per interface
+  (bnc##697929).
 
 -------------------------------------------------------------------
 Fri Sep 16 12:54:41 UTC 2011 - mt@suse.com
