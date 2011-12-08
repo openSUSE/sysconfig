@@ -1,0 +1,299 @@
+#!/bin/bash
+
+lock_rules_file()
+{
+	local rules_file=${1:-$RULES_FILE}
+
+	[ "x$rules_file" = x ] && return 0
+	[ -e /dev/.udev/ ]     || return 0
+	RULES_LOCK="/dev/.udev/.lock-${rules_file##*/}"
+
+	local retry=30
+	while ! mkdir "$RULES_LOCK" 2> /dev/null; do
+		if [ $retry -eq 0 ]; then
+			echo >&2 "Cannot lock $rules_file!"
+			exit 2
+		fi
+		sleep 1
+		retry=$(($retry - 1))
+	done
+}
+
+unlock_rules_file()
+{
+	[ "x$RULES_LOCK" = x ] && return 0
+	rmdir $RULES_LOCK      || return 0
+}
+
+writeable()
+{
+	if ln -s test-link $1/.is-writeable.$$ 2> /dev/null; then
+		rm -f $1/.is-writeable.$$
+		return 0
+	else
+		return 1
+	fi
+}
+
+error()
+{
+	echo >&2 "$@"
+}
+verbose()
+{
+	test $VERBOSE -gt 0 && echo >&2 "$@"
+}
+debug1()
+{
+	test $VERBOSE -gt 1 && echo >&2 "$@"
+}
+debug2()
+{
+	test $VERBOSE -gt 2 && echo >&2 "$@"
+}
+
+dump_matches()
+{
+	local m i=0
+	for m in "$@" ; do
+		debug2 "MATCH[$i]: $m"
+		((++i))
+	done
+}
+
+rx_match_key()
+{
+	# params: <key pattern> <operator pattern> <rule line>
+	# on match, returns true and folowing captures in ${BASH_REMATCH[index]}:
+	#     0: rule line, 1: rule part before pair, 2: pair, 3: key,
+	#                   4: op, 5: quoted val, 6: unquoted val, 8: rest
+	test "x$1" != x -a "x$2" != x -a "$3" != x || return 1
+	local rx="(.*[[:space:],]*)?((${1})(${2})([\"]([^\",]*)[\"]))([,]?.*)"
+	[[ ${3} =~ $rx ]] && {
+		debug2 "MATCH OK:"
+		dump_matches "${BASH_REMATCH[@]}"
+		return 0
+	} || {
+		debug2 "NO MATCH FOR '${1}${2}'"
+		return 1
+	}
+}
+
+
+################################################################################
+
+PATH='/sbin:/bin'
+LANG=C
+LC_ALL=C
+
+RULES_FILE='etc/udev/rules.d/70-persistent-net.rules'
+
+DRY_RUN=0
+VERBOSE=0
+FORCE=0
+
+while [ $# -gt 0 ]; do
+	case $1 in
+	-f|--rule-file)	shift ; RULES_FILE=$1	;;
+	-v|--verbose)	((VERBOSE++))		;;
+	-d|--dry-run)	DRY_RUN=1		;;
+	-f|--force)	FORCE=1			;;
+	-*)		:			;;
+	*)		break			;;
+	esac
+	shift
+done
+
+test "x$1" = x || RULES_FILE=$1
+
+
+lock_rules_file "$RULES_FILE"
+
+if test ! -e "$RULES_FILE" ; then
+	verbose "Peristent net rule file '$RULES_FILE' does not exists"
+	unlock_rules_file "$RULES_FILE"
+	exit 0
+fi
+
+RULES_DIR=${RULES_FILE%/*}
+test "x$RULES_DIR" = "x$RULES_FILE" && RULES_DIR=.
+if ! writeable "${RULES_DIR}" ; then
+	error "Directory '${RULES_DIR}' is not writeable"
+	unlock_rules_file "$RULES_FILE"
+	exit 1
+fi
+
+TEMP_RNAME="/dev/.udev/tmp-rules--${RULES_FILE##*/}.XXXXXXXXXX"
+TEMP_RULES=`mktemp -q "${TEMP_RNAME}"`
+if test ! \( -n "$TEMP_RULES" -a -f "$TEMP_RULES" \) ; then
+	error "Cannot create temporary rule file ($TEMP_RULES)"
+	unlock_rules_file "$RULES_FILE"
+	exit 1
+else
+	debug1 "Created temporary rule file '$TEMP_RULES'"
+fi
+
+check_conflict_rules()
+{
+	local ifname=$1
+	local hwaddr=$2
+	local retval=0 count=0 line
+
+	debug1 "    Checking: $ifname, $hwaddr"
+	while read line ; do
+		case $line in \#*|"") continue ;; esac
+
+		# just ignore all attrs rules we currently rewrite
+		rx_match_key 'ATTRS[{]address[}]' '==' "$line" && continue
+
+		if rx_match_key 'ATTR[{]address[}]' '==' "$line" ; then
+		   debug1 "    Found ${BASH_REMATCH[2]}"
+
+		   if test "x${BASH_REMATCH[6]}" = "x$hwaddr" ; then
+			debug1 "    using same address $hwaddr"
+
+			if rx_match_key 'NAME' '=' "$line" ; then
+				debug1 "      Found ${BASH_REMATCH[2]}"
+				if test "x${BASH_REMATCH[6]}" = "x$ifname" ; then
+					# We have a correct rule too, drop incorrect one.
+					debug1 "        using same ifname -- drop addrs rule"
+					return 1 # drop broken rule
+				else
+					# OK, we found the problem, but it is very error
+					# prone to fix as we can break rules that were
+					# fixed by the user manually, e.g. by renaming
+					# interface configs + diverse variables ...
+					debug1 "        using $ifname -- conflicting rules"
+					error "Detected conflicts in '$RULES_FILE':"
+					error "Please review rules with NAME=\"$ifname\" and ${BASH_REMATCH[2]}"
+					return 2 # conflicting rule
+				fi
+			else
+				error "Cannot find any NAME= assignment in: '$line'"
+				return 3
+			fi
+		   fi
+		elif rx_match_key 'NAME' '=' "$line" ; then
+			debug1 "    Found ${BASH_REMATCH[2]} (no ATTR match)"
+			# We have a rule without ATTR match ... BUS based?
+			if test "x${BASH_REMATCH[5]}" = "x$ifname" ; then
+				debug1 "    using same ifname -- drop addrs rule"
+				return 1 # drop broken rule
+			else
+				# Hmm... this rule may be unrelated (another iface) or
+				# may match our interface by BUS to another ifname ...
+				# Let's report a conflict too, it needs manual fix.
+				debug1 "    using different ifname ... conflicting rules"
+				error "Detected conflicts in '$RULES_FILE':"
+				error "Please review rules with NAME=\"$ifname\" and ${BASH_REMATCH[2]}"
+				return 2
+			fi
+		fi
+
+	done < "$RULES_FILE"
+
+	return $retval
+}
+
+correct_attrs_rules()
+{
+	local line retval=1
+
+	while read line ; do
+		case $line in \#*|"")
+			echo "$line"
+			continue
+		;;
+		esac
+
+		local ifname hwaddr replacement rc
+		local -a mattrs todrop
+
+		if rx_match_key 'ATTRS[{]address[}]' '==' "$line" ; then
+			debug1 "Found ${BASH_REMATCH[2]}"
+			mattrs=("${BASH_REMATCH[@]}")
+			hwaddr=${BASH_REMATCH[6]}
+			retval=0
+			if rx_match_key 'NAME' '=' "$line" ; then
+				debug1 "  and ${BASH_REMATCH[2]}"
+				ifname=${BASH_REMATCH[6]}
+
+				check_conflict_rules "$ifname" "$hwaddr" ; rc=$?
+				case $rc in
+				0)	# OK, rewrite (fallthrough)
+				;;
+				1)	# drop (comment out) this rule
+					verbose "Disabling obsolete attrs rule"\
+						" ${mattrs[2]},NAME=\"$ifname\""
+					echo "#${line}"
+					continue
+				;;
+				2|3|*)	# rule conflict or another failure
+					return $rc
+				;;
+				esac
+
+				# Fix it -- replace ATTRS (mattrs[2]) with ATTR
+				replacement="ATTR{address}==${mattrs[5]}"
+
+				# the rules are also missing ACTION="add" match
+				if ! rx_match_key 'ACTION' '==' "$line" ; then
+					replacement="ACTION==\"add\", $replacement"
+				fi
+
+				verbose "Rewritting rule to use ${replacement}"
+				echo "${mattrs[1]}${replacement}${mattrs[7]}"
+				continue
+			else
+				error "Cannot find any NAME= assignment in: '$line'"
+				return 3
+			fi
+		fi
+		echo "$line"
+
+	done < "$RULES_FILE" > "$TEMP_RULES"
+
+	return $retval
+}
+
+correct_attrs_rules ; rc=$?
+case $rc in
+0)	# corrected an ATTRS rule, apply
+	if test $DRY_RUN -ne 0 ; then
+		verbose "Corrected incorrect ATTRS rules in '${RULES_FILE}':"
+		cat "$TEMP_RULES"
+	else
+		if test ! -f "${RULES_FILE}.backup" ; then
+			debug1 "Creating backup of ${RULES_FILE}"
+			cp -f "${RULES_FILE}" "${RULES_FILE}.backup"
+		fi
+
+		debug1 "Moving '${TEMP_RULES}' to '${RULES_FILE}'"
+		if mv -f "${TEMP_RULES}" "${RULES_FILE}" ; then
+			unset TEMP_RULES
+			verbose "Corrected incorrect ATTRS rule in '${RULES_FILE}'"
+		else
+			error "Cannot write to '${RULES_FILE}'"
+			rc=1
+		fi
+	fi
+;;
+1)	# no change is needed - cleanup only
+	rc=0
+;;
+2)	# conflicts detected, report + cleanup
+	error 'Please fix manually, replacing ATTRS{address} matches with ATTR{address}'
+	error 'and ensure there is only one (MAC or BUS based) rule for each interface.'
+;;
+*)	# other errors, we already complained -> cleanup only
+;;
+esac
+
+if test -n "$TEMP_RULES" ; then
+	debug1 "Deleting temporary rule file '$TEMP_RULES'"
+	rm -f "$TEMP_RULES"
+fi
+unlock_rules_file "$RULES_FILE"
+
+exit $rc
+
