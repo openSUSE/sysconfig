@@ -1,6 +1,7 @@
 -------------------------------------------------------------------
 Thu Dec  8 16:46:43 UTC 2011 - mt@suse.com
 
+- version 0.71.45
 - Added correction script for persistent name rules converted on
   SLE-11-GA while update from SLE-10 using ATTRS{address} instead
   of ATTR{address} match (bnc#733704, due typo in bnc#546575).
