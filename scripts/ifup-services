@@ -93,17 +93,16 @@ done
 # fi
 
 ######################################################################
-# check presence of configuration file and source it
+# change into the ifservice configuration directory or exit
 #
-source_iface_config "$CONFIG"
 if [ -d "ifservices-$CONFIG" ] ; then
-	cd ifservices-$CONFIG
+	cd "ifservices-$CONFIG"
 elif [ -d "ifservices-$INTERFACE" ] ; then
-	cd ifservices-$INTERFACE
+	cd "ifservices-$INTERFACE"
 elif [ -d "ifservices-${INTERFACE%%-*}" ] ; then
-	cd ifservices-${INTERFACE%%-*}
+	cd "ifservices-${INTERFACE%%-*}"
 elif [ -d "ifservices" ] ; then
-	cd ifservices
+	cd "ifservices"
 else
 	debug "No services to handle for '$CONFIG $INTERFACE'"
 	exit 0
