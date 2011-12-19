@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Mon Dec 19 08:39:53 UTC 2011 - mt@suse.com
+
+- Fixed to quote config / interface variables in ifservices script
+  and cleaned up content of the ESSID which gets appended to them
+  by NetworkManager dispatcher hook (bnc#735394, CVE-2011-4182).
+  Fixed also to return proper exit code 0 in NM dispatcher hooks.
+- Changed to call ip addr flush in ifdown, but after ip link set
+  down as it does not cause ipv6 sysctl tree side effects then
+  at least with more recent kernels (bnc#580018,bnc#559170).
+- Wait/check until the end of ipv6 duplicate address detection
+  to not cause failures of following services (bnc#697929).
+
+-------------------------------------------------------------------
 Thu Jun  9 14:07:37 UTC 2011 - mt@suse.de
 
 - version 0.71.31
