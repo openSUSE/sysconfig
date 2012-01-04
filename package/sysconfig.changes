@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Wed Jan  4 18:15:27 UTC 2012 - mt@suse.com
+
+- Added to require vlan, bridge-utils and tunctl packages via spec,
+  that are often required in base networking configurations and
+  are missed otherwise in 2nd installation stage, that may be
+  unable to install them for some reason (bnc#733118, bnc#723796).
+
+-------------------------------------------------------------------
 Wed Jan  4 14:20:53 UTC 2012 - mt@suse.com
 
 - Fixed incorrect exists_iface_config test in ifprobe
