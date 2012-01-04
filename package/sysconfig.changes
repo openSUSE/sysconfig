@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Wed Jan  4 14:20:53 UTC 2012 - mt@suse.com
+
+- Fixed incorrect exists_iface_config test in ifprobe
+  (bnc#728611#c19)
+
+-------------------------------------------------------------------
+Mon Dec 19 09:21:01 UTC 2011 - mt@suse.com
+
+- Fixed to quote config / interface variables in ifservices script
+  and cleaned up content of the ESSID which gets appended to them
+  by NetworkManager dispatcher hook (bnc#735394, CVE-2011-4182).
+  Fixed also to return proper exit code 0 in NM dispatcher hooks.
+
+-------------------------------------------------------------------
 Thu Dec  8 16:46:43 UTC 2011 - mt@suse.com
 
 - version 0.71.45
