@@ -28,7 +28,7 @@ License:        GPLv2+
 PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
 # we may create these automatically from rpm later
 Provides:       sysvinit(network)
-Requires:       iproute2 dbus-1 procps
+Requires:       iproute2 dbus-1 procps vlan bridge-utils tunctl
 BuildRequires:  libtool
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Source:         %name-%version.tar.bz2
