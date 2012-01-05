@@ -638,12 +638,12 @@ case "$ACTION" in
 
 			debug "Activating interface $INTERFACE"
 			if ! is_iface_up $INTERFACE ; then
+
 				ip link set $INTERFACE up ${MTU:+mtu $MTU} \
 				   ${LLADDR:+address $LLADDR} $LINK_OPTIONS
-				for ((count=200; count >= 0; count--)) ; do
-					is_iface_up $INTERFACE && break
-					usleep 25000
-				done
+
+				# wait a bit or dhclient(6) may produce false send errors
+				link_ready_wait "$INTERFACE" 3
 
 				# (optionally) wait until a device is really configured
 				sleep ${DHCLIENT_SLEEP:-0}
