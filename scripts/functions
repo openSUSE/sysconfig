@@ -174,7 +174,7 @@ link_ready_wait ()
 	local iface=$1
 	local -i wsecs=${2:-0}
 	local -i uwait=25000
-	local -i loops=$(((wsecs * 100000) / $uwait))
+	local -i loops=$(((wsecs * 1000000) / $uwait))
 	local -i loop=0 ret=0
 
 	link_ready_check "$iface" ; ret=$?
@@ -190,7 +190,7 @@ ipv6_addr_dad_wait()
 	local iface=$1
 	local -i wsecs=${2:-0}
 	local -i uwait=25000
-	local -i loops=$(((wsecs * 100000) / $uwait))
+	local -i loops=$(((wsecs * 1000000) / $uwait))
 	local -i loop=0 ret=0
 
 	ipv6_addr_dad_check "$iface" ; ret=$?
