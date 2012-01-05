@@ -683,6 +683,14 @@ case "$ACTION" in
 
 			debug "Activating interface $INTERFACE"
 			if ! is_iface_up $INTERFACE ; then
+				if [ -n "$MTU" ] ; then
+					read mtu 2>/dev/null < "/sys/class/net/$INTERFACE/mtu"
+					[ "$MTU" = "$mtu" ] && unset MTU
+				fi
+				if [ -n "$LLADDR" ] ; then
+					read lladdr 2>/dev/null < "/sys/class/net/$INTERFACE/address"
+					[ "$LLADDR" = "$lladdr" ] && unset LLADDR
+				fi
 
 				ip link set $INTERFACE up ${MTU:+mtu $MTU} \
 				   ${LLADDR:+address $LLADDR} $LINK_OPTIONS
