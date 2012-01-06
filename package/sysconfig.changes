@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Jan  5 18:06:00 UTC 2012 - mt@suse.com
+
+- Fixed ipv6 dad / link ready wait time calculation (bnc#697929).
+
+-------------------------------------------------------------------
 Mon Dec 19 08:39:53 UTC 2011 - mt@suse.com
 
 - Fixed to quote config / interface variables in ifservices script
