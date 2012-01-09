@@ -23,6 +23,8 @@
 # $Id$
 #
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 function usage()
 {
 	echo $@

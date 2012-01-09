@@ -23,6 +23,8 @@
 # $Id$
 #
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 usage () {
 	echo $@
 	echo "Usage: if{up,down,status}-infiniband [<config>] <interface> [-o <options>]"

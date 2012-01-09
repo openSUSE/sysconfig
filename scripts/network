@@ -42,6 +42,8 @@
 # X-Systemd-RemainAfterExit: true
 ### END INIT INFO
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 . /etc/rc.status
 rc_reset
 
