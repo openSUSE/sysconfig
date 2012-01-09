@@ -28,6 +28,7 @@
 #    because it was changed since the last run
 #
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
 
 # The environment variable ROOT indicates the root of the system to be
 # managed by SuSEconfig when that root is not '/'

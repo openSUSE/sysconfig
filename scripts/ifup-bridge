@@ -12,6 +12,9 @@
 #
 # $Id$
 #
+
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 usage () {
 	echo $@
 	echo "usage: if{up,down,status}-bridge [<config>] <interface> [-o <options>]"
