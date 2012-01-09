@@ -9,6 +9,8 @@
 # Ludwig Nussel 26.02.2004
 # Send suggestions and comments to http://www.suse.de/feedback/
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 BASENAME=${0##*/}
 INTERFACE=$1
 DEVICE=$2

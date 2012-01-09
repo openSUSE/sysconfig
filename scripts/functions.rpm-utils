@@ -1,5 +1,7 @@
 #!/bin/bash
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 # similar to remove_and_set rpm suse macro,
 # but more flexible and able to handle files
 # in subdirs of the etc/sysconfig directory.

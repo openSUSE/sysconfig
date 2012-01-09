@@ -5,6 +5,8 @@
 # - 1 on failure
 ###
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 test "${DEBUG}" = yes && set -x
 
 # helper functions

@@ -22,6 +22,8 @@
 # $Id$
 #
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 usage () {
 	echo $@
 	echo "Usage: if{up,down,status}-services [<config>] <interface> [-o <options>]"

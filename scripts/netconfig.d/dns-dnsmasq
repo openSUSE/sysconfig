@@ -21,6 +21,8 @@
 #
 ##
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
     echo "You must be root to start $0." >&2
     exit 1

@@ -7,6 +7,8 @@
 #         Marius Tomaschewski <mt@suse.de>, 2007-2009
 #
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 usage () {
 	echo $@
 	echo "Usage: if{up,down}-802.1q [<config>] <interface> [-o <options>]"
