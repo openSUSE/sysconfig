@@ -18,6 +18,8 @@
 # $Id$
 #
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 # TODO:
 # when closing first use -TERM (except if we just try with -0)
 # for ichecking improve output and remove output from getdests() and nfscheck()

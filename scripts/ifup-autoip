@@ -18,6 +18,8 @@
 # Author: Michael Schroeder <mls@suse.de>, 2004
 #
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 usage () {
 	echo $@
 	echo "Usage: if{up,down,status}-autoip [<config>] <interface> [-o <options>]"

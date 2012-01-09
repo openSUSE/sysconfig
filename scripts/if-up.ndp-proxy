@@ -55,6 +55,8 @@
 #     192.168.100.12            tap2    eth0 tap1
 #--
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 usage () {
     echo $@
     echo "usage: $0 [<config>] <interface> [-o <options>]"
