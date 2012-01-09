@@ -20,6 +20,9 @@
 # Author: 
 #    Marius Tomaschewski <mt@suse.de>
 #
+
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 usage () {
 	echo $@
 	echo "usage: if{up,down,status}-sysctl [<config>] <interface> [-o <options>]"

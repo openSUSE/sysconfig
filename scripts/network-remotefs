@@ -37,6 +37,8 @@
 #                       Wireless and set up routing or start the NetworkManager
 ### END INIT INFO
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 . /etc/rc.status
 rc_reset
 

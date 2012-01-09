@@ -19,6 +19,8 @@
 #         Peter Poeml <poeml@suse.de>, 2002-2006
 #
 
+unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+
 usage () {
 	echo $@
 	echo "Usage: if{up,down,status}-dhcp [<config>] <interface> [-o <options>]"
