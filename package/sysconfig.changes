@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Mon Jan  9 19:05:35 UTC 2012 - mt@suse.com
+
+- version 0.71.46
+- Fixed ipv6 dad / link ready wait time calculation (1/10 of the
+  specified time) and replaced useless up flag check loop with
+  link_ready_wait to avoid send errors from dhclient6 (bnc#697929).
+- Explicitly disabled posix mode in all bash scripts as we are
+  using several features not supported in posix mode (bnc#739338).
+
+-------------------------------------------------------------------
 Wed Jan  4 18:15:27 UTC 2012 - mt@suse.com
 
 - Added to require vlan, bridge-utils and tunctl packages via spec,
