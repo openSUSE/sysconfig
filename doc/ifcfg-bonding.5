@@ -42,6 +42,16 @@ Note, that this options are not passed as parameters to the bonding kernel
 module any more, but set via sysfs interface. This variable will be renamed
 in the feature.
 .TP
+.B BONDING_MASTER_UP_ENSLAVE
+This option allows to revert the change and set the master "link up" 
+before enslave.
+Older kernels required bonding master in "link up" state while enslave.
+Recent kernels have been adopted to allow enslave in down state and 
+this seems to work better, faster and avoids several (false) problems,
+because in "link down" state, several async actions aren't started at
+"set up" or enslave time of the first slave and need to be aborted or
+repeated later.
+.TP
 .B BONDING_SKIP_REMOVE_WORKAROUND
 When set to "yes", a bonding interface will be not removed while ifdown any
 more to avoid problems, e.g. when some third party kernel module, such as

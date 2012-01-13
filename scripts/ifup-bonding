@@ -273,6 +273,34 @@ up)
 		exit $R_NODEV
 	fi
 
+	# Note:
+	# Older kernels required bonding master in "link up" state while
+	# enslave.  
+	# Recent kernels have been adopted to allow enslave in down state
+	# and this seems to work better, faster and avoids several (false)
+	# problems, because in "link down" state, several async actions
+	# aren't started at "set up" or enslave time of the first slave
+	# and need to be aborted or repeated later.
+	#
+	if [ "${BONDING_MASTER_UP_ENSLAVE}" = "yes" ] ; then
+
+		# do not apply MTU / MAC when they're already set
+		if [ -n "$MTU" ] ; then
+			read mtu 2>/dev/null < "/sys/class/net/$INTERFACE/mtu"
+			[ "$MTU" = "$mtu" ] && unset MTU
+		fi
+		if [ -n "$LLADDR" ] ; then
+			read lladdr 2>/dev/null < "/sys/class/net/$INTERFACE/address"
+			[ "$LLADDR" = "$lladdr" ] && unset LLADDR
+		fi
+
+		# now, get up the bonding interface before enslaving;
+		# discard errors here -- ifup will call it again later
+		# so true errors are visible there.
+		ip link set dev $INTERFACE up ${MTU:+mtu $MTU} \
+			${LLADDR:+address $LLADDR} $LINK_OPTIONS &>/dev/null
+	fi
+
 	# enslave all BONDING_SLAVE* from configuration file
 	for BSVAR in ${!BONDING_SLAVE*} ; do
 		INDEX=${BSVAR#BONDING_SLAVE}
