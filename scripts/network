@@ -850,7 +850,16 @@ case "$ACTION" in
 				status -m $IFACE && continue
 				printf "    %-9s interface could not be set up until now\n" $IFACE
 			else
-				printf "    %-35s No interface found\n" $D
+				_startmode=`get_startmode "$IFACE"`
+				if [ "$_startmode" = "hotplug" ] ; then
+					_bonding_master=`get_bonding_master "$IFACE"`
+					if [ -n "$_bonding_master" ] ; then
+						printf "    %-9s bonding %s hotplug slave missed" "$IFACE" "$_bonding_master"
+						echo -e "$rc_skipped"
+						continue
+					fi
+				fi
+				printf "    %-35s No interface found\n" $IFACE
 			fi
 			rc_failed
 			rc_status -v1

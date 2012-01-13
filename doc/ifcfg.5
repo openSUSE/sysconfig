@@ -137,10 +137,10 @@ See also \fBifcfg-tunnel(5)\fR manual page.
 .br
 .B none
 .br
-For bonding slaves and bridge ports to skip the interface configuration.
-It is also recommended (instead of static) for interfaces configured with
-STARTMODE=nfsroot (for nfs- and iscsi-root installation), where the setup
-is done in the initrd and inconsistencies could break it.
+For bonding slaves, to skip the link-layer (MTU, MAC address) and IP
+configuration of the interface. See also ifcfg-bonding(5) man page.
+Note:  Do not use to just skip the IP setup -- use BOOTPROTO="static"
+without any addresses in the IPADDR variables (or routes) instead.
 .TP
 .br
 .B ibft
@@ -150,7 +150,7 @@ The iSCSI Boot Firmware Table (iBFT) firmware (/sys/firmware/ibft), is always
 read. When the iBFT settings are available for the interface, only the ibft
 settings are used and the ifcfg config file isn't read / ignored completely.
 When specified in the ifcfg file of a non-iBFT interface, behaviour is same
-to \fBnone\fR.
+to \fBnone\fR as the interface is set up in the initrd.
 .PD
 .RE
 
