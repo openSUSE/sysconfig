@@ -283,7 +283,8 @@ up)
 
 		sysfs_slave="$sysfs_npath/$BONDING_SLAVE"
 		if [ ! -d "$sysfs_slave" ] ; then
-			logerror "Slave interface '$BONDING_SLAVE' is not available. Skipped."
+			message "`printf "    %-9s skipping interface: %s (missed)"\
+					"$INTERFACE" "$BONDING_SLAVE"`"
 			continue
 		fi
 
