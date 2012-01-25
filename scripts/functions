@@ -374,7 +374,8 @@ get_bonding_slave_hwaddrs()
 	return 1
 }
 
-# This will echo the first address listed for the given interface.
+# This will echo the first address listed for the given interface
+# ignoring all addresses with a label.
 get_ipv4address () {
 	test -z "$1" && return 1
 	local a b c
@@ -382,7 +383,7 @@ get_ipv4address () {
 		if [ "$a" = inet ] ; then
 			break
 		fi
-	done < <(LC_ALL=POSIX ip -4 address list "$1" 2>/dev/null)
+	done < <(LC_ALL=POSIX ip -4 address show dev "$1" label "$1" 2>/dev/null)
 	test -z "$b" && return 1
 	echo ${b%%/*}
 }
