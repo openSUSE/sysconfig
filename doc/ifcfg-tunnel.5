@@ -65,9 +65,11 @@ The address of the local tunnel's end could be directly specified in
 variable. The address must be present on an existing interface of this host
 (the TUNNEL_DEVICE). If
 .B TUNNEL_LOCAL_IPADDR
-is empty the first ipv4 address from the interface given in the variable
+is empty the first ipv4 address without label from the interface given in the
+variable
 .B TUNNEL_DEVICE
-will be used.
+will be used. You can configure a label for each additional address on the
+interface, that you don't want to use.
 .TP
 .B TUNNEL_REMOTE_IPADDR
 The address of the remote tunnel's end.
