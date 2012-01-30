@@ -1,4 +1,23 @@
 -------------------------------------------------------------------
+Mon Jan 30 14:01:24 UTC 2012 - mt@suse.com
+
+- version 0.71.47
+- Try to load ipv6 module in ifup-sysctl script when not yet loaded
+  as per-interface ipv6 sysctl settings are a very common use case
+  for the ifsysctl(5) files and ifup-sysctl may run very early
+  (bnc#715434).
+
+-------------------------------------------------------------------
+Fri Jan 13 12:33:06 UTC 2012 - mt@suse.com
+
+- Fixed /etc/init.d/network to not report failure for bonding slave
+  interfaces marked with startmode hotplug and improved the bonding
+  ifcfg documentation (bnc#737333).
+- Added BONDING_MASTER_UP_ENSLAVE per interface ifcfg file option
+  to allow to revert to old behavior and set the bonding master
+  link up before going to enslave the slaves (bnc#737833).
+
+-------------------------------------------------------------------
 Mon Jan  9 19:05:35 UTC 2012 - mt@suse.com
 
 - version 0.71.46
