@@ -122,6 +122,12 @@ get_interface_sysctls()
 ######################################################################
 case $ACTION in
 up)
+	# Try to load IPv6 module early as possible (bnc715434);
+	# setting ipv6 sysctls is the most common use case for us.
+	if test ! -d /proc/sys/net/ipv6 ; then
+		modprobe net-pf-10 2>/dev/null
+	fi
+
 	test "$DEBUG" = yes && quiet='' || quiet='-q'
 	debug "Applying $INTERFACE ifsysctl settings"
 	out=`get_interface_sysctls "$INTERFACE" "$CONFIG" | \
