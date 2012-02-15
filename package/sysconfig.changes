@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Tue Jan 31 14:10:15 UTC 2012 - mt@suse.com
+
+- Filter out labeled ipv4 addresses in get_ipv4address used
+  to fetch the 1st address from the TUNNEL_DEVICE interface.
+  Allows to configure a label for each address that should
+  be skipped. Updated ifcfg-tunnel.5 man page. (bnc#741453)
+  Thanks to Jon Nelson for his report with a fix proposal!
+
+-------------------------------------------------------------------
 Mon Jan 30 14:01:24 UTC 2012 - mt@suse.com
 
 - version 0.71.47
