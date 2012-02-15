@@ -135,11 +135,11 @@ if [ "$USE_SYSLOG" != yes ] ; then
 else
 	mesg() {
 		echo -e "$@" # >&2
-		echo -e "$@" | logger -t "$SCRIPTNAME"
+		echo -e "$@" | logger -t "$SCRIPTNAME[$$]"
 	}
 	mesg_n() {
 		echo -ne "$@"  # >&2
-		echo -e "$@" | logger -t "$SCRIPTNAME"
+		echo -e "$@" | logger -t "$SCRIPTNAME[$$]"
 	}
 fi
 
@@ -166,10 +166,10 @@ for level in err "#" "#" info debug; do
 	else
 		eval ${level}_mesg\(\) \{ echo -e \"\$\@\" 1\>\&2\; \
 			echo -e \"\$\@\" \
-			\| logger -p $nl -t \"$SCRIPTNAME\" \; \}
+			\| logger -p $nl -t \"$SCRIPTNAME[\$\$]\" \; \}
 		eval ${level}_mesg_n\(\) \{ echo -ne \"\$\@\" 1\>\&2\; \
 			echo -e \"\$\@\" \
-			\| logger -p $nl -t \"$SCRIPTNAME\" \; \}
+			\| logger -p $nl -t \"$SCRIPTNAME[\$\$]\" \; \}
 	fi
 	: $((nl++))
 done
