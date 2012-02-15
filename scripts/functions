@@ -951,26 +951,32 @@ get_depending_ifaces() {
 # in /usr that may be on NFS) or 2 (false) on errors.
 #
 supported_on_localfs() {
-	local IFNAME=$1
-	local IFTYPE=${2:-$INTERFACETYPE}
-
-	test "x$IFNAME" = x && return 2
-	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type             $IFNAME)
-	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type_from_config $IFNAME)
-
-	# Currently it is sufficient to check the type only.
-	local result=1	# remote-fs requirement as default
-	case $IFTYPE in
-		"")                     result=2 ;;
-		lo|dummy|tap)           result=0 ;;
-		eth|tr)                 result=0 ;;
-		ib|ibchild)             result=0 ;;
-		vlan|bridge|bond)       result=0 ;;
-	esac
-	# tunnels in principle too, but it may be not possible
-	# to resolve the base / slave interface correctly ...
-	#tun|sit|gre|ipip)              result=0 ;;
-	return $result
+	#
+	# network-remotefs is obsolete as /usr is mounted in
+	# initrd when needed and we don't need to handle it
+	# any more (equivalent with remote /-fs now).
+	#
+	return 0
+#	local IFNAME=$1
+#	local IFTYPE=${2:-$INTERFACETYPE}
+#
+#	test "x$IFNAME" = x && return 2
+#	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type             $IFNAME)
+#	test "x$IFTYPE" = x && IFTYPE=$(get_iface_type_from_config $IFNAME)
+#
+#	# Currently it is sufficient to check the type only.
+#	local result=1	# remote-fs requirement as default
+#	case $IFTYPE in
+#		"")                     result=2 ;;
+#		lo|dummy|tap)           result=0 ;;
+#		eth|tr)                 result=0 ;;
+#		ib|ibchild)             result=0 ;;
+#		vlan|bridge|bond)       result=0 ;;
+#	esac
+#	# tunnels in principle too, but it may be not possible
+#	# to resolve the base / slave interface correctly ...
+#	#tun|sit|gre|ipip)              result=0 ;;
+#	return $result
 }
 
 resolve_iface_startorder()
