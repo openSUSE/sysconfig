@@ -74,6 +74,9 @@ FS_FILTER=""
 SD_RUNNING=no
 SD_BOOTING=no
 if systemd_running ; then
+	# systemd never calls status action,
+	# so always enable boot-wait mode ...
+	MODE=onboot
 	SD_RUNNING=yes
 	systemd_booting && SD_BOOTING=yes
 fi
