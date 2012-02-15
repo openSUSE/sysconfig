@@ -9,7 +9,8 @@ SCRIPT=${0##*/}
 
 { set +vx ; . /etc/sysconfig/network/scripts/functions.common ; } >&2
 test -d $RUN_FILES_BASE && dir=$RUN_FILES_BASE || dir=/
-exec 2> $dir/exdeb.${SCRIPT}_$$.$PPID.${SEQNUM}_$1.$2
+args="" ; for arg in "$@" ; do args="$args.$arg" ; done
+exec 2> "$dir/exdeb.${SCRIPT}_$$.$PPID.${SEQNUM}_${args}"
 
 date +"%F %T.%N" >&2
 echo -------------------------------------------------- >&2
