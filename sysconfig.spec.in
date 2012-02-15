@@ -1,7 +1,7 @@
 #
 # spec file for package sysconfig
 #
-# Copyright (c) 2011 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2012 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -15,16 +15,15 @@
 # Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
 
-# norootforbuild
 
 
 Name:           sysconfig
 Version:        @VERSION@
 Release:        0
 Summary:        The sysconfig scheme and traditional network scripts
-Url:            http://gitorious.org/opensuse/sysconfig
+License:        GPL-2.0+
 Group:          System/Base
-License:        GPLv2+
+Url:            http://gitorious.org/opensuse/sysconfig
 PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
 # we may create these automatically from rpm later
 Provides:       sysvinit(network)
@@ -34,8 +33,8 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Source:         %name-%version.tar.bz2
 
 %description
-This package provides the SuSE system configuration scheme and
-the netcontrol alias ifup network scripts.
+This package provides the SuSE system configuration scheme and the
+traditional "ifup" alias "netcontrol" network scripts.
 
 Authors:
 --------
