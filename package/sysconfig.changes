@@ -1,4 +1,29 @@
 -------------------------------------------------------------------
+Wed Feb 15 19:35:41 UTC 2012 - mt@suse.de
+
+- version 0.76.1
+- Updated GPL in doc/COPYING, address statements, spec tags.
+- Disabled obsolete network-remotefs as /usr is mounted in initrd
+  when needed and we don't need to handle it any more (equivalent
+  with a remote /-fs now). More cleanup follows.
+- Always enable boot-wait mode under systemd
+- Improved extradebug to include all args and to log pid.
+- Filter out labeled ipv4 addresses in get_ipv4address used
+  to fetch the 1st address from the TUNNEL_DEVICE interface.
+  Allows to configure a label for each address that should
+  be skipped. Updated ifcfg-tunnel.5 man page. (bnc#741453)
+  Thanks to Jon Nelson for his report with a fix proposal!
+- Explicitly disabled posix mode in all bash scripts as we are
+  using several features not supported in posix mode (bnc#739338).
+- Fixed ipv6 dad / link ready wait time calculation (1/10 of the
+  specified time) and replaced useless up flag check loop with
+  link_ready_wait to avoid send errors from dhclient6 (bnc#697929).
+- Added to require vlan, bridge-utils and tunctl packages via spec,
+  that are often required in base networking configurations and
+  are missed otherwise in 2nd installation stage, that may be
+  unable to install them for some reason (bnc#733118).
+
+-------------------------------------------------------------------
 Wed Jan  4 14:20:53 UTC 2012 - mt@suse.com
 
 - Fixed incorrect exists_iface_config test in ifprobe
