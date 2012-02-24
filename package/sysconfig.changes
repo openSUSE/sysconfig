@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Feb 24 15:06:24 UTC 2012 - mt@suse.com
+
+- Fixed /etc/init.d/network to not report failure for bonding slave
+  interfaces marked with startmode hotplug and improved the bonding
+  ifcfg documentation (bnc#737333,bnc#737078).
+
+-------------------------------------------------------------------
 Thu Jan  5 18:06:00 UTC 2012 - mt@suse.com
 
 - Fixed ipv6 dad / link ready wait time calculation (bnc#697929).
