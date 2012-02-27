@@ -86,13 +86,22 @@ done
 #
 # Do we get mails with fetchmail over pop3/imap?
 # We support only a system wide configuration
-# file /etc/fetchmailrc.
+# file /etc/fetchmailrc.  Use the user id of the
+# system wide configuration file, e.g. `mail'.
+# For this the file /etc/fetchmailrc should have
+# the permisssions 0600 and be owned by the user
+# and the group `mail'
 #
 while true ; do
     test -x   /usr/bin/fetchmail           || break
     test -r   /etc/fetchmailrc             || break
+    mailid=$(stat -c '%U' /etc/fetchmailrc)
     checkproc /usr/bin/fetchmail           && break
-    /usr/bin/fetchmail -f /etc/fetchmailrc
+    if test -n "$mailid" -a "$mailid" != root && type -p sudo > /dev/null 2>&1 ; then
+	sudo -u $mailid /usr/bin/fetchmail -f /etc/fetchmailrc
+    else
+	/usr/bin/fetchmail -f /etc/fetchmailrc
+    fi
     break
 done
 
