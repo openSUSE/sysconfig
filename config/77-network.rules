@@ -1,11 +1,12 @@
 # Driver module ipw3945 requires an userspace daemon to register network
-# interfaces. 
-SUBSYSTEM=="drivers", ACTION=="add", DEVPATH=="/bus/pci/drivers/ipw3945", RUN+="ipw3945d.sh"
+# interfaces.
+# Commented it out -- looks like something old & obsolete.
+#SUBSYSTEM=="drivers", ACTION=="add", DEVPATH=="/bus/pci/drivers/ipw3945", TEST=="ipw3945d.sh", RUN+="ipw3945d.sh"
 
 #
 # Apply per interface sysctl settings before setup (see man 5 ifsysctl):
 #
-SUBSYSTEM=="net", ACTION=="add", RUN+="/etc/sysconfig/network/scripts/ifup-sysctl $env{INTERFACE} -o hotplug"
+SUBSYSTEM=="net", ACTION=="add", TEST=="/etc/sysconfig/network/scripts/ifup-sysctl", RUN+="/etc/sysconfig/network/scripts/ifup-sysctl $env{INTERFACE} -o hotplug"
 
 #
 # The following rules are to:
@@ -21,6 +22,7 @@ SUBSYSTEM=="net", ACTION=="add", RUN+="/etc/sysconfig/network/scripts/ifup-sysct
 # We do it here name based for the well known/default interface names,
 # ifup makes it again by interface type to catch also custom names.
 #
+SUBSYSTEM=="net", TEST!="/sbin/ifup", GOTO="skip_ifup"
 SUBSYSTEM=="net", ENV{INTERFACE}=="lo*|dummy*|vif*.*|br*|bond*|vlan*|gre*|sit*|tap*|tun*|ipip*|ip6tnl*|ipsec*|ppp*|ippp*|isdn*|modem*|dsl*|plip*|irda*", GOTO="skip_ifup"
 SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup $env{INTERFACE} -o hotplug"
 SUBSYSTEM=="net", ACTION=="remove", RUN+="/sbin/ifdown %k -o hotplug"
