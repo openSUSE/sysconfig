@@ -503,17 +503,15 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 				fi
 				;;
 			*)
-				FOPT=""
 				case "$GWAY" in
 					0.0.0.0|\*|::)	# Add/Delete a local network / device route
 						GWAY=""
-						FOPT="-$INET"
 						;;
 					$DEST)
 						test "$PFXL" = 32 -o "$PFXL" = 128 && GWAY=""
 						;;
 				esac
-				run_iproute $FOPT $ACTION to $TYPE $DEST ${GWAY:+via $GWAY} $IFACE $IPOPTS
+				run_iproute -$INET $ACTION to $TYPE $DEST ${GWAY:+via $GWAY} $IFACE $IPOPTS
 			;;
 		esac
 		;;
