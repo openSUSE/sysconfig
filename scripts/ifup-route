@@ -465,6 +465,7 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 
 		case "$DEST-$INET" in
 			224.0.0.0*-4|224/4-4)
+				GWAY=${GWAY:-0.0.0.0}
 				# We are doing multicast
 				if [ -e /proc/net/igmp -a "$GWAY" = 0.0.0.0 \
 				     -a \( "$PFXL" = 4 -o "$DEST" = 224/4 \) ] ; then
