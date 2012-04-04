@@ -89,6 +89,28 @@ test -f ./ifcfg-$CONFIG && . ./ifcfg-$CONFIG
 SYSFS="/sys/class/net"
 
 ######################################################################
+apply_constraints()
+{
+	local var=$1
+	local -i min=$(($2))
+	local -i max=$(($3))
+	local    def=$4
+
+	test -n "${!var}" || return
+	if   test $((${!var})) -lt $min ; then
+		def=${def:-$min}
+		message_if_not_run_from_rc \
+			"Warning: Correcting $var from ${!var} to $def"
+		eval "${var}=$def"
+	elif test $((${!var})) -gt $max ; then
+		def=${def:-$max}
+		message_if_not_run_from_rc \
+			"Warning: Correcting $var from ${!var} to $def"
+		eval "${var}=$def"
+	fi
+}
+
+######################################################################
 case $ACTION in
 up)
 
@@ -175,6 +197,13 @@ up)
 	# Set flags
 	[ -n "$BRIDGE_AGEINGTIME"   ] && brctl setageing     "$INTERFACE" "$BRIDGE_AGEINGTIME"
 	[ -n "$BRIDGE_STP"          ] && brctl stp           "$INTERFACE" "$BRIDGE_STP"
+	case $BRIDGE_STP in
+	on)
+		apply_constraints BRIDGE_FORWARDDELAY 4 30
+		apply_constraints BRIDGE_HELLOTIME    1  6
+		apply_constraints BRIDGE_MAXAGE       6 40
+	;;
+	esac
 	[ -n "$BRIDGE_PRIORITY"     ] && brctl setbridgeprio "$INTERFACE" "$BRIDGE_PRIORITY"
 	[ -n "$BRIDGE_FORWARDDELAY" ] && brctl setfd         "$INTERFACE" "$BRIDGE_FORWARDDELAY"
 	[ -n "$BRIDGE_HELLOTIME"    ] && brctl sethello      "$INTERFACE" "$BRIDGE_HELLOTIME"
