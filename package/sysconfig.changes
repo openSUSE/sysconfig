@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Tue Apr 10 11:22:02 UTC 2012 - mt@suse.com
+
+- version 0.76.2
+- ifup-bridge: apply stp contstrains when STP is on (bnc#753387)
+- ifup-route: fixed use of -4/6 option for ip route (bnc#745252) 
+  and do not require dummy gateway for ipv4 multicast routes.
+- Added tests to the 77-network.rules rule file if the /sbin/ifup
+  and /etc/sysconfig/network/scripts/ifup-sysctl exist (bnc#724775),
+  disabled ipw3945d.sh script run and updated 81-mount.rules file
+  to work with more actual udev versions. Thanks to Robert Milasan,
+  who proposed these changes.
+
+-------------------------------------------------------------------
+Mon Feb 27 10:46:45 UTC 2012 - werner@suse.de
+
+- In poll.tcpip avoid warnings messages of fetchmail by using the
+  owner ship of the system wide configuration file /etc/fechmailrc
+  which should be owned by the user and group mail.
+
+-------------------------------------------------------------------
 Wed Feb 15 19:35:41 UTC 2012 - mt@suse.de
 
 - version 0.76.1
