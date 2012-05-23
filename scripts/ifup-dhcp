@@ -288,6 +288,8 @@ esac
 
 
 start_dhcp4_dhcpcd() {
+	renew=$1
+
 	#
 	# Using netconfig, we can request all options and
 	# netconfig takes care to apply them properlly...
@@ -338,10 +340,10 @@ start_dhcp4_dhcpcd() {
 	args="$args${DHCLIENT_VENDOR_CLASS_ID:+ -i \"$DHCLIENT_VENDOR_CLASS_ID\"}"
 	args="$args${DHCLIENT_LEASE_TIME:+ -l \"$DHCLIENT_LEASE_TIME\"}"
 	args="$args${DHCLIENT_HOSTNAME_OPTION:+ -h \"$DHCLIENT_HOSTNAME_OPTION\"}"
-	debug "Starting dhcp client: $DHCLIENT_BIN $DHCPCD_USER_OPTIONS $args $INTERFACE"
+	debug "Starting dhcp client: $DHCLIENT_BIN $renew $DHCPCD_USER_OPTIONS $args $INTERFACE"
 
 	# now start dhcpcd
-	$DHCLIENT_BIN $DHCPCD_USER_OPTIONS $DHCLIENT_ARGS \
+	$DHCLIENT_BIN $renew $DHCPCD_USER_OPTIONS $DHCLIENT_ARGS \
 		${DHCLIENT_TIMEOUT:+-t "$DHCLIENT_TIMEOUT"}                 \
 		${DHCLIENT_CLIENT_ID:+-I "$DHCLIENT_CLIENT_ID"}             \
 		${DHCLIENT_VENDOR_CLASS_ID:+-i "$DHCLIENT_VENDOR_CLASS_ID"} \
@@ -638,14 +640,17 @@ case "$ACTION" in
 					# reset dhcp4 status
 					DHCP4_STATUS=""
 					case "$DHCLIENT" in
-					(dhcpcd|dhclient)
+					(dhcpcd) ;;
+					(dhclient)
+						DHCP4_STATUS=""
 						$DHCLIENT_BIN -x $INTERFACE
+						sleep 1
+						for i in `dhcpc4_on_iface`; do
+							kill -TERM $i &>/dev/null
+						done
+						sleep 1
 					;;
 					esac
-					for i in `dhcpc4_on_iface`; do
-						kill -TERM $i &>/dev/null
-					done
-					sleep 1
 				;;
 				(dhcp6)
 					# reset dhcp6 status
@@ -724,7 +729,8 @@ case "$ACTION" in
 					case "$DHCLIENT" in
 					(dhcpcd)
 						test -n "$DHCP4_STATUS" || {
-							start_dhcp4_dhcpcd && {
+							test "$ACTION" = renew && renew='--renew' || renew=''
+							start_dhcp4_dhcpcd $renew && {
 								DHCP4_STARTED="yes"
 								write_cached_config_data dhcp4_client $DHCLIENT  $INTERFACE
 								write_cached_config_data dhcp4_state  started    $INTERFACE
