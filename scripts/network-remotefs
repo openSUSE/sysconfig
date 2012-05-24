@@ -31,11 +31,11 @@
 # Should-Stop:		
 # Default-Start:	3 5
 # Default-Stop:		
+# X-Systemd-RemainAfterExit: true
 # Short-Description:	Configure the remote-fs depending network interfaces
 # Description:		Configure the remote-fs depending network interfaces as
 #                       Wireless and set up routing or start the NetworkManager
 #                       (except we're running under systemd).
-# X-Systemd-RemainAfterExit: true
 ### END INIT INFO
 
 unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
