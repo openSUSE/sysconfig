@@ -36,10 +36,10 @@
 # Should-Stop:		isdn openibd SuSEfirewall2_init
 # Default-Start:	3 5
 # Default-Stop:		
+# X-Systemd-RemainAfterExit: true
 # Short-Description:	Configure the localfs depending network interfaces
 # Description:		Configure the localfs depending network interfaces
 #                       and set up routing
-# X-Systemd-RemainAfterExit: true
 ### END INIT INFO
 
 unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
