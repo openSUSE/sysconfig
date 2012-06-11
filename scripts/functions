@@ -268,9 +268,13 @@ get_iface_type () {
 		     	;;
 		   24)	TYPE=eth ;; # firewire ;; # IEEE 1394 IPv4 - RFC 2734
 		   32)	# InfiniBand
-		      	case $IF in
-		      	*.*) TYPE=ibchild ;; *) TYPE=ib ;;
-		      	esac
+			if test -d /sys/class/net/$IF/bonding ; then
+				TYPE=bond
+			elif test -d /sys/class/net/$IF/create_child ; then
+				TYPE=ib
+			else
+				TYPE=ibchild
+			fi
 		      	;;
 		  512)	TYPE=ppp ;;
 		  768)	TYPE=ipip ;; # IPIP tunnel
