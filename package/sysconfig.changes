@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Mon Jun 11 10:10:10 UTC 2012 - mt@suse.com
+
+- version 0.76.3
+- Fixed ifrenew-dhcp to use built-in dhcpcd --renew (bnc#763533).
+- Moved the X-Systemd-RemainAfterExit LSB tag before Description
+  in /etc/init.d/network scripts as workaround for the case that
+  a not yet fixed systemd is in use (bnc#763533).
+- Fixed to differentiate ib/ibchild/bond types and stop ib-bond
+  interfaces correctly.
+
+-------------------------------------------------------------------
 Tue Apr 10 11:22:02 UTC 2012 - mt@suse.com
 
 - version 0.76.2
