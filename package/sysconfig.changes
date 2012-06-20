@@ -1,4 +1,83 @@
 ------------------------------------------------------------------
+Wed Jun 20 07:49:30 UTC 2012 - mt@suse.com
+
+- Fixed to differentiate ib/ibchild/bond runtime types to stop
+  ib bond interfaces correctly via ifdown-bond.
+- Fixed ifup-bridge apply stp contstrains when STP is enabled
+  (bnc#753387)
+- Fixed ifup-route to use -4/6 option for ip route and to not
+  require explicit dummy gateway for multicast routes in the
+  routes config (bnc#745252).
+
+------------------------------------------------------------------
+Thu May 24 09:22:26 UTC 2012 - mt@suse.com
+
+- Moved the X-Systemd-RemainAfterExit LSB tag before Description
+  in /etc/init.d/network scripts as workaround for the case that
+  a not yet fixed systemd is in use (bnc#763533).
+
+------------------------------------------------------------------
+Wed May 23 15:05:29 UTC 2012 - mt@suse.com
+
+- Fixed ifrenew-dhcp to use built-in dhcpcd --renew (bnc#763533).
+
+------------------------------------------------------------------
+Wed Mar 14 12:41:45 UTC 2012 - mt@suse.com
+
+- Added tests to the 77-network.rules rule file if the /sbin/ifup
+  and /etc/sysconfig/network/scripts/ifup-sysctl exist (bnc#724775),
+  disabled ipw3945d.sh script run and updated 81-mount.rules file
+  to work with more actual udev versions. Thanks to Robert Milasan,
+  who proposed these changes.
+
+------------------------------------------------------------------
+Wed Feb 29 10:33:28 UTC 2012 - mt@suse.com
+
+- Enabled to always enable the -o boot under systemd, improved
+  to use PID in log messages and extradebug outputs (bnc#737636).
+- Filter out labeled ipv4 addresses in get_ipv4address used
+  to fetch the 1st address from the TUNNEL_DEVICE interface.
+  Allows to configure a label for each address that should
+  be skipped. Updated ifcfg-tunnel.5 man page. (bnc#741453)
+  Thanks to Jon Nelson for his report with a fix proposal!
+
+------------------------------------------------------------------
+Tue Jan 10 09:46:26 UTC 2012 - mt@suse.com
+
+- Explicitly disabled posix mode in all bash scripts as we are
+  using several features not supported in posix mode (bnc#739338).
+
+------------------------------------------------------------------
+Thu Jan  5 17:48:18 UTC 2012 - mt@suse.com
+
+- Fixed ipv6 dad / link ready wait time calculation (1/10 of the
+  specified time) and replaced useless up flag check loop with
+  link_ready_wait to avoid send errors from dhclient6 (bnc#697929).
+
+------------------------------------------------------------------
+Wed Jan  4 18:40:19 UTC 2012 - mt@suse.com
+
+- Added to require vlan, bridge-utils and tunctl packages via spec,
+  that are often required in base networking configurations and
+  are missed otherwise in 2nd installation stage, that may be
+  unable to install them for some reason (bnc#733118).
+- Added X-Systemd-RemainAfterExit: true LSB header (bnc#727771)
+- Do not suggest dhcp6c client from dropped dhcpv6 package
+  in ifup-dhcp, marked dhcp6c as deprecated in network/dhcp
+  and changed to use dhclient6 as first choice (bnc#734723).
+
+------------------------------------------------------------------
+Mon Dec 19 09:41:09 UTC 2011 - mt@suse.com
+
+- Fixed to quote config / interface variables in ifservices script
+  and cleaned up content of the ESSID which gets appended to them
+  by NetworkManager dispatcher hook (bnc#735394, CVE-2011-4182).
+  Fixed also to return proper exit code 0 in NM dispatcher hooks.
+- Changed to call ip addr flush in ifdown, but after ip link set
+  down as it does not cause ipv6 sysctl tree side effects then
+  at least with more recent kernels (bnc#580018,bnc#559170).
+
+------------------------------------------------------------------
 Fri Oct 21 11:35:06 UTC 2011 - mt@suse.com
 
 - Changed NM_ONLINE_TIMEOUT default back to 0 to avoid
