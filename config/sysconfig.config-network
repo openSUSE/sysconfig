@@ -143,6 +143,15 @@ MANDATORY_DEVICES=""
 #
 WAIT_FOR_INTERFACES="30"
 
+## Type:        list("",yes,no)
+## Default:     ""
+#
+# Forces all interfaces eth* ath* wlan* and ra* to be persistent via udev
+# or disables the persistent rename flag check. Default is to check if udev
+# is running -- it may be not used, e.g. inside of LXC containers.
+#
+FORCE_PERSISTENT_NAMES=""
+
 ## Type:        integer
 ## Default:     0
 #
