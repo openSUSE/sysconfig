@@ -507,13 +507,24 @@ done
 # is ready to be set up. If an it is not ready now, it will be set up via
 # udev/ifup (because network is started now). We will just have to wait for it
 # later in the start section if it is considered mandatory (see next section).
+#
+# When udev is not in use / started,  e.g. inside of LXC container, then the
+# 'renamed' flag will be never set and we don't need to check it -- except
+# when there is an explicit configuration telling how to behave here.
+#
+if /sbin/checkproc /sbin/udevd &>/dev/null ; then
+	FORCE_PERSISTENT_NAMES=${FORCE_PERSISTENT_NAMES:-yes}
+else
+	FORCE_PERSISTENT_NAMES=${FORCE_PERSISTENT_NAMES:-no}
+fi
 for a in $(type_filter `ls -A /sys/class/net/`); do
 	test -d /sys/class/net/$a || continue
 	t=`get_iface_type $a`
 	case "$t" in
 		eth|tr|ib|wlan)
 			STAMPFILE=$STAMPFILE_STUB`cat /sys/class/net/$a/ifindex`
-			if [ "$MODE" = onboot -a "$ACTION" = start ] ; then
+			if [ "$MODE" = onboot -a "$ACTION" = start -a \
+			     "${FORCE_PERSISTENT_NAMES}" = yes ] ; then
 				# skip interfaces (with active drivers)
 				# but not yet prepared by an
 				#   ifup -o hotplug
