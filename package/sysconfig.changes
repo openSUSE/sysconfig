@@ -1,4 +1,30 @@
 -------------------------------------------------------------------
+Thu Jul 19 13:58:01 UTC 2012 - mt@suse.com
+
+- /etc/init.d/network: do not check the renamed-flag when udev
+  daemon is not running as in LXC containers. It caused to wait
+  until the udev rename finished with a not started network and
+  failure result (bnc#771615).
+
+-------------------------------------------------------------------
+Mon Jul  2 11:35:17 UTC 2012 - mt@suse.com
+
+- ifup-bridge: apply stp contstrains when STP is on (bnc#753387)
+
+-------------------------------------------------------------------
+Mon Jun 11 10:10:10 UTC 2012 - mt@suse.com
+
+- Fixed ifrenew-dhcp to use built-in dhcpcd --renew (bnc#763533).
+- Fixed to differentiate ib/ibchild/bond types and stop ib-bond
+  interfaces correctly.
+
+-------------------------------------------------------------------
+Wed Apr  4 14:17:19 UTC 2012 - mt@suse.com
+
+- Fixed ifup-route to not force dummy gateway for multicast routes
+  (bnc#754154) and fixed use of the -4/-6 option (bnc#745252).
+
+-------------------------------------------------------------------
 Tue Jan 31 14:10:15 UTC 2012 - mt@suse.com
 
 - Filter out labeled ipv4 addresses in get_ipv4address used
