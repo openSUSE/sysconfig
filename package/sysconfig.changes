@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Thu Jul 19 13:58:01 UTC 2012 - mt@suse.com
+
+- /etc/init.d/network: do not check the renamed-flag when udev
+  daemon is not running as in LXC containers. It caused to wait
+  until the udev rename finished with a not started network and
+  failure result (bnc#771615).
+
+-------------------------------------------------------------------
 Mon Jun 11 10:10:10 UTC 2012 - mt@suse.com
 
 - version 0.76.3
