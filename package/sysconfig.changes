@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Jul 20 14:38:16 UTC 2012 - mt@suse.com
+
+- Applied patch blacklisting uas driver confirmed by Intel as
+  a hopeless case (bnc#770301).
+
+-------------------------------------------------------------------
 Thu Jul 19 13:58:01 UTC 2012 - mt@suse.com
 
 - /etc/init.d/network: do not check the renamed-flag when udev
