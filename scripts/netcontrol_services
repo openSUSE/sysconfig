@@ -32,6 +32,9 @@ cd /etc/sysconfig/network/ || exit 0
 test -r ./config && . ./config
 test -r scripts/functions && . scripts/functions
 
+# Check if there is a script for the action
+test -x "scripts/if${2}-services" || exit 0
+
 E=`iwconfig "${1}" 2>/dev/null | \
 	sed -n 's/^.*ESSID:\"\([^\"]*\)\".*$/\1/p' | \
 	sed -e 's/[^abcdefghijklmnopqrstuvwxyz0123456789=._-]/_/gi'`
