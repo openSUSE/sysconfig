@@ -27,7 +27,12 @@ Url:            http://gitorious.org/opensuse/sysconfig
 PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
 # we may create these automatically from rpm later
 Provides:       sysvinit(network)
-Requires:       iproute2 dbus-1 procps vlan bridge-utils tunctl
+Requires:       bridge-utils
+Requires:       dbus-1
+Requires:       iproute2
+Requires:       procps
+Requires:       tunctl
+Requires:       vlan
 BuildRequires:  libtool
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Source:         %name-%version.tar.bz2
