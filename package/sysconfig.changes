@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Aug  9 16:42:02 UTC 2012 - mt@suse.com
+
+- version 0.76.4
+- Check before running a script in netcontrol_services (bnc#775281).
+
+-------------------------------------------------------------------
 Fri Jul 20 14:38:16 UTC 2012 - mt@suse.com
 
 - Applied patch blacklisting uas driver confirmed by Intel as
