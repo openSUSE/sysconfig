@@ -255,11 +255,24 @@ DHCLIENT_RELEASE_BEFORE_QUIT="no"
 #
 DHCLIENT6_RELEASE_BEFORE_QUIT="no"
 
+## Type:        integer
+## Default:     ""
+#
+# Before ifup-dhcp is going to start dhcp clients, it will set up the link
+# when needed. Then it has to wait until the link is ready. This setting
+# allows to specify the time how long to wait. Default is half of the time
+# in the DHCLIENT_WAIT_AT_BOOT variable.
+#
+DHCLIENT_WAIT_LINK=""
+
 ## Type:	integer
 ## Default:	0
 #
-# Some interfaces need time to initialize. Add the latency time in seconds
-# so these can be handled properly. Should probably set per interface rather than here.
+# Some interfaces need time to initialize and/or do not report correct status.
+# Add the latency time in seconds so these can be handled properly. Should
+# probably set per interface rather than here.
+# This setting causes a sleep time before dhcp clients are started regardless
+# of the link status (wait time in DHCLIENT_WAIT_LINK).
 #
 DHCLIENT_SLEEP="0"
 
@@ -268,7 +281,9 @@ DHCLIENT_SLEEP="0"
 #
 # When the DHCP client is started at boot time, the boot process will stop
 # until the interface is successfully configured, but at most for
-# DHCLIENT_WAIT_AT_BOOT seconds.
+# DHCLIENT_WAIT_AT_BOOT seconds. Do not set this variable higher than the
+# WAIT_FOR_INTERFACES variable -- it is adjusted to WAIT_FOR_INTERFACES/2
+# as default.
 #
 # Note: RFC 2131 specifies, that the dhcp client should wait a random time
 # between one and ten seconds to desynchronize the use of DHCP at startup.
