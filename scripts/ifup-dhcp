@@ -687,6 +687,12 @@ case "$ACTION" in
 			write_cached_config_data hostname "`hostname 2>/dev/null`" $INTERFACE
 			commit_cached_config_data                                  $INTERFACE
 
+			# make sure linux packet filter is ready before we set
+			# the interface up. Otherwise some dhcp packets may be
+			# never sent (or dhcp does not get any response?) until
+			# both the link + af_packet are ready to use.
+			/sbin/modprobe af_packet
+
 			debug "Activating interface $INTERFACE"
 			if ! is_iface_up $INTERFACE ; then
 
