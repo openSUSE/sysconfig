@@ -694,7 +694,9 @@ case "$ACTION" in
 				   ${LLADDR:+address $LLADDR} $LINK_OPTIONS
 
 				# wait a bit or dhclient(6) may produce false send errors
-				link_ready_wait "$INTERFACE" 3
+				# or dhcp4 may sent its first packets before link is ready,
+				# increase the resent time and all needs a while longer...
+				link_ready_wait "$INTERFACE" ${DHCLIENT_WAIT_LINK:-$((${DHCLIENT_WAIT_AT_BOOT:-15}/2))}
 
 				# (optionally) wait until a device is really configured
 				sleep ${DHCLIENT_SLEEP:-0}
