@@ -362,7 +362,7 @@ start_dhcp4_dhclient() {
 
 	# don't write copyright info
 	local args="-q" 
-	test "$DHCLIENT_DEBUG" = "yes" && args=""
+	test "$DHCLIENT_DEBUG" = "yes" && args="-v"
 
 	# send hostname for DDNS?
 	case "$DHCLIENT_HOSTNAME_OPTION" in
@@ -423,7 +423,7 @@ start_dhcp6_dhclient() {
 
 	# don't write copyright info
 	local args="-q" 
-	test "$DHCLIENT6_DEBUG" = "yes" && args=""
+	test "$DHCLIENT6_DEBUG" = "yes" && args="-v"
 
 	# send hostname for DDNS?
 	case "$DHCLIENT6_HOSTNAME_OPTION" in
