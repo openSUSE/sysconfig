@@ -231,10 +231,25 @@ fi
 
 # here we should restart services if needed
 
-# try restart ntp; reload is not supported and we need 
-#                  to delete old servers
-if [ -x $r/etc/init.d/ntp ]; then
-        $r/etc/init.d/ntp try-restart >/dev/null 2>&1
+#
+# do not restart  or it may (will) block ifup
+# just try to add the server at runtime ...
+#
+NTP_CONF="/etc/ntp.conf"
+NTPDC_BIN="/usr/sbin/ntpdc"
+
+if [ -n "${NTP_SERVER_LIST[*]}" -a -f "${NTP_CONF}" ] && /etc/init.d/ntp status >/dev/null 2>/dev/null ; then
+    NTP_KEYS=$(awk '/^keys/ { print $2 }' $NTP_CONF)
+    NTP_KEYID=$(awk '/^requestkey[[:blank:]]/ { print $2 }' $NTP_CONF)
+    NTP_PASSWD=$(test -n "$NTP_KEYS" -a -n "$NTP_KEYID" -a -r "$NTP_KEYS" && awk '$0 ~ key { print $3 }' key="^[[:blank:]]*$NTP_KEYID[[:blank:]]" $NTP_KEYS)
+
+    if [ -n "$NTP_KEYS" -a -n "$NTP_PASSWD" ] ; then
+        for server in ${NTP_SERVER_LIST[*]} ; do
+            NTPDC_CMD="keyid $NTP_KEYID\npasswd $NTP_PASSWD\naddserver $server\n"
+            NTPDC_LOG=$(echo -e "${NTPDC_CMD}quit" | $NTPDC_BIN)
+            debug "$PROGNAME add-server: $server"
+        done
+    fi
 fi
 
 exit 0;
