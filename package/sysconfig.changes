@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Sep 27 20:12:07 UTC 2012 - mlatimer@suse.com
+
+- version 0.76.5
+- Added support for NOZEROCONF option to disable zero config route.
+
+-------------------------------------------------------------------
 Thu Aug  9 16:42:02 UTC 2012 - mt@suse.com
 
 - version 0.76.4

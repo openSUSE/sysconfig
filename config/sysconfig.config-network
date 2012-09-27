@@ -392,3 +392,11 @@ NETCONFIG_NIS_STATIC_SERVERS=""
 #
 WIRELESS_REGULATORY_DOMAIN=''
 
+## Type:	yesno
+## Default:	no
+#
+# This variable is used to disable the Zero Configuration Networking
+# (zeroconf) route (169.254.0.0) on local interfaces.
+#
+NOZEROCONF='no'
+
