@@ -146,6 +146,13 @@ if [ -z "$CONFIG" ] ; then
 fi
 
 case $SCRIPTNAME in
+	ifup)
+		if [ ${#INTERFACE} -gt 15 ] ; then
+			message "`printf "    %-9s: name too long" "$INTERFACE"`"
+			exit $R_ERROR
+			#exit $R_NOCONFIG
+		fi
+	;;
 	ifprobe)
 		IFUPFILE=$RUN_FILES_BASE/ifup-$INTERFACE
 		if [ ! -e "$IFUPFILE" ] ; then
