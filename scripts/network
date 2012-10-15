@@ -925,6 +925,7 @@ case "$ACTION" in
 		done
 
 		debug ... final
+		debug FAILED_IFACES=''
 		debug SUCCESS_IFACES=$SUCCESS_IFACES
 		debug MANDATORY_DEVICES=$MANDATORY_DEVICES
 		debug FAILED=$FAILED
@@ -950,6 +951,7 @@ case "$ACTION" in
 		 				echo
 						;;
 					$R_NOCONFIG)
+						FAILED_IFACES="$FAILED_IFACES $IFACE"
 						rc_failed 6
 						rc_status -v1
 						# : $((FAILED++))
@@ -960,6 +962,7 @@ case "$ACTION" in
 						rc_status -v1
 		 				;;
 		 			*)
+						FAILED_IFACES="$FAILED_IFACES $IFACE"
 		 				rc_failed 7
 		 				rc_status -v1
 						# : $((FAILED++))
@@ -980,6 +983,9 @@ case "$ACTION" in
 				for IFACE in $TMP ; do
 					for S in $SUCCESS_IFACES; do
 						test "$IFACE" = "$S" && continue 2
+					done
+					for F in $FAILED_IFACES ; do
+						test "$IFACE" = "$F" && continue 2
 					done
 					IFACE="`type_filter $IFACE`"
 					test -z "$IFACE" && continue
