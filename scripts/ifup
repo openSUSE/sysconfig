@@ -140,20 +140,22 @@ test -f scripts/functions.common \
 # Get a configuration name
 
 if [ -z "$CONFIG" ] ; then
-	read CONFIG < <(read_cached_config_data config $INTERFACE)
+	read CONFIG < <(read_cached_config_data config "$INTERFACE")
 fi
 if [ -z "$CONFIG" ] ; then
 	CONFIG=$INTERFACE
 fi
 
+# Check valid interface name length and content
+if [ ${#INTERFACE} -gt 15 ] ; then
+	message "`printf "    %-9s: interface name too long" "$INTERFACE"`"
+	exit $R_ERROR
+elif ! is_valid_interface_name "$INTERFACE" ; then
+	message "`printf "    %-9s: invalid interface name" "$INTERFACE"`"
+	exit $R_ERROR
+fi
+
 case $SCRIPTNAME in
-	ifup)
-		if [ ${#INTERFACE} -gt 15 ] ; then
-			message "`printf "    %-9s: name too long" "$INTERFACE"`"
-			exit $R_ERROR
-			#exit $R_NOCONFIG
-		fi
-	;;
 	ifprobe)
 		IFUPFILE=$RUN_FILES_BASE/ifup-$INTERFACE
 		if [ ! -e "$IFUPFILE" ] ; then

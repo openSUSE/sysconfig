@@ -95,6 +95,14 @@ netcontrol_running() {
 	test -f $NETWORK_RUNFILE
 }
 
+is_valid_interface_name()
+{
+	local LANG=C LC_ALL=C
+	local INTERFACE="$1"
+	local IFNAME_RX='^[[:alnum:]._:-]{1,15}$'
+	[[ ${INTERFACE} =~ ${IFNAME_RX} ]]
+}
+
 # returns 0 if ifup is currently working on this interface
 ifup_on_iface() {
 	ps axhww | grep -qs "[i]fup.* $INTERFACE\>"
