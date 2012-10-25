@@ -783,20 +783,22 @@ case $ACTION in
             ""|none) ;;
             yes)    run_iw_tool config power period 2
                     if [ $RETVAL -eq 250 ]; then
-                        # The power operation is invalid or unsupported.
+                        # The power operations may be not supported by the
+                        # driver and not all driver support all modes ...
                         iwconfig $INTERFACE power off 2> /dev/null
-                        # If the power operation is unsupported, ignore the error.
-                        [ $? -eq 250 ] && RETVAL=$R_SUCCESS
+                        # Error were logged/displayed ... don't fail here.
+                        RETVAL=$R_SUCCESS
                     fi ;;
             no|off) run_iw_tool config power off
                     # If the power operation is unsupported, ignore the error.
                     [ $RETVAL -eq 250 ] && RETVAL=$R_SUCCESS ;;
             *)      run_iw_tool config power $WIRELESS_POWER
                     if [ $RETVAL -eq 250 ]; then
-                        # The power operation is invalid or unsupported.
+                        # The power operations may be not supported by the
+                        # driver and not all driver support all modes ...
                         iwconfig $INTERFACE power off 2> /dev/null
-                        # If the power operation is unsupported, ignore the error.
-                        [ $? -eq 250 ] && RETVAL=$R_SUCCESS
+                        # Error were logged/displayed ... don't fail here.
+                        RETVAL=$R_SUCCESS
                     fi ;;
         esac
 
