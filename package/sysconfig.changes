@@ -1,4 +1,25 @@
 -------------------------------------------------------------------
+Thu Oct 25 16:26:09 UTC 2012 - mt@suse.de
+
+- Fixed to check and reject too long interface names or names
+  with suspect characters, do not wait when creation of virtual
+  interface name fails (bnc#784952).
+- Fixed to not report failure while setting unsupported power
+  management option in ifup-wireless as the support and features
+  depends on the driver (bnc#716652).
+
+-------------------------------------------------------------------
+Wed Sep 26 17:06:28 UTC 2012 - mt@suse.com
+
+- Fixed ifup-dhcp to not start dhcp clients too early or they may
+  be unable to send packets and just increase resend time. Instead,
+  load af_packet module early and wait for link ready (bnc#780644).
+- Fixed netconfig/ntp-runtime to not use try-restart as its start
+  may block for a while, so just add servers ourself. When ntpd is
+  not running (not yet started), the init script will pickup our
+  servers later (bnc#780644).
+
+-------------------------------------------------------------------
 Thu Aug  9 16:42:02 UTC 2012 - mt@suse.com
 
 - version 0.76.4
