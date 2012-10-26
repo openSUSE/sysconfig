@@ -181,10 +181,20 @@ IPV6_DAD_WAIT=""
 # should get started when network interfaces are started.
 FIREWALL="yes"
 
+## Type:	yesno
+## Default:	no
+#
+# This variable is used to disable the Zero Configuration Networking
+# (zeroconf) route (169.254.0.0) on local interfaces, which match
+# the pattern in LINKLOCAL_INTERFACES variable.
+#
+NOZEROCONF="no"
+
 ## Type:        string
 ## Default:     "eth*[0-9]|tr*[0-9]|wlan[0-9]|ath[0-9]"
 #
-# Automatically add a linklocal route to the matching interfaces.
+# When is not disabled using the NOZEROCONF variable, automatically
+# add a IPv4 linklocal route to the matching interfaces.
 # This string is used in a bash "case" statement, so it may contain
 # '*', '[', ']'  and '|' meta-characters.
 #
@@ -391,12 +401,4 @@ NETCONFIG_NIS_STATIC_SERVERS=""
 # available wpa drivers.
 #
 WIRELESS_REGULATORY_DOMAIN=''
-
-## Type:	yesno
-## Default:	no
-#
-# This variable is used to disable the Zero Configuration Networking
-# (zeroconf) route (169.254.0.0) on local interfaces.
-#
-NOZEROCONF='no'
 

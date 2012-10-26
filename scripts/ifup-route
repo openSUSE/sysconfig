@@ -142,12 +142,12 @@ filter_routes()
 #
 EXTRALINKLOCAL=
 islinklocal=
-if test -n "$LINKLOCAL_INTERFACES" ; then
+if test "$NOZEROCONF" != "yes" -a -n "$LINKLOCAL_INTERFACES" ; then
         eval "case \$INTERFACE in $LINKLOCAL_INTERFACES) islinklocal=true ;; esac"
 fi
 # Calling 'ip' if there is no interface (ifdown called from udev for remove
 # event) would trigger automatic module loading (Bug 199456)
-if [ -d /sys/class/net/$INTERFACE -a "$NOZEROCONF" != "yes" ] ; then
+if [ -d /sys/class/net/$INTERFACE -a "$NOZEROCONF" != "yes" -a -n "$islinklocal" ] ; then
 	# Don't add this route if interface has no v4 address (Bug 65557)
 	test -z "`ip -4 a l dev $INTERFACE 2>/dev/null`" && islinklocal=
 	if test -n "$islinklocal" ; then
