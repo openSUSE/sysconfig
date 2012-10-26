@@ -18,7 +18,8 @@
 #            IFPLUGD_PRIORITY.)
 # - nfsroot: Nearly like 'auto'. But interfaces with this startmode will never
 #            be shut down via 'rcnetwork stop'. 'ifdown <iface>' still works.
-#            Use this when you have a nfs root filesystem.
+#            Use this when you have a nfs root filesystem or you connect to an
+#            iSCSI / FCoE target.
 # - manual:  start it only when ifup is called manually
 # - off:     will not be started at all
 # - onboot:  alias for auto, deprecated, only for backward compliance
