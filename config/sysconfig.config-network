@@ -22,6 +22,16 @@ DEFAULT_BROADCAST="+"
 GLOBAL_POST_UP_EXEC="yes"
 GLOBAL_PRE_DOWN_EXEC="yes"
 
+## Type:        integer
+### Default:     5
+##
+## Specifies the number of seconds ifup(8)/ifdown(8) should wait for the
+## PRE/POST, if-up.d/if-down.d scripts, executed in parallel then.
+## A setting of 0 disables the background execution (reverts to previous
+## blocking behavior).
+##
+WAIT_BACKGROUND_JOBS=5
+
 ## Type:        yesno
 ## Default:     no
 # If ifup should check if an ip address is already in use, set this to yes.
