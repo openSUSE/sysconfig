@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Thu Nov  1 17:08:25 UTC 2012 - mt@suse.com
+
+- version 0.76.7
+- Start ifup pre/post and if-up.d/if-down.d scripts in background.
+  The new network/config variable WAIT_BACKGROUND_JOBS specifies
+  the wait limit. Default is 5 secons, 0 disables backgrounding
+  and reverts to previous blocking behavior. Attempt to solve the
+  issues where interfaces are not come up in time, because some
+  hook-script are blocking ifup (bnc#780644).
+- Execute netconfig/ntp-runtime updates in background (bnc#780644).
+- Man-page hint to use STARTMODE=nfsroot when using iSCSI or FCoE.
+
+-------------------------------------------------------------------
 Fri Oct 26 11:28:43 UTC 2012 - mt@suse.com
 
 - version 0.76.6
