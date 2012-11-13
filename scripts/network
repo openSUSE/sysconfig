@@ -752,7 +752,9 @@ status() {
 				;;
 			$R_DHCP_BG)
 				if [ -f "$NETWORK_RUNFILE" -a "$M" = yes ] ; then
-					: $((F++))
+					if [ "$SD_RUNNING" != "yes" ] ; then
+						: $((F++))
+					fi
 				fi
 	 			rc_startmode="${esc}[1A${stat}${attn}waiting${norm}"
 	 			echo -e "$rc_startmode" 1>&2
