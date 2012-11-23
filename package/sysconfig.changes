@@ -1,4 +1,26 @@
 -------------------------------------------------------------------
+Fri Nov 23 11:25:20 UTC 2012 - mt@suse.com
+
+- version 0.76.8
+- Changed rcnetwork to not report dhcp in background to systemd
+  (bnc#785240,bnc#780644). You may set DHCLIENT_MODIFY_SMB_CONF
+  to "no" in /etc/sysconfig/network/dhcp as the samba/cifs hooks
+  make systemctl calls to reload/restart nmb and other services
+  which block (systemd deadlock) ifup scripts for a long time.
+- Reverted ifup pre/post and if-up.d/if-down.d scripts processing
+  feature in background and removed WAIT_BACKGROUND_JOBS variable
+  as it tends to cause unexpected behavior / side effects.
+- Replaced udevrulesdir patch with --with-udevdir configure option.
+- Removed obsolete network-remotefs init script (disabled before).
+
+-------------------------------------------------------------------
+Mon Nov  5 20:18:45 UTC 2012 - tittiatcoke@gmail.com
+
+- Added patch (set_new_udevrules_dir.patch) to ensure that the
+  udevmountd and the udev rules are installed at the right place
+  (/usr/lib/udev)
+
+-------------------------------------------------------------------
 Thu Nov  1 17:08:25 UTC 2012 - mt@suse.com
 
 - version 0.76.7
