@@ -35,6 +35,11 @@ Requires:       tunctl
 Requires:       vlan
 BuildRequires:  libtool
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+%if 0%{?suse_version} >= 1230
+%define         udevdir	/usr/lib/udev
+%else
+%define         udevdir	/lib/udev
+%endif
 Source:         %name-%version.tar.bz2
 
 %description
@@ -62,9 +67,9 @@ CFLAGS="$RPM_OPT_FLAGS -fPIC" \
 ./configure --prefix=/ \
             --sbindir=/sbin \
             --libdir=/%_lib \
-            --libdir=/usr/%_lib \
             --sysconfdir=%_sysconfdir \
             --mandir=%_mandir \
+            --with-udevdir=%udevdir \
             --with-fillup-templatesdir=/var/adm/fillup-templates
 %{__make} %{?_smp_mflags}
 
@@ -78,9 +83,6 @@ rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT install
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/config
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/dhcp
-# install udevmountd
-mkdir -p $RPM_BUILD_ROOT/lib/udev
-mv $RPM_BUILD_ROOT/sbin/udevmountd $RPM_BUILD_ROOT/lib/udev
 # remove template dir
 rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 
@@ -95,11 +97,11 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %config(noreplace) /etc/ppp/ip-down
 %config(noreplace) /etc/ppp/ipv6-up
 %config(noreplace) /etc/ppp/ipv6-down
-%dir /lib/udev
-/lib/udev/udevmountd
-%dir /lib/udev/rules.d
-/lib/udev/rules.d/77-network.rules
-/lib/udev/rules.d/81-mount.rules
+%dir %udevdir
+%udevdir/udevmountd
+%dir %udevdir/rules.d
+%udevdir/rules.d/77-network.rules
+%udevdir/rules.d/81-mount.rules
 %dir /etc/modprobe.d
 %config /etc/sysconfig/network/ifcfg.template
 %config /etc/modprobe.d/50-blacklist.conf
