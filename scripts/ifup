@@ -688,11 +688,7 @@ if [ "$SCRIPTNAME" = ifdown ] ; then
 			# ignore backup files and leftovers from rpm
 			echo $SCRIPT | grep -q '\(\.rpm\(save\|new\)$\)\|\(.~$\)' && continue;
 			debug "executing additional global stop script $SCRIPT"
-			if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS} &
-			else
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			fi
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		done
 	fi
 
@@ -702,16 +698,9 @@ if [ "$SCRIPTNAME" = ifdown ] ; then
 	for SCRIPT in `eval echo $PRE_DOWN_SCRIPT scripts/$PRE_DOWN_SCRIPT`; do
 		if [ -x "$SCRIPT" -a ! -d "$SCRIPT" ] ; then
 			debug "executing additional stop script $SCRIPT"
-			if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS} &
-			else
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			fi
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		fi
 	done
-	if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-		wait_jobs ${WAIT_BACKGROUND_JOBS:-0} || disown -a
-	fi
 
 	# shut down depending services first
 	scripts/${SCRIPTNAME}-services $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
@@ -726,16 +715,9 @@ if [ "$SCRIPTNAME" = ifup ] ; then
 	for SCRIPT in `eval echo $PRE_UP_SCRIPT scripts/$PRE_UP_SCRIPT`; do
 		if [ -x "$SCRIPT" -a ! -d "$SCRIPT" ] ; then
 			debug "executing additional start script $SCRIPT"
-			if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS} &
-			else
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			fi
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		fi
 	done
-	if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-		wait_jobs ${WAIT_BACKGROUND_JOBS:-0} || disown -a
-	fi
      fi
 fi
 
@@ -1415,11 +1397,7 @@ if [ "$SCRIPTNAME" = ifup \
 			# ignore backup files and leftovers from rpm
 			echo $SCRIPT | grep -q '\(\.rpm\(save\|new\)$\)\|\(.~$\)' && continue;
 			debug "executing additional global start script $SCRIPT"
-			if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS} &
-			else
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			fi
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		done
 	fi
 
@@ -1429,16 +1407,10 @@ if [ "$SCRIPTNAME" = ifup \
 	for SCRIPT in `eval echo $POST_UP_SCRIPT scripts/$POST_UP_SCRIPT`; do
 		if [ -x "$SCRIPT" -a ! -d "$SCRIPT" ] ; then
 			debug "executing additional start script $SCRIPT"
-			if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS} &
-			else
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			fi
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		fi
 	done
-	if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-		wait_jobs ${WAIT_BACKGROUND_JOBS:-0} || disown -a
-	fi
+
 fi
 
 # execute an individual poststop script if available
@@ -1449,16 +1421,9 @@ if [ "$SCRIPTNAME" = ifdown \
 	for SCRIPT in `eval echo $POST_DOWN_SCRIPT scripts/$POST_DOWN_SCRIPT`; do
 		if [ -x "$SCRIPT" -a ! -d "$SCRIPT" ] ; then
 			debug "executing additional stop script $SCRIPT"
-			if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS} &
-			else
-				$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			fi
+			$SCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		fi
 	done
-	if test $((${WAIT_BACKGROUND_JOBS:-0})) -gt 0 ; then
-		wait_jobs ${WAIT_BACKGROUND_JOBS:-0} || disown -a
-	fi
 fi
 
 # We have to respect the status of ifplugd for interfaces with

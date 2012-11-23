@@ -81,20 +81,6 @@ add_to_wordlist() {
 	eval "$v='${l[@]}'"
 }
 
-wait_jobs()
-{
-	local -i wsecs=$1
-	local -i uwait=25000
-	local -i loops=$(((wsecs * 1000000) / $uwait))
-	local -i loop=0
-	local -a jpids=($(jobs -pr))
-	while (( ${#jpids[@]} > 0 && loop++ < loops)) ; do
-		usleep $uwait
-		jpids=($(jobs -pr))
-	done
-	return ${#jpids[@]}
-}
-
 nm_running () {
 	local MSG RET
 	test -x "$NETWORKMANAGER_BIN" || return
