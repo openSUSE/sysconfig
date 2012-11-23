@@ -18,7 +18,6 @@ sysconfig_network_scriptsdir='${sysconfdir}/sysconfig/network/scripts'
 init_ddir='${sysconfdir}/init.d'
 docdir='${prefix}/usr/share/doc/packages/sysconfig'
 pppdir='${sysconfdir}/ppp'
-udevrulesdir='${prefix}/lib/udev/rules.d'
 nm_dispatcherdir='${sysconfdir}/NetworkManager/dispatcher.d'
 modprobedir='${sysconfdir}/modprobe.d'
 omc_svcinfodir='${prefix}/usr/share/omc/svcinfo.d'
@@ -31,7 +30,11 @@ AC_SUBST(sysconfig_network_scriptsdir)
 AC_SUBST(init_ddir)
 AC_SUBST(docdir)
 AC_SUBST(pppdir)
-AC_SUBST(udevrulesdir)
+AC_ARG_WITH([udevdir], [AS_HELP_STRING([--with-udevdir@<:@=PATH@:>@],
+	    [path to the udev installation directory])],,
+	    [with_udevdir='${prefix}/lib/udev'])
+AC_SUBST(udevdir, $with_udevdir)
+AC_SUBST(udevrulesdir, ${with_udevdir}/rules.d)
 AC_SUBST(modprobedir)
 AC_SUBST(nm_dispatcherdir)
 AC_SUBST(omc_svcinfodir)
