@@ -1,23 +1,48 @@
 -------------------------------------------------------------------
+Fri Nov 23 09:42:01 UTC 2012 - mt@suse.de
+
+- Execute netconfig/ntp-runtime update in background, so dhcp post
+  processing works faster when ntpdc needs a while (bnc#780644).
+  [0010-Execute-netconfig-ntp-runtime-update-in-background.patch]
+
+-------------------------------------------------------------------
+Tue Nov 13 14:15:47 UTC 2012 - mt@suse.de
+
+- Changed rcnetwork to not report dhcp in background to systemd
+  (bnc#785240,bnc#780644). You may set DHCLIENT_MODIFY_SMB_CONF
+  to "no" in /etc/sysconfig/network/dhcp as the samba/cifs hooks
+  make systemctl calls to reload/restart nmb and other services
+  which block (systemd deadlock) ifup scripts for a long time.
+  [0009-rcnetwork-no-dhcp-in-background-report-to-systemd.patch]
+
+-------------------------------------------------------------------
 Thu Oct 25 16:26:09 UTC 2012 - mt@suse.de
 
-- Fixed to check and reject too long interface names or names
-  with suspect characters, do not wait when creation of virtual
-  interface name fails (bnc#784952).
 - Fixed to not report failure while setting unsupported power
   management option in ifup-wireless as the support and features
   depends on the driver (bnc#716652).
+  [0008-ifup-wireless-do-not-fail-on-unsupported-power-optio.patch]
+- Fixed to check and reject too long interface names or names
+  with suspect characters, do not wait when creation of virtual
+  interface name fails (bnc#784952).
+  [0005-ifup-fail-early-for-too-long-interface-names.patch,
+   0006-network-do-not-wait-for-virtuals-reporting-errors.patch,
+   0007-ifup-check-for-valid-characters-in-interface-names.patch]
 
 -------------------------------------------------------------------
 Wed Sep 26 17:06:28 UTC 2012 - mt@suse.com
 
-- Fixed ifup-dhcp to not start dhcp clients too early or they may
-  be unable to send packets and just increase resend time. Instead,
-  load af_packet module early and wait for link ready (bnc#780644).
 - Fixed netconfig/ntp-runtime to not use try-restart as its start
   may block for a while, so just add servers ourself. When ntpd is
   not running (not yet started), the init script will pickup our
   servers later (bnc#780644).
+  [0004-netconfig-ntp-runtime-add-servers-do-not-try-restart.patch]
+- Fixed ifup-dhcp to not start dhcp clients too early or they may
+  be unable to send packets and just increase resend time. Instead,
+  load af_packet module early and wait for link ready (bnc#780644).
+  [0001-Use-dhclient-v-when-debug-is-enabled-bnc-780644.patch,
+   0002-Added-DHCLIENT_WAIT_LINK-variable-instead-to-hardcod.patch,
+   0003-modprobe-af_packet-early-before-link-set-up.patch]
 
 -------------------------------------------------------------------
 Thu Aug  9 16:42:02 UTC 2012 - mt@suse.com
