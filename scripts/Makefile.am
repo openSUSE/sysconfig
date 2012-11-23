@@ -36,7 +36,7 @@ sbin_SCRIPTS =	ifup \
 		ifup-dhcp \
 		netconfig
 
-init_d_SCRIPTS = network network-remotefs
+init_d_SCRIPTS = network
 
 ppp_SCRIPTS = 	ip-up \
 		poll.tcpip
