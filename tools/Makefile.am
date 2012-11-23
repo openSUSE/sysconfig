@@ -4,9 +4,10 @@ CLEANFILES = *~
 MAINTAINERCLEANFILES = Makefile.in
 
 sbin_PROGRAMS = ifuser \
-		autoip \
-		udevmountd
+		autoip
 
+udev_PROGRAMS = \
+		udevmountd
 
 ifuser_SOURCES = ifuser.c
 
