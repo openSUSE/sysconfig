@@ -95,19 +95,27 @@ apply_constraints()
 	local -i min=$(($2))
 	local -i max=$(($3))
 	local    def=$4
+	local    val=${!var}
+	local    tmp
 
-	test -n "${!var}" || return
-	if   test $((${!var})) -lt $min ; then
+	case $val in
+	"")	return 0                                  ;;
+	*[,.]*)	tmp=${val##*[.,]}
+		val=$((${val%%[.,]*} * 100 + ${tmp:0:2})) ;;
+	*)	val=$(($val * 100))                       ;;
+	esac
+	if   test $((${val})) -lt $(($min * 100)) ; then
 		def=${def:-$min}
 		message_if_not_run_from_rc \
 			"Warning: Correcting $var from ${!var} to $def"
 		eval "${var}=$def"
-	elif test $((${!var})) -gt $max ; then
+	elif test $((${val})) -gt $(($max * 100)) ; then
 		def=${def:-$max}
 		message_if_not_run_from_rc \
 			"Warning: Correcting $var from ${!var} to $def"
 		eval "${var}=$def"
 	fi
+	return 0
 }
 
 ######################################################################
