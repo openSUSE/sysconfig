@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Fri Jan 11 22:38:46 UTC 2013 - mt@suse.com
+
+- Fixed to correctly apply STP constrains also to float time
+  values with a 1/100 sec precision (bnc#753387,bnc#794720).
+  [0002-ifup-bridge-handle-1-100-sec-precision-stp-times.patch]
+- Updated bridge documentation link in ifcfg-bridge.5 (bnc#791553).
+  [0001-Updated-bridge-documentation-link-in-ifcfg-bridge.5.patch]
+
+-------------------------------------------------------------------
 Fri Nov 23 11:25:20 UTC 2012 - mt@suse.com
 
 - version 0.76.8
