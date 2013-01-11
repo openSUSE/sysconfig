@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Jan  8 17:10:23 UTC 2013 - mt@suse.de
+
+- Fixed to correctly apply STP constrains also to float time
+  values with a 1/100 sec precision (bnc#753387,bnc#794720).
+  [0011-ifup-bridge-handle-1-100-sec-precision-stp-times.patch]
+
+-------------------------------------------------------------------
 Fri Nov 23 09:42:01 UTC 2012 - mt@suse.de
 
 - Execute netconfig/ntp-runtime update in background, so dhcp post
