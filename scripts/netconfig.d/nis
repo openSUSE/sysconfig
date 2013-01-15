@@ -357,21 +357,8 @@ function manage_interfaceconfig()
 
 
 # just for the case we need the original value...
-_NETCONFIG_NIS_POLICY="$NETCONFIG_NIS_POLICY"
-if [ "x$_NETCONFIG_NIS_POLICY" = "xauto" ]; then
-    if [ "x$NETWORKMANAGER" = "xyes" ] ; then
-        #
-        # Use NetworkManager policy merged data
-        #
-        _NETCONFIG_NIS_POLICY='STATIC_FALLBACK NetworkManager'
-    else
-        #
-        # We use static settings and extend them
-        # with interface specific if available
-        #
-        _NETCONFIG_NIS_POLICY='STATIC *'
-    fi
-elif [ "x$_NETCONFIG_NIS_POLICY" = "x" ]; then
+_NETCONFIG_NIS_POLICY=`netconfig_policy "$NETCONFIG_NIS_POLICY"`
+if [ "x$_NETCONFIG_NIS_POLICY" = "x" ]; then
     #
     # empty policy means do not touch anything. 
     # successful exit.
@@ -388,22 +375,20 @@ for POL in $_NETCONFIG_NIS_POLICY; do
     shopt -o -u noglob
     case "$POL" in
     (NetworkManager)
-        if [ "x$NETWORKMANAGER" = "xyes" ] ; then
-            debug "Use NetworkManager policy merged settings"
-            cfg="$STATEDIR/NetworkManager.netconfig"
-            if [ -r "$cfg" ] ; then
+        debug "Use NetworkManager policy merged settings"
+        cfg="$STATEDIR/NetworkManager.netconfig"
+        if [ -r "$cfg" ] ; then
 
-                get_nis_settings "$cfg"
+            get_nis_settings "$cfg"
 
-                if [ "x$NISDOMAIN" != "x" -a "x$NISSERVERS" = "x" ]; then
-                    NISSERVERS="broadcast"
-                fi
-
-                set_nisdomainname "$NISDOMAIN" "$INTERFACE" "$CREATETIME"
-                format_yp_conf "$NISDOMAIN" "$NISSERVERS"
+            if [ "x$NISDOMAIN" != "x" -a "x$NISSERVERS" = "x" ]; then
+                NISSERVERS="broadcast"
             fi
-            break
+
+            set_nisdomainname "$NISDOMAIN" "$INTERFACE" "$CREATETIME"
+            format_yp_conf "$NISDOMAIN" "$NISSERVERS"
         fi
+        break
     ;;
     (STATIC)
         debug "Keep Static"

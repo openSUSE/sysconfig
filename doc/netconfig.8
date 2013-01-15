@@ -152,8 +152,8 @@ the static settings have to be used only, when no dynamic are avaliable.
 .RS
 
 By default, the policy is set to the special value \fBauto\fR. This special
-policy value is resolved by netconfig depending on the \fBNETWORKMANAGER\fR
-("yes"/"no") variable:
+policy value is resolved differently by netconfig when the NetworkManager
+is enabled or disabled:
 .RS
 .PD 0
 
@@ -163,7 +163,8 @@ The \fBauto\fR policy value is resolved to a policy "\fBSTATIC *\fR".
 
 .TP
 .IR NetworkManager \ is \ enabled
-The \fBauto\fR policy value is resolved to "\fBSTATIC_FALLBACK NetworkManager\fR" causing to use the NetworkManager build-in merge policy with a fallback to
+The \fBauto\fR policy value is resolved to "\fBSTATIC_FALLBACK NetworkManager\fR"
+causing to use the NetworkManager build-in merge policy with a fallback to
 the static settings defined in netconfig variables when the NetworkManager
 does not provide any.
 

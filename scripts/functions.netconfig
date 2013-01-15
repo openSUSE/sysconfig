@@ -46,6 +46,32 @@ log () {
     fi
 }
 
+netconfig_policy()
+{
+    local policy="$1"
+    local Id=`systemctl --no-pager -p Id show network.service 2>/dev/null`
+
+    case ${Id#Id=} in
+    NetworkManager.service)
+        #
+        # Use NetworkManager policy merged data
+        #
+        test "x$policy" = "xauto" && \
+            policy='STATIC_FALLBACK NetworkManager'
+        echo "$policy"
+    ;;
+    network.service|*)
+        #
+        # We use static settings and extend them
+        # with interface specific if available
+        #
+        test "x$policy" = "xauto" && \
+            policy='STATIC *'
+        echo "$policy"
+    ;;
+    esac
+}
+
 function get_variable()
 {
     local line

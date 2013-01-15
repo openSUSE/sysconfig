@@ -174,21 +174,8 @@ case "$_NETCONFIG_DNS_RANKING" in
 esac
 
 # just for the case we need the original value...
-_NETCONFIG_DNS_POLICY="$NETCONFIG_DNS_POLICY"
-if [ "x$_NETCONFIG_DNS_POLICY" = "xauto" ]; then
-    if [ "x$NETWORKMANAGER" = "xyes" ] ; then
-        #
-        # Use NetworkManager policy merged data
-        #
-        _NETCONFIG_DNS_POLICY='STATIC_FALLBACK NetworkManager'
-    else
-        #
-        # We use static settings and extend them
-        # with interface specific if available
-        #
-        _NETCONFIG_DNS_POLICY='STATIC *'
-    fi
-elif [ "x$_NETCONFIG_DNS_POLICY" = "x" ]; then
+_NETCONFIG_DNS_POLICY=`netconfig_policy "$NETCONFIG_DNS_POLICY"`
+if [ "x$_NETCONFIG_DNS_POLICY" = "x" ]; then
     #
     # empty policy means do not touch anything. 
     # successful exit.
@@ -206,14 +193,12 @@ for POL in $_NETCONFIG_DNS_POLICY; do
     shopt -o -u noglob
     case "$POL" in
     (NetworkManager)
-        if [ "x$NETWORKMANAGER" = "xyes" ] ; then
-            debug "Use NetworkManager policy merged settings"
-            cfg="$STATEDIR/NetworkManager.netconfig"
-            if [ -r "$cfg" ] ; then
-                get_dns_settings "$cfg" "$_NETCONFIG_DNS_RANKING"
-            fi
-            break
+        debug "Use NetworkManager policy merged settings"
+        cfg="$STATEDIR/NetworkManager.netconfig"
+        if [ -r "$cfg" ] ; then
+            get_dns_settings "$cfg" "$_NETCONFIG_DNS_RANKING"
         fi
+        break
     ;;
     (STATIC)
         debug "Keep Static"

@@ -150,21 +150,9 @@ function manage_interfaceconfig()
 # EXECUTION STARTS HERE
 # *********************
 
-_NETCONFIG_NTP_POLICY="$NETCONFIG_NTP_POLICY"
-if [ "x$_NETCONFIG_NTP_POLICY" = "xauto" ]; then
-    if [ "x$NETWORKMANAGER" = "xyes" ] ; then
-        #
-        # Use NetworkManager policy merged data
-        #
-        _NETCONFIG_NTP_POLICY='STATIC_FALLBACK NetworkManager'
-    else
-        #
-        # We try a static value for "auto"
-        # if this is not enough we may add some magic later
-        #
-        _NETCONFIG_NTP_POLICY='STATIC *'
-    fi
-elif [ "x$_NETCONFIG_NTP_POLICY" = "x" ]; then
+# just for the case we need the original value...
+_NETCONFIG_NTP_POLICY=`netconfig_policy "$NETCONFIG_NTP_POLICY"`
+if [ "x$_NETCONFIG_NTP_POLICY" = "x" ]; then
     #
     # empty policy means do not touch anything. 
     # successful exit.
@@ -181,14 +169,12 @@ for POL in $_NETCONFIG_NTP_POLICY; do
     shopt -o -u noglob
     case "$POL" in
     (NetworkManager)
-        if [ "x$NETWORKMANAGER" = "xyes" ] ; then
-            debug "Use NetworkManager policy merged settings"
-            cfg="$STATEDIR/NetworkManager.netconfig"
-            if [ -r "$cfg" ] ; then
-                get_ntp_settings "$cfg"
-            fi
-            break
+        debug "Use NetworkManager policy merged settings"
+        cfg="$STATEDIR/NetworkManager.netconfig"
+        if [ -r "$cfg" ] ; then
+            get_ntp_settings "$cfg"
         fi
+        break
     ;;
     (STATIC)
         debug "Keep Static"
