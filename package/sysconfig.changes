@@ -1,4 +1,26 @@
 -------------------------------------------------------------------
+Tue Jan 15 10:47:08 UTC 2013 - mt@suse.com
+
+- version 0.80.0
+- Removed the NETWORKMANAGER=yes/no variable from network/config.
+  The NetworkManager.service (or other) installs a network.service
+  alias link while "systemctl enable" and removes on "disable",
+  which masks the network.service provided by /etc/init.d/network.
+  Current service has to be stopped while "enable" or "disable".
+  The "systemctl -p Id show network.service" is used to query the
+  currently enabled network service. It returns either the name
+  of the service providing the alias, i.e. NetworkManager.service
+  or network.service - when the /etc/init.d/network provides it.
+  The /etc/init.d/network script forwards common actions (start,
+  stop, ...) to systemd which executes them for the currently
+  active network.service. (bnc#764055,bnc#764336,bnc#798348).
+- Adopted /etc/init.d/network, netconfig, ifup to use the service
+  Id query instead of NETWORKMANAGER variable, added forwarding.
+- Removed NetworkManager start/stop code from /etc/init.d/network
+  and disabled NetworkManager dispatcher hook installation.
+- Added removal of the NETWORKMANAGER variable to spec post-install
+
+-------------------------------------------------------------------
 Fri Jan 11 22:38:46 UTC 2013 - mt@suse.com
 
 - Fixed to correctly apply STP constrains also to float time
