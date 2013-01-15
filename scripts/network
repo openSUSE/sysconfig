@@ -43,8 +43,28 @@
 
 unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
 
-. /etc/rc.status
+SYSTEMD_NO_WRAP=1 . /etc/rc.status
 rc_reset
+
+if test $PPID -ne 1 ; then
+	if test -z "$RCNETWORK" ; then
+		case $1 in
+		status) RCNETWORK=1 "$0" "$@" ;;
+		esac
+		case $1 in
+		start|stop|reload|restart|try-restart|force-reload)
+			echo 1>&2 "redirecting to \"systemctl $1 network.service\""
+			exec /bin/systemctl "$1" network.service
+		;;
+		*)
+			echo 1>&2 "TODO: action $0 $@ not yet supported"
+			exit 1
+		;;
+		esac
+	fi
+fi
+### Hmm...
+export RCNETWORK=1
 
 cd /etc/sysconfig/network
 test -f ./config && . ./config
@@ -107,8 +127,6 @@ while [ $# -gt 0 ]; do
 		type=*)      TYPE=${1#type=} ;;
 		fake)        FAKE=echo ;;
 		skip=*)      SKIP=${1#skip=} ;;
-		nm)          NETWORKMANAGER=yes ;;
-		netcontrol)  NETWORKMANAGER=no ;;
 		localfs)     FS_FILTER=localfs  ;;
 		remotefs)    FS_FILTER=remotefs ;;
 		*)           mesg "Unknown option '$1'"
@@ -123,67 +141,6 @@ test -f scripts/functions.common \
    && . scripts/functions.common \
    || exit $R_INTERNAL
 
-
-
-######################################################################
-# Handle NetworkManager start when requested
-#
-# Some variables and functions are defined in
-# /etc/sysconfig/network/scripts/functions
-# because they are also used in ifup
-#
-if [ "$NETWORKMANAGER" = yes ] ; then
-	if [ "$FS_FILTER" = "localfs" ] ; then
-		# Under systemd, NetworkManager is started via its
-		# own .service file, thus never while localfs is set.
-		# Otherwise, NetworkManager will be started later via
-		# network-remotefs init script (it is installed in
-		# /usr, thus depends on already started remotefs).
-		case $ACTION in
-			(status) exit 3 ;;
-			(start)  exit 0 ;;
-			(stop)          ;;
-			(*)      exit 6 ;;
-		esac
-	elif [ ! -x "$NETWORKMANAGER_BIN" ] ; then
-		NETWORKMANAGER=no
-		err_mesg "NetworkManager is not installed, thus using NetControl." \
-		         "Please set" \
-	        	 "\n/etc/sysconfig/network/config:NetworkManager=no" \
-		         "or install NetworkManager."
-	elif [ "$SD_RUNNING" = "yes" ] ; then
-		# NetworkManager is started via own .service file under
-		# systemd, but we forward the restart/reload (sub)actions
-		# to catch configuration change from/to the NetworkManager.
-		case $ACTION in
-			(start) 
-				if netcontrol_running ; then
-					cd "$OLDPWD"
-					./$0 stop
-				fi
-				systemctl start NetworkManager.service
-				exit 0
-			;;
-			(stop)
-				systemctl stop NetworkManager.service
-			;;
-			(reload)
-				if netcontrol_running ; then
-					cd "$OLDPWD"
-					./$0 stop
-					./$0 start
-				fi
-				systemctl start NetworkManager.service
-				exit 0
-			;;
-			(status) exit 3 ;;
-			(*)      exit 6 ;;
-		esac
-	fi
-elif [ "$SD_RUNNING" = "yes" ] && nm_running  ; then
-	# NetworkManager is disabled, stop it
-	systemctl stop NetworkManager.service
-fi
 
 check_firewall() {
 	test "$MODE" = onboot && return 1
@@ -221,41 +178,9 @@ start_nm_online() {
 cd "$OLDPWD"
 case "$ACTION" in
 	start)
-		if [ "$NETWORKMANAGER" = yes ] ; then
-			if nm_running; then
-				mesg_n "NetworkManager already running"
-				rc_status -v
-			elif netcontrol_running; then
-				mesg "'NetControl' is active but" \
-				     "configuration says 'NetworkManager'."
-				mesg_n "Call $SCRIPTNAME restart instead".
-				rc_failed 7
-				rc_status -v
-			else
-				mesg_n "Starting the NetworkManager"
-				$FAKE startproc $NETWORKMANAGER_BIN
-				rc_status -v
-				start_nm_online
-			fi
-			rc_exit
-		else
-			if nm_running; then
-				mesg "'NetworkManager' is active but configuration" \
-				     "says 'NetControl'."
-				mesg_n "Call $SCRIPTNAME restart instead".
-				rc_failed 7
-				rc_status -v
-				rc_exit
-			fi
-		fi
 		# else fall through to NetControl
 		;;
 	stop)
-		if nm_running; then
-			mesg_n "Shutting down the NetworkManager"
-			$FAKE killproc -TERM $NETWORKMANAGER_BIN
-			rc_status -v
-		fi
 		netconfig update
 		# else fall through to NetControl
 		;;
@@ -272,10 +197,6 @@ case "$ACTION" in
 		rc_exit
 		;;
 	stop-all-dhcp-clients)
-		if nm_running; then
-			mesg "$ACTION not avaliable when running NetworkManager"
-			exit 1
-		fi
 		lock_firewall
 		DHCP_INTERFACES=$(dhcp_interfaces)
 		for IFACE in $DHCP_INTERFACES; do
@@ -286,10 +207,6 @@ case "$ACTION" in
 		rc_exit
 		;;
 	restart-all-dhcp-clients)
-		if nm_running; then
-			mesg "$ACTION not avaliable when running NetworkManager"
-			exit 1
-		fi
 		lock_firewall
 		DHCP_INTERFACES=$(dhcp_interfaces)
 		for IFACE in $DHCP_INTERFACES; do
@@ -303,43 +220,8 @@ case "$ACTION" in
 		rc_exit
 		;;
 	reload)
-		# NetworkManager does not support reload (2005.01.15).
-		# If configuration and running system do not match exec restart.
-		# Fall through if NetControl is confiured and NM not active.
-		if [ "$NETWORKMANAGER" = yes ] ; then
-			if netcontrol_running; then
-				mesg "Changing Network Control System. Calling $0 restart"
-				exec $0 restart $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			else
-				# NetworkManager doesn't support signaling --> restarting
-				exec $0 restart $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-			fi
-		else
-			if nm_running; then
-				mesg "Changing Network Control System. Calling $0 restart"
-				shift
-				exec $0 restart $*
-			fi
-		fi
 		;;
 	status)
-		if [ "$NETWORKMANAGER" = yes ] ; then
-			mesg_n "Checking for the NetworkManager: "
-			nm_running
-			rc_status -v
-			NM_STATUS=$?
-			if netcontrol_running; then
-				mesg "NetControl System is active as well." \
-				     "Check your config or restart network."
-			else
-				rc_exit
-			fi
-		else
-			if nm_running; then
-				mesg "NetworkManager is active even though not configured." \
-				     "\nCheck your config or restart network."
-			fi
-		fi
 		;;
 	*)
 		echo "Usage: $0 <action> [<config>] [<interface>] [-o <options>]"
@@ -349,13 +231,6 @@ case "$ACTION" in
 		echo "           type=<typelist>,skip=<skiplist>"
 		echo "  typelist: space seperated list of interface types"
 		echo "  skiplist: space seperated list of interfaces to skip for 'start'"
-		if [ "$NETWORKMANAGER" = yes ] ; then
-		echo
-			echo "Note:"
-			echo "  <config>, <interface> and options [on]boot,hotplug,manual" \
-			     "have no effect"
-			echo "  if service network is controlled by NetworkManager."
-		fi
 		exit 1
 		;;
 esac
@@ -791,10 +666,6 @@ status() {
 
 rc_reset
 declare -i FAILED=0
-if [ "$NETWORKMANAGER" = yes -a ${NM_STATUS:-0} -ne 0 ] ; then
-	FAILED=1
-fi
-
 case "$ACTION" in
 	start)
 		echo "Setting up ${FS_FILTER:+(${FS_FILTER}) }network interfaces:"
