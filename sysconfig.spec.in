@@ -1,7 +1,7 @@
 #
 # spec file for package sysconfig
 #
-# Copyright (c) 2012 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2013 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -173,6 +173,8 @@ for file in etc/sysconfig/network/dhcp etc/sysconfig/network/ifcfg-* ; do
 done
 # erroneous move from network/dhcp to network/config while 11.1 beta
 sysconfig_remove_and_set network/config WRITE_HOSTNAME_TO_HOSTS
+# remove NETWORKMANAGER variable; 12.3 is using network.service alias
+sysconfig_remove_and_set network/config NETWORKMANAGER
 # be a little bit paranoid and set the correct mode even we set umask
 chmod 0600 etc/sysconfig/network/ifcfg-*
 
