@@ -110,7 +110,6 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 /etc/sysconfig/network/if-down.d/ndp-proxy
 /etc/netconfig.d
 /etc/ppp/poll.tcpip
-/etc/NetworkManager
 /sbin/*
 %doc /usr/share/doc/packages/sysconfig
 %_mandir/*/*

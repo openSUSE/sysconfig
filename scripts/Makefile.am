@@ -41,14 +41,10 @@ init_d_SCRIPTS = network
 ppp_SCRIPTS = 	ip-up \
 		poll.tcpip
 
-nm_dispatcher_SCRIPTS = netcontrol_services \
-		netcontrol_global_hooks
-
 EXTRA_DIST = 	$(sysconfig_network_scripts_SCRIPTS) \
 		$(sbin_SCRIPTS) \
 		$(init_d_SCRIPTS) \
-		$(ppp_SCRIPTS) \
-		$(nm_dispatcher_SCRIPTS)
+		$(ppp_SCRIPTS)
 
 install-data-hook:
 	ln -sf ifup 			$(DESTDIR)/$(sbindir)/ifdown
@@ -91,5 +87,5 @@ install-data-hook:
 	ln -sf ../scripts/if-up.ndp-proxy	$(DESTDIR)/$(sysconfig_networkdir)/if-down.d/ndp-proxy
 
 check: 
-	list='$(sysconfig_network_scripts_SCRIPTS) $(sbin_SCRIPTS) $(init_d_SCRIPTS) $(ppp_SCRIPTS) $(nm_dispatcher_SCRIPTS)'; \
+	list='$(sysconfig_network_scripts_SCRIPTS) $(sbin_SCRIPTS) $(init_d_SCRIPTS) $(ppp_SCRIPTS)'; \
 	for i in $$list; do bash -n $(srcdir)/$$i && printf '%-30s %s\n' $$i "Syntax OK" || exit 1; done
