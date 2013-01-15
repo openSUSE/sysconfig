@@ -46,26 +46,6 @@ unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
 SYSTEMD_NO_WRAP=1 . /etc/rc.status
 rc_reset
 
-if test $PPID -ne 1 ; then
-	if test -z "$RCNETWORK" ; then
-		case $1 in
-		status) RCNETWORK=1 "$0" "$@" ;;
-		esac
-		case $1 in
-		start|stop|reload|restart|try-restart|force-reload)
-			echo 1>&2 "redirecting to \"systemctl $1 network.service\""
-			exec /bin/systemctl "$1" network.service
-		;;
-		*)
-			echo 1>&2 "TODO: action $0 $@ not yet supported"
-			exit 1
-		;;
-		esac
-	fi
-fi
-### Hmm...
-export RCNETWORK=1
-
 cd /etc/sysconfig/network
 test -f ./config && . ./config
 if ! . scripts/functions 2>/dev/null; then
@@ -74,6 +54,66 @@ if ! . scripts/functions 2>/dev/null; then
 	rc_status -v
 	rc_exit
 fi
+
+if test $PPID -ne 1 ; then
+	if test -z "$RCNETWORK" ; then
+		#
+		# when /etc/init.d/network is enabled / not masked,
+		# show it's status first as requested and map the
+		# special rcnetwork actions.
+		# Additional options supported for status only now.
+		#
+		sd_opts=""
+		service=`get_network_service_id`
+		case $service in
+		network.service)
+			case $1 in
+			status)
+				RCNETWORK=1 "$0" "$@"
+			;;
+			kill|stop-all-dhcp-clients)
+				# Hmm...
+				set -- "kill"
+				sd_opts="--signal=9"
+				rm -f       "${RUN_FILES_BASE}/killed"
+				echo "$1" > "${RUN_FILES_BASE}/killed"
+			;;
+			restart-all-dhcp-clients)
+				set -- "restart"
+			;;
+			esac
+		;;
+		"")
+			# no service enabled / installed network.service alias link,
+			# even /etc/init.d/network seems disabled by insserv -r -f?
+			echo 1>&2 "/etc/init.d/network is disabled, can't find any"
+			echo 1>&2 "another service enabled as the network.service."
+			exit 1
+		;;
+		esac
+
+		#
+		# redirect common actions to systemd
+		#
+		case $1 in
+		kill|status|start|stop|reload|restart|try-restart|force-reload)
+			echo 1>&2 "redirecting to \"systemctl $1 network.service\""
+			exec /bin/systemctl $sd_opts "$1" network.service
+		;;
+		*)
+			# reject other (systemctl) actions, when we're inactive
+			if test "x$service" != "xnetwork.service" ; then
+				echo 1>&2 "Network is managed by $service"
+				echo 1>&2 "and rcnetwork does not support '$1' action."
+				echo 1>&2 "Use systemctl for systemd specific actions."
+				exit 1
+			fi
+		;;
+		esac
+	fi
+fi
+### Hmm...
+export RCNETWORK=1
 
 test "$DEBUG" = "EXTRA" && . scripts/extradebug
 
@@ -191,6 +231,7 @@ case "$ACTION" in
 		rc_exit
 		;;
 	restart|force-reload)
+		test -f "${NETWORK_RUNFILE}" -a -f "${RUN_FILES_BASE}/killed" || \
 		$0 stop $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		$0 start $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		rc_status
