@@ -21,6 +21,6 @@ man_MANS = 	ifup.8 \
 doc_DATA =	README COPYING Contents Network \
 		README.virtualization \
 		README.hwcfg_and_device_initialisation \
-		README.netconfig netconfig.odg netconfig.png
+		netconfig.png
 
 EXTRA_DIST = $(doc_DATA) $(man_MANS)
