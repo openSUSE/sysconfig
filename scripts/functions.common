@@ -173,3 +173,12 @@ for level in err "#" "#" info debug; do
 	: $((nl++))
 done
 
+########################################################################
+# other functions
+#
+get_network_service_id()
+{
+	local Id=`systemctl --no-pager -p Id show network.service 2>/dev/null`
+	echo "${Id#Id=}"
+}
+
