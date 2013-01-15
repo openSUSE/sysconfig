@@ -237,6 +237,14 @@ if [ "$SCRIPTNAME" = ifup ] ; then
 	fi
 fi
 
+######################################################################
+# Check if network.service is active, otherwise inform the user and exit
+#
+network_service_id=`get_network_service_id`
+if [ "x$network_service_id" != "xnetwork.service" ] ; then
+	mesg "Network is managed by another service -> skipping"
+	exit $R_NOTIMPL
+fi
 
 ######################################################################
 # Now source the configuration file and check if we have an interface
@@ -296,20 +304,6 @@ if ! is_iface_available $INTERFACE; then
 			MESS_NO_IFACE="no such interface"
 		fi
 	fi
-fi
-
-
-######################################################################
-# Check if NetworkManager is running, inform the user and exit
-# 
-if [ "$NETWORKMANAGER" = yes ] && ! netcontrol_running ; then
-	if [ "$SCRIPTNAME" != ifdown -a "$INTERFACE" != lo ] ; then
-		mesg "Network interface is managed by the NetworkManager -> skipping"
-		exit $R_NOTIMPL
-	fi
-elif nm_running && [ "$INTERFACE" != lo ] ; then
-	mesg "Network interface is managed by the NetworkManager -> skipping"
-	exit $R_NOTIMPL
 fi
 
 

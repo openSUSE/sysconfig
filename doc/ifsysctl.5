@@ -27,10 +27,6 @@ rule (see \fBudev(7)\fR), after the creation and after the rename of the
 interface name to its persistent name (when applicable), but before the
 \fBifup <interface name> -o hotplug\fR may be executed to configure the interface.
 
-The settings are not applied by default when the \fINetworkManager\fR is active
-(NETWORKMANAGER=yes), except when the \fBIFSYSCTL_NETWORKMANAGER\fR=\fIyes\fR
-variable is set in the \fB/etc/sysconfig/network/config\fR file.
-
 Settings from the \fBifsysctl-\fR file are applied every time an interface has
 been created.
 

@@ -83,10 +83,9 @@ done
 
 
 ######################################################################
-if test "$NETWORKMANAGER" = yes ; then
-	# do we have to apply in NetworkManager mode?
-	test "${IFSYSCTL_NETWORKMANAGER:-no}" = yes || exit 0
-fi
+network_service_id=`get_network_service_id`
+test "x$network_service_id" != "xnetwork.service" && exit 0
+
 
 ######################################################################
 # Check needed tools
