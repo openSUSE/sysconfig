@@ -140,15 +140,33 @@ choose_rules_file
 
 COMMENT="converted 'rename_netiface' rule"
 
-while read A B C D E F X; do
-	test "${A:0:5}" == "SUBSY" || continue
-	test "${B:0:5}" == "ACTIO" || continue
-	test "${C:0:5}" == "SYSFS" || continue
-	test "${D:0:5}" == "IMPOR" || continue
-	test "$E" == "%k" || continue
-	INTERFACE=${F//\"/}
-	MAC_ADDR=${C#*\"}
-	MAC_ADDR=${MAC_ADDR%\"*}
+sed -e 's|[ ]*,[ ]*|, |g' < $OLD_RULES_FILE.to_convert | \
+while read A B C D E F G X; do
+	test "${A:0:5}" = "SUBSY" || continue
+	test "${B:0:5}" = "ACTIO" || continue
+	unset MAC_ADDR BUS_ID
+	if test "${C:0:5}" = "SYSFS" ; then
+		test "${D:0:5}" = "IMPOR" || continue
+		test "$E" = "%k" || continue
+		INTERFACE=${F//\"/}
+		MAC_ADDR=${C#*\"}
+		MAC_ADDR=${MAC_ADDR%\"*}
+	elif test "${C:0:3}"  = "BUS" ; then
+		test "${D:0:2}" == "ID" || continue
+		test "${E:0:5}" == "IMPOR" || continue
+		test "$F" == "%k" || continue
+		INTERFACE=${G//\"/}
+		BUS_ID=${D#*\"}
+		BUS_ID=${BUS_ID%\"*}
+	elif test "${C:0:16}" = "ENV{PHYSDEVPATH}" ; then
+		test "${D:0:5}" = "IMPOR" || continue
+		test "$E" = "%k" || continue
+		INTERFACE=${F//\"/}
+		BUS_ID=${C#*\"}
+		BUS_ID=${BUS_ID%\"*}
+	else
+		continue
+	fi
 
 	# If a rule using the current name already exists then find a new name and
 	# report it to udev which will rename the interface.
@@ -161,14 +179,20 @@ while read A B C D E F X; do
 	fi
 	
 	# the DRIVERS key is needed to not match bridges and VLAN sub-interfaces
-	match="DRIVERS==\"?*\", ATTR{address}==\"$MAC_ADDR\""
+	match="DRIVERS==\"?*\""
+	if test -n "$BUS_ID" ; then
+		match="${match}, KERNELS==\"${BUS_ID}\""
+	else
+		match="${match}, ATTR{address}==\"$MAC_ADDR\""
+	fi
 	if [ $basename = "ath" -o $basename = "wlan" ]; then
 		match="$match, ATTR{type}==\"1\"" # do not match the wifi* interfaces
 	fi
 	
 	write_rule "$match" "$INTERFACE" "$COMMENT"
 
-done < $OLD_RULES_FILE.to_convert
+done
+
 mv $OLD_RULES_FILE.to_convert $OLD_RULES_FILE.disabled
 
 unlock_rules_file
