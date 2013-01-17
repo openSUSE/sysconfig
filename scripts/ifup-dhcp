@@ -764,7 +764,7 @@ case "$ACTION" in
 						test -n "$DHCP6_STATUS" || {
 							start_dhcp6_dhcp6c && {
 								DHCP6_STARTED="yes"
-								write_cached_config_data dhcp6_client $DHCLIENT  $INTERFACE
+								write_cached_config_data dhcp6_client $DHCLIENT6 $INTERFACE
 								write_cached_config_data dhcp6_state  started    $INTERFACE
 								commit_cached_config_data                        $INTERFACE
 							} || DHCP6_STATUS=$?
@@ -774,7 +774,7 @@ case "$ACTION" in
 						test -n "$DHCP6_STATUS" || {
 							start_dhcp6_dhclient && {
 								DHCP6_STARTED="yes"
-								write_cached_config_data dhcp6_client $DHCLIENT  $INTERFACE
+								write_cached_config_data dhcp6_client $DHCLIENT6 $INTERFACE
 								write_cached_config_data dhcp6_state  started    $INTERFACE
 								commit_cached_config_data                        $INTERFACE
 							} || DHCP6_STATUS=$?
