@@ -32,6 +32,33 @@ STAMPFILE_STUB="$RUN_FILES_BASE/new-stamp-"
 NETWORKMANAGER_BIN=/usr/sbin/NetworkManager
 NM_ONLINE_BIN=/usr/bin/nm-online
 
+
+systemd_running ()
+{
+	# We simply test whether systemd cgroup hierarchy is mounted
+	# where we return 0, non-zero if not.
+	/bin/mountpoint -q /sys/fs/cgroup/systemd
+}
+
+systemd_booting () {
+	# returns 0 when we boot, 1 in running system
+	systemctl show -p ActiveState default.target | grep -qi inactive
+}
+
+nm_running () {
+	local MSG RET
+	test -x "$NETWORKMANAGER_BIN" || return
+	MSG=`checkproc $NETWORKMANAGER_BIN 2>&1`
+	RET=$?
+	info_mesg "$MSG"
+	return $RET
+}
+
+netcontrol_running() {
+	test -f $NETWORK_RUNFILE
+}
+
+
 #
 # to test the next two functions:
 #
@@ -79,19 +106,6 @@ add_to_wordlist() {
 		l=(${l[@]} $a)
 	done
 	eval "$v='${l[@]}'"
-}
-
-nm_running () {
-	local MSG RET
-	test -x "$NETWORKMANAGER_BIN" || return
-	MSG=`checkproc $NETWORKMANAGER_BIN 2>&1`
-	RET=$?
-	info_mesg "$MSG"
-	return $RET
-}
-
-netcontrol_running() {
-	test -f $NETWORK_RUNFILE
 }
 
 is_valid_interface_name()
