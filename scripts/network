@@ -36,9 +36,8 @@
 # Default-Start:	3 5
 # Default-Stop:		
 # X-Systemd-RemainAfterExit: true
-# Short-Description:	Configure the localfs depending network interfaces
-# Description:		Configure the localfs depending network interfaces
-#                       and set up routing
+# Short-Description:	Configure network interfaces and set up routing
+# Description:		Configure network interfaces and set up routing
 ### END INIT INFO
 
 unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
@@ -129,7 +128,6 @@ systemd_booting () {
 
 # Only use ifup option 'onboot' if booting or changing runlevel
 # Therefore we check if we were called from init or systemd is booting.
-FS_FILTER=""
 SD_RUNNING=no
 SD_BOOTING=no
 if systemd_running ; then
@@ -142,7 +140,6 @@ fi
 if [ \( -n "$INIT_VERSION" -o "$SD_BOOTING" = yes \) -a \
 	-z "$YAST_IS_RUNNING" ] ; then
 	MODE=onboot
-	FS_FILTER=localfs
 fi
 
 ######################################################################
@@ -167,10 +164,10 @@ while [ $# -gt 0 ]; do
 		type=*)      TYPE=${1#type=} ;;
 		fake)        FAKE=echo ;;
 		skip=*)      SKIP=${1#skip=} ;;
-		localfs)     FS_FILTER=localfs  ;;
-		remotefs)    FS_FILTER=remotefs ;;
+		localfs)     debug "Option '$1' is gone." ;;
+		remotefs)    debug "Option '$1' is gone." ;;
 		*)           mesg "Unknown option '$1'"
-		             mesg "options: {[on]boot,hotplug,manual,check,debug,type=<typelist>,fake,localfs,remotefs}"
+		             mesg "options: {[on]boot,hotplug,manual,check,debug,type=<typelist>,fake}"
 			     exit 1 ;;
 	esac
 	shift
@@ -282,15 +279,10 @@ cd /etc/sysconfig/network
 
 
 if [ "$MODE" = onboot -a "$ACTION" = start ] ; then
-	case $FS_FILTER in
-	(remotefs) ;;
-	(*)	# (localfs|"")
-		rm -f  ${RUN_FILES_BASE}/if-*
-		rm -f  ${RUN_FILES_BASE}/ifup-*
-		rm -Rf ${RUN_FILES_BASE}/tmp
-		rm -f  ${RUN_FILES_BASE}/route-stack-* 2>/dev/null
-	;;
-	esac
+	rm -f  ${RUN_FILES_BASE}/if-*
+	rm -f  ${RUN_FILES_BASE}/ifup-*
+	rm -Rf ${RUN_FILES_BASE}/tmp
+	rm -f  ${RUN_FILES_BASE}/route-stack-* 2>/dev/null
 fi
 mkdir -p ${RUN_FILES_BASE}/tmp
 
@@ -303,15 +295,6 @@ case $ACTION in
 start)
 	IFS=. read a b < /proc/uptime
 	echo "$a" > $NETWORK_RUNFILE
-	case $FS_FILTER in
-	remotefs|"") echo "$a" > ${NETWORK_RUNFILE}-remotefs ;;
-	esac
-;;
-stop)
-	# when stopping localfs, stop also remotefs when started
-	if [ "x$FS_FILTER" = "xlocalfs" ] ; then
-		test -e ${NETWORK_RUNFILE}-remotefs && unset FS_FILTER
-	fi
 ;;
 esac
 
@@ -553,77 +536,8 @@ bw_fs_filter()
 	return 0
 }	
 
-if test "x$FS_FILTER" != x ; then
-	#
-	# Filter interfaces into a localfs and remotefs sets
-	#
-	ALL_PHYSICAL_IFACES="$PHYSICAL_IFACES"
-	bw_fs_filter supported_on_localfs \
-		LFS_PHYSICAL_IFACES       \
-		RFS_PHYSICAL_IFACES       \
-		$ALL_PHYSICAL_IFACES
-
-	ALL_NOT_PHYSICAL_IFACES="$NOT_PHYSICAL_IFACES"
-	bw_fs_filter supported_on_localfs \
-		LFS_NOT_PHYSICAL_IFACES   \
-		RFS_NOT_PHYSICAL_IFACES   \
-		$ALL_NOT_PHYSICAL_IFACES
-
-	ALL_MANDATORY_DEVICES="$MANDATORY_DEVICES"
-	bw_fs_filter supported_on_localfs \
-		LFS_MANDATORY_DEVICES     \
-		RFS_MANDATORY_DEVICES     \
-		$ALL_MANDATORY_DEVICES
-
-	ALL_MANDATORY_SLAVES="$MANDATORY_SLAVES"
-	bw_fs_filter supported_on_localfs \
-		LFS_MANDATORY_SLAVES      \
-		RFS_MANDATORY_SLAVES      \
-		$ALL_MANDATORY_SLAVES
-
-	ALL_VIRTUAL_IFACES=$VIRTUAL_IFACES
-	resolve_iface_startorder ALL_VIRTUAL_IFACES \
-		"$ALL_VIRTUAL_IFACES"               \
-		"$PHYSICAL_IFACES $MANDATORY_DEVICES $MANDATORY_SLAVES"
-	resolve_iface_startorder LFS_VIRTUAL_IFACES \
-		"$ALL_VIRTUAL_IFACES"               \
-		"$LFS_PHYSICAL_IFACES $LFS_MANDATORY_DEVICES $LFS_MANDATORY_SLAVES" \
-		supported_on_localfs
-	for i in $ALL_VIRTUAL_IFACES ; do
-		for l in $LFS_VIRTUAL_IFACES ; do
-			test "x$i" = "x$l" && continue 2
-		done
-		add_to_wordlist RFS_VIRTUAL_IFACES $i
-	done
-
-	debug "* Modifications by $FS_FILTER filter:"
-	debug "PHYSICAL_IFACES     => $LFS_PHYSICAL_IFACES + $RFS_PHYSICAL_IFACES = $ALL_PHYSICAL_IFACES"
-	debug "NOT_PHYSICAL_IFACES => $LFS_NOT_PHYSICAL_IFACES + $RFS_NOT_PHYSICAL_IFACES = $ALL_NOT_PHYSICAL_IFACES"
-	debug "MANDATORY_DEVICES   => $LFS_MANDATORY_DEVICES + $RFS_MANDATORY_DEVICES = $ALL_MANDATORY_DEVICES"
-	debug "MANDATORY_SLAVES    => $LFS_MANDATORY_SLAVES + $RFS_MANDATORY_SLAVES = $ALL_MANDATORY_SLAVES"
-	debug "VIRTUAL_IFACES      => $LFS_VIRTUAL_IFACES + $RFS_VIRTUAL_IFACES = $ALL_VIRTUAL_IFACES"
-
-	case $FS_FILTER in
-	localfs)
-		PHYSICAL_IFACES="$LFS_PHYSICAL_IFACES"
-		NOT_PHYSICAL_IFACES="$LFS_NOT_PHYSICAL_IFACES"
-		MANDATORY_DEVICES="$LFS_MANDATORY_DEVICES"
-		MANDATORY_SLAVES="$LFS_MANDATORY_SLAVES"
-		VIRTUAL_IFACES="$LFS_VIRTUAL_IFACES"
-	;;
-	remotefs)
-		PHYSICAL_IFACES="$RFS_PHYSICAL_IFACES"
-		NOT_PHYSICAL_IFACES="$RFS_NOT_PHYSICAL_IFACES"
-		MANDATORY_DEVICES="$RFS_MANDATORY_DEVICES"
-		MANDATORY_SLAVES="$RFS_MANDATORY_SLAVES"
-		VIRTUAL_IFACES="$RFS_VIRTUAL_IFACES"
-	;;
-	esac
-else
-	resolve_iface_startorder VIRTUAL_IFACES \
-		"$VIRTUAL_IFACES" \
-		"$PHYSICAL_IFACES $MANDATORY_DEVICES $MANDATORY_SLAVES"
-fi
+resolve_iface_startorder VIRTUAL_IFACES "$VIRTUAL_IFACES" \
+	"$PHYSICAL_IFACES $MANDATORY_DEVICES $MANDATORY_SLAVES"
 
 add_to_wordlist AVAILABLE_IFACES $NOT_PHYSICAL_IFACES $PHYSICAL_IFACES
 add_to_wordlist MANDATORY_DEVICES __NSC__ $MANDATORY_SLAVES
@@ -709,7 +623,7 @@ rc_reset
 declare -i FAILED=0
 case "$ACTION" in
 	start)
-		echo "Setting up ${FS_FILTER:+(${FS_FILTER}) }network interfaces:"
+		echo "Setting up network interfaces:"
 
 		lock_firewall
 		if test -n "$LO" && /sbin/ifstatus $LO &>/dev/null ; then
@@ -951,7 +865,7 @@ case "$ACTION" in
 			$FAKE ifup-route noiface -o rc $MODE
 			rc_status
 			test $FAILED -gt 0 && rc_failed 7
-			echo -n "Setting up service ${FS_FILTER:+(${FS_FILTER}) }network  .  .  .  .  .  .  .  .  .  ."
+			echo -n "Setting up service network  .  .  .  .  .  .  .  .  .  .  .  .  ."
 			rc_status -v
 		fi
 
@@ -961,9 +875,9 @@ case "$ACTION" in
 
 	stop)
 
-		echo Shutting down ${FS_FILTER:+(${FS_FILTER}) }network interfaces:
+		echo Shutting down network interfaces:
 
-		if [ -z "$INTERFACE" -a "$FS_FILTER" != remotefs ] ; then
+		if [ -z "$INTERFACE" ] ; then
 			$FAKE ifdown-route noiface -o rc $MODE
 		fi
 
@@ -996,17 +910,13 @@ case "$ACTION" in
 		done
 
 		if [ -z "$INTERFACE" -a -z "$TYPE" ] ; then
-			if [ "$FS_FILTER" != remotefs ] ; then
-				# At last stop any remaining dhcp client
-				$FAKE ifdown-dhcp all -o rc
-				rc_status
-				rm -f $RUN_FILES_BASE/if-*
-				rm -f $RUN_FILES_BASE/config-*
-				rm -f ${NETWORK_RUNFILE}*
-			else
-				rm -f ${NETWORK_RUNFILE}-remotefs
-			fi
-			echo -n "Shutting down service ${FS_FILTER:+(${FS_FILTER}) }network  .  .  .  .  .  .  .  .  ."
+			# At last stop any remaining dhcp client
+			$FAKE ifdown-dhcp all -o rc
+			rc_status
+			rm -f $RUN_FILES_BASE/if-*
+			rm -f $RUN_FILES_BASE/config-*
+			rm -f ${NETWORK_RUNFILE}*
+			echo -n "Shutting down service network  .  .  .  .  .  .  .  .  .  .  .  ."
 			rc_status -v
 		fi
 
@@ -1019,8 +929,7 @@ case "$ACTION" in
 			rc_status -v
 			rc_exit
 		fi
-		if [ -z "$INTERFACE" -a routes -nt $NETWORK_RUNFILE \
-		     -a "$FS_FILTER" != remotefs ] ; then
+		if [ -z "$INTERFACE" -a routes -nt $NETWORK_RUNFILE ] ; then
 			$FAKE ifdown-route noiface -o rc $MODE
 		fi
 		UP2DATE_IFACES=lo
@@ -1096,15 +1005,11 @@ case "$ACTION" in
 			rc_status
 		fi
 
-		if [ "$FS_FILTER" = remotefs -a \
-		     ! -f ${NETWORK_RUNFILE}-remotefs ] ;
-		then
-			rc_failed 3 # unused
-		elif [ ! -f $NETWORK_RUNFILE ] ; then
+		if [ ! -f $NETWORK_RUNFILE ] ; then
 			rc_failed 3 # unused
 		fi
 
-		echo -n "Checking service ${FS_FILTER:+(${FS_FILTER}) }network .  .  .  .  .  .  .  .  .  .  ."
+		echo -n "Checking service network .  .  .  .  .  .  .  .  .  .  .  .  .  ."
 		rc_status -v
 
 		;;
