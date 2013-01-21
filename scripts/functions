@@ -29,8 +29,6 @@
 
 NETWORK_RUNFILE="$RUN_FILES_BASE/started"
 STAMPFILE_STUB="$RUN_FILES_BASE/new-stamp-"
-NETWORKMANAGER_BIN=/usr/sbin/NetworkManager
-NM_ONLINE_BIN=/usr/bin/nm-online
 
 
 systemd_running ()
@@ -45,17 +43,8 @@ systemd_booting () {
 	systemctl show -p ActiveState default.target | grep -qi inactive
 }
 
-nm_running () {
-	local MSG RET
-	test -x "$NETWORKMANAGER_BIN" || return
-	MSG=`checkproc $NETWORKMANAGER_BIN 2>&1`
-	RET=$?
-	info_mesg "$MSG"
-	return $RET
-}
-
 netcontrol_running() {
-	test -f $NETWORK_RUNFILE
+	test -f "$NETWORK_RUNFILE"
 }
 
 

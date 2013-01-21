@@ -186,30 +186,14 @@ reload_firewall() {
 	scripts/firewall net-reconfig-done
 }
 
-start_nm_online() {
-	test -x "$NM_ONLINE_BIN" || return 0
-	if [ "$NM_ONLINE_TIMEOUT" = 0 ] ; then
-#		mesg "If service network should wait until connection is established"
-#		mesg "then set /etc/sysconfig/network/config:NM_ONLINE_TIMEOUT"
-		return 0
-	fi
-	local rc_startmode="${stat}${attn}waiting${norm}"
-	$NM_ONLINE_BIN --timeout $NM_ONLINE_TIMEOUT
-	case $? in
-		0) rc_status -v ;;
-		1) echo -e "$rc_startmode" 1>&2 ;;
-		*) rc_status -v ;;
-	esac
-}
-
 cd "$OLDPWD"
 case "$ACTION" in
 	start)
-		# else fall through to NetControl
+		# fall through
 		;;
 	stop)
 		netconfig update
-		# else fall through to NetControl
+		# fall through
 		;;
 	try-restart)
 		$0 status >/dev/null && \
@@ -255,7 +239,7 @@ case "$ACTION" in
 		echo "Usage: $0 <action> [<config>] [<interface>] [-o <options>]"
 		echo "  actions: start|stop|status|reload|force-reload|try-restart"
 		echo "           restart|stop-all-dhcp-clients|restart-all-dhcp-clients"
-		echo "  options: [on]boot,hotplug,manual,check,debug,fake,nm,netcontrol"
+		echo "  options: [on]boot,hotplug,manual,check,debug,fake"
 		echo "           type=<typelist>,skip=<skiplist>"
 		echo "  typelist: space seperated list of interface types"
 		echo "  skiplist: space seperated list of interfaces to skip for 'start'"
