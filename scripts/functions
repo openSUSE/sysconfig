@@ -29,13 +29,16 @@
 
 NETWORK_RUNFILE="$RUN_FILES_BASE/started"
 STAMPFILE_STUB="$RUN_FILES_BASE/new-stamp-"
+SYSTEMD_CGROUP_DIR="/sys/fs/cgroup/systemd"
+NETWORK_SERVICE_CGROUP_DIR="${SYSTEMD_CGROUP_DIR}/system/network.service"
+NETWORK_SERVICE_CGROUP_TASKS="${NETWORK_SERVICE_CGROUP_DIR}/tasks"
 
 
 systemd_running ()
 {
 	# We simply test whether systemd cgroup hierarchy is mounted
 	# where we return 0, non-zero if not.
-	/bin/mountpoint -q /sys/fs/cgroup/systemd
+	/bin/mountpoint -q "${SYSTEMD_CGROUP_DIR}"
 }
 
 systemd_booting () {
@@ -45,6 +48,31 @@ systemd_booting () {
 
 netcontrol_running() {
 	test -f "$NETWORK_RUNFILE"
+}
+
+in_network_service_cgroup()
+{
+	local pid dummy
+	if test -f "${NETWORK_SERVICE_CGROUP_TASKS}" ; then
+		while read pid dummy ; do
+			test "$pid" = "$$" && return 0
+		done < "${NETWORK_SERVICE_CGROUP_TASKS}"
+	fi
+	return 1
+}
+
+add_to_network_service_cgroup()
+{
+	if test ! -d "${NETWORK_SERVICE_CGROUP_DIR}" ; then
+		systemd_running && \
+		mkdir -p ${NETWORK_SERVICE_CGROUP_DIR} || \
+		return 1
+	fi
+	if test -f "${NETWORK_SERVICE_CGROUP_TASKS}" ; then
+		echo "$$" > "${NETWORK_SERVICE_CGROUP_TASKS}" && \
+		return 0
+	fi
+	return 1
 }
 
 

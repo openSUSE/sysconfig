@@ -238,13 +238,22 @@ if [ "$SCRIPTNAME" = ifup ] ; then
 fi
 
 ######################################################################
-# Check if network.service is active, otherwise inform the user and exit
+# Check if /etc/init.d/network (network.service) is enabled, otherwise
+# (masked by e.g. the NetworkManager.service) inform the user and exit.
 #
 network_service_id=`get_network_service_id`
 if [ "x$network_service_id" != "xnetwork.service" ] ; then
-	mesg "Network is managed by another service -> skipping"
+	mesg "Network is managed by '$network_service_id' -> skipping"
 	exit $R_NOTIMPL
 fi
+case $SCRIPTNAME in
+ifup)
+	# start everything in network service cgroup
+	if ! in_network_service_cgroup ; then
+		add_to_network_service_cgroup
+	fi
+;;
+esac
 
 ######################################################################
 # Now source the configuration file and check if we have an interface
