@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Wed Jan 23 17:34:50 UTC 2013 - mt@suse.com
+
+- version 0.80.1
+- rcnetwork: Improved redirection and option handling and cleaned
+  up obsolete localfs/remotefs options and network manager hooks.
+  Honor SYSTEMCTL_OPTIONS variable which can be set to systemctl
+  options e.g. --ignore-dependencies while yast2 second stage run
+  (bnc#798348).
+- Fixed to use dhclient6 in dhcp6_client state variable (bnc#798828).
+
+-------------------------------------------------------------------
 Tue Jan 15 10:47:08 UTC 2013 - mt@suse.com
 
 - version 0.80.0
