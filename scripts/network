@@ -54,67 +54,12 @@ if ! . scripts/functions 2>/dev/null; then
 	rc_exit
 fi
 
-if test $PPID -ne 1 ; then
-	if test -z "$RCNETWORK" ; then
-		#
-		# when /etc/init.d/network is enabled / not masked,
-		# show it's status first as requested and map the
-		# special rcnetwork actions.
-		# Additional options supported for status only now.
-		#
-		sd_opts=""
-		service=`get_network_service_id`
-		case $service in
-		network.service)
-			case $1 in
-			status)
-				RCNETWORK=1 "$0" "$@"
-			;;
-			kill|stop-all-dhcp-clients)
-				# Hmm...
-				set -- "kill"
-				sd_opts="--signal=9"
-				rm -f       "${RUN_FILES_BASE}/killed"
-				echo "$1" > "${RUN_FILES_BASE}/killed"
-			;;
-			restart-all-dhcp-clients)
-				set -- "restart"
-			;;
-			esac
-		;;
-		"")
-			# no service enabled / installed network.service alias link,
-			# even /etc/init.d/network seems disabled by insserv -r -f?
-			echo 1>&2 "/etc/init.d/network is disabled, can't find any"
-			echo 1>&2 "another service enabled as the network.service."
-			exit 1
-		;;
-		esac
-
-		#
-		# redirect common actions to systemd
-		#
-		case $1 in
-		kill|status|start|stop|reload|restart|try-restart|force-reload)
-			echo 1>&2 "redirecting to \"systemctl $1 network.service\""
-			exec /bin/systemctl $sd_opts "$1" network.service
-		;;
-		*)
-			# reject other (systemctl) actions, when we're inactive
-			if test "x$service" != "xnetwork.service" ; then
-				echo 1>&2 "Network is managed by $service"
-				echo 1>&2 "and rcnetwork does not support '$1' action."
-				echo 1>&2 "Use systemctl for systemd specific actions."
-				exit 1
-			fi
-		;;
-		esac
-	fi
-fi
-### Hmm...
-export RCNETWORK=1
-
 test "$DEBUG" = "EXTRA" && . scripts/extradebug
+
+SCRIPTNAME=${0##*/}
+debug $*
+ACTION=$1 ; shift
+SERVICE=`get_network_service_id`
 
 # Only use ifup option 'onboot' if booting or changing runlevel
 # Therefore we check if we were called from init or systemd is booting.
@@ -135,13 +80,16 @@ fi
 ######################################################################
 # Commandline parsing
 #
-SCRIPTNAME=${0##*/}
-debug $*
-ACTION=$1
-shift
-if [ "$1" != "-o" ] ; then INTERFACE=$1; shift; fi
-if [ -n "$1" -a "$1" != "-o" ] ; then CONFIG=$INTERFACE; INTERFACE=$1; shift; fi
-test "$1" = "-o" && shift
+unset INTERFACE CONFIG
+if test "$1" != "-o" ; then
+	INTERFACE=$1; shift
+fi
+if test -n "$1" -a "$1" != "-o" ; then
+	CONFIG=$INTERFACE; INTERFACE=$1; shift
+fi
+if test "$1" = "-o" ; then
+	shift
+fi
 OPTIONS=$@
 while [ $# -gt 0 ]; do
 	case $1 in
@@ -149,11 +97,11 @@ while [ $# -gt 0 ]; do
 		hotplug)     MODE=hotplug ;;
 		manual)      MODE=manual ;;
 		check)       CHECK=check ;;
-		quiet)       be_quiet_has_gone ;;
 		debug)       DEBUG=yes ;;
-		type=*)      TYPE=${1#type=} ;;
 		fake)        FAKE=echo ;;
+		type=*)      TYPE=${1#type=} ;;
 		skip=*)      SKIP=${1#skip=} ;;
+		quiet)       debug "Option '$1' is gone." ;;
 		localfs)     debug "Option '$1' is gone." ;;
 		remotefs)    debug "Option '$1' is gone." ;;
 		*)           mesg "Unknown option '$1'"
@@ -168,6 +116,103 @@ test -f scripts/functions.common \
    && . scripts/functions.common \
    || exit $R_INTERNAL
 
+
+#
+# Check if to redirect to systemd or not
+#
+if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
+	case $SERVICE in
+	"")
+		# no service enabled / installed network.service alias link,
+		# even /etc/init.d/network seems disabled by insserv -r -f?
+		mesg "/etc/init.d/network is disabled, can't find any\n"\
+		     "another service enabled as the network.service."
+		exit 1
+	;;
+	network.service)
+		#
+		# when /etc/init.d/network is enabled / not masked,
+		# show it's status first as requested and map the
+		# special rcnetwork actions.
+		#
+		case $ACTION in
+		status)
+			cd "$OLDPWD"
+			RCNETWORK=1 \
+			"$0" $ACTION $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			unset INTERFACE CONFIG OPTIONS
+		;;
+		kill|stop-all-dhcp-clients)
+			# kill hard to avoid deconfiguration
+			opts=($SYSTEMCTL_OPTIONS "--signal=9")
+			SYSTEMCTL_OPTIONS="${opts[*]}"
+
+			# set a kill flag
+			rm -f            "${RUN_FILES_BASE}/killed"
+			echo "$ACTION" > "${RUN_FILES_BASE}/killed"
+
+			# and map both to kill
+			ACTION="kill"
+			unset INTERFACE CONFIG OPTIONS
+		;;
+		restart-all-dhcp-clients)
+			# kill hard to avoid deconfiguration
+			/bin/systemctl --signal=9 kill network.service
+
+			# set a kill flag
+			rm -f            "${RUN_FILES_BASE}/killed"
+			echo "$ACTION" > "${RUN_FILES_BASE}/killed"
+
+			# and map it to restart (start has no effect)
+			ACTION="restart"
+			unset INTERFACE CONFIG OPTIONS
+		;;
+		esac
+		alias_hint=""
+	;;
+	*)
+		alias_hint=" ($SERVICE)"
+		# ignore additional arguments for another service, redirect
+		if test -n "$INTERFACE" ; then
+			mesg "$0: No arguments supported for $SERVICE -- ignoring"
+		fi
+		unset INTERFACE CONFIG OPTIONS
+	;;
+	esac
+
+	#
+	# redirect common actions to systemd
+	#
+	if test -z "$INTERFACE" ; then
+		case $ACTION in
+		kill|status|start|stop|reload|restart|try-restart|force-reload)
+			mesg "redirecting to \"systemctl $SYSTEMCTL_OPTIONS $ACTION network.service\"$alias_hint"
+			exec /bin/systemctl $SYSTEMCTL_OPTIONS "$ACTION" network.service
+		;;
+		*)
+			# reject other (systemctl) actions, when we're inactive
+			if test "x$SERVICE" != "xnetwork.service" ; then
+				mesg "Network is managed by $SERVICE\n"\
+				     "and rcnetwork does not support '$1' action."
+				mesg "Use systemctl for systemd specific actions."
+				exit 1
+			fi
+		;;
+		esac
+	fi
+fi
+
+# allow "rcnetwork <action> <interface>" when in started state only
+if test -n "$INTERFACE" && ! netcontrol_running ; then
+	case $ACTION in
+		status)	            ;;	# OK, fall through
+		stop)	rc_failed 0 ;;  # OK, not started
+		*)	rc_failed 7 ;;	# reject / not running
+	esac
+fi
+
+### We're inside of rcnetwork now...
+export RCNETWORK=1
 
 check_firewall() {
 	test "$MODE" = onboot && return 1
@@ -188,11 +233,21 @@ reload_firewall() {
 
 cd "$OLDPWD"
 case "$ACTION" in
-	start)
+	stop)
+		# when we were killed, the stop is just to reset
+		# the systemd state; remove the flag and exit
+		if netcontrol_running && test -z "$INTERFACE" -a \
+			   -f "${RUN_FILES_BASE}/killed" ;
+		then
+			rm -f "${RUN_FILES_BASE}/killed"
+			rc_failed 0
+			rc_exit
+		fi
+
+		netconfig update
 		# fall through
 		;;
-	stop)
-		netconfig update
+	status|start|reload)
 		# fall through
 		;;
 	try-restart)
@@ -202,7 +257,6 @@ case "$ACTION" in
 		rc_exit
 		;;
 	restart|force-reload)
-		test -f "${NETWORK_RUNFILE}" -a -f "${RUN_FILES_BASE}/killed" || \
 		$0 stop $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		$0 start $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 		rc_status
@@ -231,10 +285,6 @@ case "$ACTION" in
 		reload_firewall
 		rc_exit
 		;;
-	reload)
-		;;
-	status)
-		;;
 	*)
 		echo "Usage: $0 <action> [<config>] [<interface>] [-o <options>]"
 		echo "  actions: start|stop|status|reload|force-reload|try-restart"
@@ -252,7 +302,7 @@ cd /etc/sysconfig/network
 ######################################################################
 
 
-if [ "$MODE" = onboot -a "$ACTION" = start ] ; then
+if [ "$MODE" = onboot -a "$ACTION" = start -a -z "$INTERFACE" ] ; then
 	rm -f  ${RUN_FILES_BASE}/if-*
 	rm -f  ${RUN_FILES_BASE}/ifup-*
 	rm -Rf ${RUN_FILES_BASE}/tmp
