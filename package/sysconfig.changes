@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Wed Jan 23 08:50:17 UTC 2013 - mt@suse.de
+
+- version 0.71.60
+- Fixed to convert SLE-10 BUS based persistent interface name
+  udev rules on update (bnc#761577)
+- Fixed netconfig/ntp-runtime to not use try-restart as its start
+  may block for a while, so just add servers ourself in background.
+  When ntpd is not running (not yet started), the ntp init script
+  will pickup our servers later at ntp start (bnc#780644).
+
+-------------------------------------------------------------------
 Wed Jan 23 08:13:25 UTC 2013 - mt@suse.de
 
 - version 0.71.48 [SWAMPID 50702]
