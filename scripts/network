@@ -58,6 +58,7 @@ test "$DEBUG" = "EXTRA" && . scripts/extradebug
 
 SCRIPTNAME=${0##*/}
 debug $*
+MODE=""
 ACTION=$1 ; shift
 SERVICE=`get_network_service_id`
 
@@ -91,13 +92,14 @@ if test "$1" = "-o" ; then
 	shift
 fi
 OPTIONS=$@
+unset CHECK FAKE TYPE SKIP
 while [ $# -gt 0 ]; do
 	case $1 in
 		boot|onboot) MODE=onboot ;;
 		hotplug)     MODE=hotplug ;;
 		manual)      MODE=manual ;;
-		check)       CHECK=check ;;
 		debug)       DEBUG=yes ;;
+		check)       CHECK=check ;;
 		fake)        FAKE=echo ;;
 		type=*)      TYPE=${1#type=} ;;
 		skip=*)      SKIP=${1#skip=} ;;
@@ -153,7 +155,7 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 
 			# and map both to kill
 			ACTION="kill"
-			unset INTERFACE CONFIG OPTIONS
+			unset TYPE SKIP INTERFACE CONFIG OPTIONS
 		;;
 		restart-all-dhcp-clients)
 			# kill hard to avoid deconfiguration
@@ -165,7 +167,7 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 
 			# and map it to restart (start has no effect)
 			ACTION="restart"
-			unset INTERFACE CONFIG OPTIONS
+			unset TYPE SKIP INTERFACE CONFIG OPTIONS
 		;;
 		esac
 		alias_hint=""
@@ -173,17 +175,18 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 	*)
 		alias_hint=" ($SERVICE)"
 		# ignore additional arguments for another service, redirect
-		if test -n "$INTERFACE" ; then
-			mesg "$0: No arguments supported for $SERVICE -- ignoring"
+		if test -n "$INTERFACE" -o -n "$TYPE" -o -n "$SKIP" ; then
+			mesg "$0: Additional arguments not supported"\
+			     "for $SERVICE: $INTERFACE ${OPTIONS:+-o $OPTIONS}"
 		fi
-		unset INTERFACE CONFIG OPTIONS
+		unset TYPE SKIP INTERFACE CONFIG OPTIONS
 	;;
 	esac
 
 	#
 	# redirect common actions to systemd
 	#
-	if test -z "$INTERFACE" ; then
+	if test -z "$INTERFACE" -a -z "$TYPE" -a -z "$SKIP" ; then
 		case $ACTION in
 		kill|status|start|stop|reload|restart|try-restart|force-reload)
 			mesg "redirecting to \"systemctl $SYSTEMCTL_OPTIONS $ACTION network.service\"$alias_hint"
@@ -202,8 +205,11 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 	fi
 fi
 
-# allow "rcnetwork <action> <interface>" when in started state only
-if test -n "$INTERFACE" && ! netcontrol_running ; then
+# allow "rcnetwork <action> <interface>", as well as
+# -o type=... skip=... options in started state only
+# as the "cached" systemd state does not change here.
+if ! netcontrol_running && \
+   test -n "$INTERFACE" -o -n "$TYPE" -o -n "$SKIP" ; then
 	case $ACTION in
 		status)	            ;;	# OK, fall through
 		stop)	rc_failed 0 ;;  # OK, not started
