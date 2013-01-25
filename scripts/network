@@ -144,7 +144,10 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 			"$0" $ACTION $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			unset INTERFACE CONFIG OPTIONS
 		;;
-		kill|stop-all-dhcp-clients)
+		stop-all-dhcp-clients)
+			# suspend, but don't do anything when not running
+			netcontrol_running || exit 0
+
 			# kill hard to avoid deconfiguration
 			opts=($SYSTEMCTL_OPTIONS "--signal=9")
 			SYSTEMCTL_OPTIONS="${opts[*]}"
@@ -158,6 +161,9 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 			unset TYPE SKIP INTERFACE CONFIG OPTIONS
 		;;
 		restart-all-dhcp-clients)
+			# resume, but don't do anything when not running
+			netcontrol_running || exit 0
+
 			# kill hard to avoid deconfiguration
 			/bin/systemctl --signal=9 kill network.service
 
@@ -165,7 +171,8 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 			rm -f            "${RUN_FILES_BASE}/killed"
 			echo "$ACTION" > "${RUN_FILES_BASE}/killed"
 
-			# and map it to restart (start has no effect)
+			# and map it to restart (start has no effect),
+			# so systemd resets its state ...
 			ACTION="restart"
 			unset TYPE SKIP INTERFACE CONFIG OPTIONS
 		;;
@@ -263,33 +270,26 @@ case "$ACTION" in
 		rc_exit
 		;;
 	restart|force-reload)
-		$0 stop $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-		$0 start $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
-		rc_status
-		rc_exit
-		;;
-	stop-all-dhcp-clients)
-		lock_firewall
-		DHCP_INTERFACES=$(dhcp_interfaces)
-		for IFACE in $DHCP_INTERFACES; do
-			$0 stop $IFACE ${OPTIONS:+-o $OPTIONS}
-		done
-		rc_status
-		reload_firewall
-		rc_exit
-		;;
-	restart-all-dhcp-clients)
-		lock_firewall
-		DHCP_INTERFACES=$(dhcp_interfaces)
-		for IFACE in $DHCP_INTERFACES; do
-			$0 stop  $IFACE ${OPTIONS:+-o $OPTIONS}
-		done
-		for IFACE in $DHCP_INTERFACES; do
-			$0 start $IFACE ${OPTIONS:+-o $OPTIONS}
-		done
-		rc_status
-		reload_firewall
-		rc_exit
+		if netcontrol_running && test -z "$INTERFACE" -a \
+			   -f "${RUN_FILES_BASE}/killed" ;
+		then
+			rm -f "${RUN_FILES_BASE}/killed"
+			lock_firewall
+			for IFACE in `get_iface_config_names` ; do
+				test -n "$IFACE" -a -d "/sys/class/net/$IFACE" -a \
+				     -f "${RUN_FILES_BASE}/ifup-$IFACE" || continue
+
+				$0 start $IFACE ${OPTIONS:+-o $OPTIONS}
+			done
+			rc_status
+			reload_firewall
+			rc_exit
+		else
+			$0 stop $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			$0 start $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			rc_status
+			rc_exit
+		fi
 		;;
 	*)
 		echo "Usage: $0 <action> [<config>] [<interface>] [-o <options>]"
