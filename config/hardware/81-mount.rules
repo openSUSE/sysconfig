@@ -5,9 +5,9 @@ ACTION=="add", SUBSYSTEM=="block", KERNEL=="dm-*", GOTO="skip_mount"
 ACTION=="add", SUBSYSTEM=="block", KERNEL=="md*", GOTO="skip_mount"
 # don't handle crypto devices, boot.crypto does that already (bnc#569942)
 ACTION=="change", SUBSYSTEM=="block", KERNEL=="dm-*", ENV{DM_TARGET_TYPES}=="crypt", GOTO="skip_mount"
-ACTION=="add|change", SUBSYSTEM=="block", ENV{FSTAB_OPTS}=="*nofail*", IMPORT="udevmountd"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{FSTAB_OPTS}=="*nofail*", ENV{FSTAB_OPTS}!="*noauto*", IMPORT="udevmountd"
 
 ACTION=="add|change", ENV{FSCK_STATE}=="unknown|clean", RUN+="udevmountd add"
-ACTION=="remove", ENV{FSTAB_OPTS}=="*nofail*", RUN+="udevmountd remove"
+ACTION=="remove", ENV{FSTAB_OPTS}=="*nofail*", ENV{FSTAB_OPTS}!="*noauto*", RUN+="udevmountd remove"
 
 LABEL="skip_mount"
