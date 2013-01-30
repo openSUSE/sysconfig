@@ -835,36 +835,11 @@ fi
 ######################################################################
 # Change device settings via ethtool.
 #
-if [ "$SCRIPTNAME" = ifup -a -n "$ETHTOOL_OPTIONS" ]; then
+if [ "$SCRIPTNAME" = ifup ] && have_ethtool_options ; then
 	# There were cases where interfaces were not ready for ethtool
 	# immediately after registration. 
 	test -n "$ETHTOOL_WAIT" && sleep $ETHTOOL_WAIT 2>/dev/null
-	case "$ETHTOOL_OPTIONS" in
-		-*) # got an option, replace second word with current interface name
-			read ETHTOOL_SWITCH xifacex ETHTOOL_SETTINGS < <(echo $ETHTOOL_OPTIONS)
-			ETHTOOL_OPTIONS="$ETHTOOL_SWITCH $INTERFACE $ETHTOOL_SETTINGS"
-			;;
-		*)  # old style, setting a parameter...
-			ETHTOOL_OPTIONS="-s $INTERFACE $ETHTOOL_OPTIONS"
-			;;
-	esac
-
-	RETCODE=1
-	ETHTOOL=/sbin/ethtool
-	for tool in $ETHTOOL /usr$ETHTOOL ; do
-		[ -x "$tool" ] || continue
-		ETHTOOL=$tool ; RETCODE=0
-	done
-	if test $RETCODE != 0 ; then
-		MESSAGE="ethtool is not installed"
-	else
-		MESSAGE="`$ETHTOOL $ETHTOOL_OPTIONS 2>&1`"
-		RETCODE=$?
-	fi
-	test $RETCODE != 0 \
-		&& err_mesg "Error while executing: $ethtool $ETHTOOL_OPTIONS" \
-		|| info_mesg "$ethtool $ETHTOOL_OPTIONS"
-	test -n "$MESSAGE" && err_mesg "$MESSAGE"
+	set_ethtool_options "$INTERFACE"
 fi
 
 
@@ -1026,6 +1001,15 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 					logerror "Cannot enable interface $INTERFACE."
 					retcode=$R_NOTRUNNING
 				else
+					if test "$ETHTOOL_UP_REPEAT" = "yes" && \
+					        have_ethtool_options ; then
+
+						test -n "$ETHTOOL_UP_WAIT" && \
+						sleep $ETHTOOL_UP_WAIT 2>/dev/null
+
+						set_ethtool_options "$INTERFACE"
+					fi
+
 					if [ -n "$MTU" ] ; then
 						ip link set $INTERFACE mtu $MTU || retcode_mtu=$?
 						if [ $retcode_mtu != 0 ] ; then
