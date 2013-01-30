@@ -249,7 +249,7 @@ and force ifup to handle the interface differently than it detected
 from system or config.
 Please always open a bug report when it is required to set the type.
 .TP
-.B ETHTOOL_OPTIONS
+.B ETHTOOL_OPTIONS [ \fIsuffix\fR ]
 If this variable is not empty ifup will call ethtool with this options.
 See the
 .B ethtool (8)
@@ -257,6 +257,27 @@ manual page for available options.
 If the option string starts with a '-' (e.g. '-K iface rx on'), then the
 second word in the string will be replaced with the current interface name.
 Otherwise (e.g. 'autoneg off speed 10') ifup prepends '-s <interface>'.
+The optional variable suffix can be used to apply every setting separately,
+e.g.:
+
+  ETHTOOL_OPTIONS='autoneg off speed 10'
+  ETHTOOL_OPTIONS_gro='-K iface gro off'
+  ETHTOOL_OPTIONS_lro='-K iface lro off'
+
+The \fBethtool (8)\fR utility stops applying the settings at first failure
+and may not apply remaining settings. The NIC driver may reject settings
+as not supported (e.g. '-K iface lro off') or also when the link is not up.
+.TP
+.BR ETHTOOL_WAIT\  <seconds>
+When not empty, it causes to wait specified number of seconds before starting
+to apply ETHTOOL_OPTIONS (driver initialization time).
+.TP
+.BR ETHTOOL_UP_REPEAT\  { no* | yes }
+Repeat the attempt to set the ETHTOOL_OPTIONS after the link is up.
+.TP
+.BR ETHTOOL_UP_WAIT\  <seconds>
+When not empty, it causes to wait specified number of seconds before starting
+to repeat to apply ETHTOOL_OPTIONS after the link has been set up.
 .TP
 .BR RUN_POLL_TCPIP\  { yes* | no }
 Controls running
