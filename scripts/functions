@@ -1371,3 +1371,64 @@ commit_cached_config_data () {
 	fi
 }
 
+
+_set_ethtool_options()
+{
+	local iface=$1
+	local ethtool=$2
+	local options=$3
+	local ret out option xifacex settings
+
+	test "x$options" = "x"                    && return 0
+	test "x$iface" = "x" -o "x$ethtool" = "x" && return 1
+
+	case $options in
+	-*)	# got an option, replace second word with current interface name
+		read option xifacex settings < <(echo "$options")
+		options="$option $iface $settings"
+	;;
+	*)	# old style, setting a parameter...
+		options="-s $iface $options"
+	;;
+	esac
+
+	out=`$ethtool $options 2>&1`
+	ret=$?
+	if test $ret -eq 0 ; then
+		info_mesg "$ethtool $options${out:+: $out}"
+	else
+		err_mesg "Error while executing '$ethtool $options': [$ret] $out"
+	fi
+	return $ret
+}
+
+set_ethtool_options()
+{
+	local iface=${1:-$INTERFACE}
+	local tool var
+
+	test "x$iface" = x && return 1
+	for tool in /sbin/ethtool /usr/sbin/ethtool ; do
+		test -x "$tool" && break || unset tool
+	done
+
+	for var in ${!ETHTOOL_OPTIONS*} ; do
+		test "x${!var}" = "x" && continue
+		if test -z "$tool" ; then
+			err_mesg "ethtool is not installed"
+			return 1
+		fi
+		_set_ethtool_options "$iface" "$tool" "${!var}"
+	done
+	return 0
+}
+
+have_ethtool_options()
+{
+	local var
+	for var in ${!ETHTOOL_OPTIONS*} ; do
+		test "x${!var}" = "x" || return 0
+	done
+	return 1
+}
+
