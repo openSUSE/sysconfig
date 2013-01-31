@@ -1,4 +1,20 @@
 -------------------------------------------------------------------
+Wed Jan 30 16:24:34 UTC 2013 - mt@suse.com
+
+- Fixed to use a suffix in ETHTOOL_OPTIONS variable to allow to
+  apply every setting (e.g. 'gro off lro off') separately, as the
+  ethtool utility stops at first failure and the NIC driver may
+  reject settings when the link is not up or they're unsupported.
+  Further, added ETHTOOL_UP_RETRY and ETHTOOL_UP_WAIT variables
+  to optionally wait after the link has been set up and retry to
+  set the ETHTOOL_OPTIONS*. Updated ifcfg(5) man page (bnc#787744)
+  [0002-Allow-ETHTOOL_OPTIONS-SUFFIX-variables-bnc-787744.patch,
+   0003-Documented-ETHTOOL_OPTIONS-SUFFIX-variables-bnc-787744.patch]
+- Applied 81-mount.rules fix by Robert Milasan to not mount file
+  systems with the noauto flag set (bnc#798641, [SWAMPID 50702]).
+  [0001-Do-not-mount-file-system-with-noauto-flag-bnc-798641.patch]
+
+-------------------------------------------------------------------
 Wed Jan 23 08:13:25 UTC 2013 - mt@suse.de
 
 - version 0.71.48 [SWAMPID 50702]
