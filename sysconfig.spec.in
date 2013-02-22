@@ -36,6 +36,7 @@ Requires:       vlan
 BuildRequires:  libtool
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 %if 0%{?suse_version} >= 1230
+BuildRequires:  pkgconfig(systemd)
 %define         udevdir	/usr/lib/udev
 %else
 %define         udevdir	/lib/udev
@@ -124,6 +125,15 @@ if [ ${1:-0} -gt 1 ]; then
 	if [ ! -f etc/sysconfig/network/scripts/move_shm_sysconfig.sh ] ; then
 		touch etc/sysconfig/network/__move_shm_sysconfig__
 	fi
+	# trigger update from < 0.80.x only (-> openSUSE 12.3),
+	# (guard for variable added to network/config later...)
+	if [ -x /usr/sbin/NetworkManager ] && grep -qs "^NETWORKMANAGER=" \
+		var/adm/fillup-templates/sysconfig.config-network ; then
+		grep -s "^NETWORKMANAGER=" etc/sysconfig/network/config \
+			> /dev/.sysconfig/network/migrate_nm_variable
+	elif [ -f /dev/.sysconfig/network/migrate_nm_variable ] ; then
+		rm -f /dev/.sysconfig/network/migrate_nm_variable
+	fi
 fi
 
 %post 
@@ -171,12 +181,31 @@ for file in etc/sysconfig/network/dhcp etc/sysconfig/network/ifcfg-* ; do
 		DHCLIENT_SCRIPT_EXE
 	umask $_umask
 done
-# erroneous move from network/dhcp to network/config while 11.1 beta
-sysconfig_remove_and_set network/config WRITE_HOSTNAME_TO_HOSTS
-# remove NETWORKMANAGER variable; 12.3 is using network.service alias
-sysconfig_remove_and_set network/config NETWORKMANAGER
 # be a little bit paranoid and set the correct mode even we set umask
 chmod 0600 etc/sysconfig/network/ifcfg-*
+# bnc#803058: migrate from NETWORKMANAGER=yes/no variable to
+#             network.service alias link masking rcnetwork.
+if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ; then
+	. /dev/.sysconfig/network/migrate_nm_variable
+	case $NETWORKMANAGER in
+	no)
+		# NetworkManager.service were always started before; stop
+		# and disable it, so /etc/init.d/network isn't masked...
+		/usr/bin/systemctl stop NetworkManager.service || :
+		/usr/bin/systemctl --force disable NetworkManager.service || :
+		rm -f /dev/.sysconfig/network/migrate_nm_variable
+	;;
+	yes)
+		# Keep the /dev/.sysconfig/network/migrate_nm_variable file,
+		# as hint for migration in NetworkManager post-install ...
+		# Mask /etc/init.d/network service until NM update is done.
+		/usr/bin/systemctl --force mask network.service || :
+	;;
+	esac
+else
+	# cleanup obsolete NETWORKMANAGER variable
+	sysconfig_remove_and_set network/config NETWORKMANAGER
+fi
 
 %postun
 %{insserv_cleanup}
