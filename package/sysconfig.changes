@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Thu Feb 22 08:20:23 UTC 2013 - mt@suse.com
+
+- version 0.80.5
+- Fixed to use a guarded migration hook from openSUSE < 12.3, that
+  disabes the (always enabled before) NetworkManager.service on
+  NETWORKMANAGER=no and mask the network.service (provided by the
+  /etc/init.d/network script) on NETWORKMANAGER=yes until NM has
+  been installed and enabled as network.service (bnc#803058).
+
+-------------------------------------------------------------------
 Thu Jan 31 10:46:51 UTC 2013 - mt@suse.com
 
 - version 0.80.4
