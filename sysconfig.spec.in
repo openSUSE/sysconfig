@@ -129,10 +129,11 @@ if [ ${1:-0} -gt 1 ]; then
 	# (guard for variable added to network/config later...)
 	if [ -x /usr/sbin/NetworkManager ] && grep -qs "^NETWORKMANAGER=" \
 		var/adm/fillup-templates/sysconfig.config-network ; then
+		mkdir -p /dev/.sysconfig/network/ && \
 		grep -s "^NETWORKMANAGER=" etc/sysconfig/network/config \
-			> /dev/.sysconfig/network/migrate_nm_variable
+			> /dev/.sysconfig/network/migrate_nm_variable || :
 	elif [ -f /dev/.sysconfig/network/migrate_nm_variable ] ; then
-		rm -f /dev/.sysconfig/network/migrate_nm_variable
+		rm -f /dev/.sysconfig/network/migrate_nm_variable || :
 	fi
 fi
 
@@ -193,7 +194,7 @@ if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ;
 		# and disable it, so /etc/init.d/network isn't masked...
 		/usr/bin/systemctl stop NetworkManager.service || :
 		/usr/bin/systemctl --force disable NetworkManager.service || :
-		rm -f /dev/.sysconfig/network/migrate_nm_variable
+		rm -f /dev/.sysconfig/network/migrate_nm_variable || :
 	;;
 	yes)
 		# Keep the /dev/.sysconfig/network/migrate_nm_variable file,
