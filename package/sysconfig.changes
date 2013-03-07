@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Mar  4 14:40:02 UTC 2013 - mt@suse.com
+
+- Fixed to create migration marker directory before using it,
+  it does not exists e.g. while CD based update (bnc#806989).
+
+-------------------------------------------------------------------
 Thu Feb 22 08:20:23 UTC 2013 - mt@suse.com
 
 - version 0.80.5
