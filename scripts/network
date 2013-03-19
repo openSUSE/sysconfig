@@ -733,13 +733,16 @@ debug "start order       : ${start_list//  / }"
 
 
 status() {
-	local M IFACE
+	local M FIN IFACE
 	# declare -i R=0 F=0
 	declare -i F=0
-	if [ "$1" = "-m" ]; then
-		M=yes
-		shift
-	fi
+	while test $# -gt 0 ; do
+		case $1 in
+		--final) FIN=yes ; shift ;;
+		-m)        M=yes ; shift ;;
+		*)  break ;;
+		esac
+	done
 	for IFACE in $@; do
 		$FAKE /sbin/ifstatus $CONFIG $IFACE -o rc $CHECK $MODE
 		RET=$?
@@ -752,7 +755,9 @@ status() {
 				;;
 			$R_DHCP_BG)
 				if [ -f "$NETWORK_RUNFILE" -a "$M" = yes ] ; then
-					if [ "$SD_RUNNING" != "yes" ] ; then
+					# do not report failure in --final check under
+					# systemd when setup is still in progress ...
+					if [ "$SD_RUNNING" != "yes" -o "$FIN" != "yes" ] ; then
 						: $((F++))
 					fi
 				fi
@@ -916,7 +921,7 @@ case "$ACTION" in
 			test "$D" = __NSC__ && continue
 			IFACE=$D
 			if [ -d /sys/class/net/$IFACE ] ; then
-				status -m $IFACE && continue
+				status --final -m $IFACE && continue
 				printf "    %-9s interface could not be set up until now\n" $IFACE
 			else
 				printf "    %-35s No interface found\n" $D
@@ -1025,7 +1030,7 @@ case "$ACTION" in
 
 			for IFACE in $VIRTUAL_IFACES; do
 				if [ -d /sys/class/net/$IFACE ] ; then
-					status -m $IFACE && continue
+					status --final -m $IFACE && continue
 					printf "    %-9s interface is not ready until now\n" $IFACE
 				fi
 				rc_failed
