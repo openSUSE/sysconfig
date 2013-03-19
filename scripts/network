@@ -57,16 +57,6 @@ fi
 
 test "$DEBUG" = "EXTRA" && . scripts/extradebug
 
-systemd_running () {
-	# We simply test whether systemd cgroup hierarchy is mounted
-	# where we return 0, non-zero if not.
-	/bin/mountpoint -q /sys/fs/cgroup/systemd
-}
-systemd_booting () {
-	# returns 0 when we boot, 1 in running system
-	systemctl show -p ActiveState default.target | grep -qi inactive
-}
-
 # Only use ifup option 'onboot' if booting or changing runlevel
 # Therefore we check if we were called from init or systemd is booting.
 FS_FILTER=""

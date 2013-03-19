@@ -311,6 +311,14 @@ elif nm_running && [ "$INTERFACE" != lo ] ; then
 	mesg "Network interface is managed by the NetworkManager -> skipping"
 	exit $R_NOTIMPL
 fi
+case $SCRIPTNAME in
+ifup)
+	# start everything in network service cgroup
+	if systemd_running && ! in_network_service_cgroup ; then
+		add_to_network_service_cgroup
+	fi
+;;
+esac
 
 
 ######################################################################
