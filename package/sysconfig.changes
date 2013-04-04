@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Thu Apr  4 09:18:58 UTC 2013 - mt@suse.de
+
+- Fixed to stop dhcp clients and remove IP addresses on not yet
+  enslaved bridge ports and bonding slaves. The bridge or bond
+  interface has the IP addresses assigned itself instead.
+  The port/slave may still have IP addresses, when the IP config
+  of an active (ethernet) interface has been moved into a bridge
+  or bond config, e.g. while "virsh iface-bridge eth0 br0". There
+  is no full ifdown for the port interface to not break the vlans
+  (and their bridges) which may refer to the port too (bnc#813148).
+  [0001-Flush-IPs-on-bridge-bond-children-ifup-bnc-813148.patch]
+
+-------------------------------------------------------------------
 Wed Jan 30 16:24:34 UTC 2013 - mt@suse.com
 
 - version 0.71.61
