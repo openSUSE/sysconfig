@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Wed Mar 20 09:44:26 UTC 2013 - mt@suse.de
+
+- Fixed to wait for dhcp/ipv6 under systemd again.
+  Fixed regression caused by bnc#785240, bnc#780644 fixes to not
+  discard the dhcp/ipv6 dupplicate address detection in progress
+  error codes under systemd completely, but wait until dhcp/ipv6
+  dad finished or the WAIT_FOR_INTERFACES timeout is reached and
+  then discard in the status returned to systemd (bnc#808718).
+  It caused failures of other services trying to bind tentative
+  IPv6 addresses, e.g. in mixed dhcp4 / static IPv6 setups.
+  Thanks to Rolf Eike Beer for the report/tests/debug outputs.
+  [0001-Fixed-to-wait-for-dhcp-ipv6-under-systemd-again.patch]
+
+-------------------------------------------------------------------
 Mon Mar  4 14:40:02 UTC 2013 - mt@suse.com
 
 - Fixed to create migration marker directory before using it,
