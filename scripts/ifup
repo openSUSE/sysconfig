@@ -901,6 +901,40 @@ if [ "$SCRIPTNAME" == ifstatus -a "$STARTMODE" == ifplugd ] ; then
 	fi
 fi
 
+######################################################################
+# Make sure to explicitly remove IP addresses and stop dhcp clients,
+# ... (when started) on ifup of bridge ports and bonding slaves.
+#
+if test "$SCRIPTNAME$SKIP_MAIN_PART" = "ifup" \
+	-a "$STARTMODE" != "nfsroot" ; then
+	bond=`get_bonding_master "$INTERFACE"`
+	bridge=`get_bridge_parent "$INTERFACE"`
+	if test "x$bond" != "x" -o "x$bridge" != "x" ; then
+		ifdown-dhcp $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		ifdown-route $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+		ifdown-autoip $CONFIG $INTERFACE -o prepare $OPTIONS
+		# Call down before flush to not reset ipv6 sysctls.
+		if [ -d /sys/class/net/$INTERFACE -a \
+		   ! -d /sys/class/net/$INTERFACE/master -a \
+		   ! -d /sys/class/net/$INTERFACE/brport ] ; then
+			ip link set dev $INTERFACE down &>/dev/null
+			ip -4 addr flush dev $INTERFACE &>/dev/null
+			ip -6 addr flush dev $INTERFACE &>/dev/null
+		fi
+		# Handle broken port/slaves bootproto configurations
+		case $BOOTPROTO in
+			""|static|none|ibft)  ;;
+			*)
+				if test "x$bond" != "x" ; then
+					BOOTPROTO="none"
+				else
+					BOOTPROTO="static"
+				fi
+			;;
+		esac
+	fi
+fi
+
 dhcpretcode=$R_SUCCESS
 # switch type. If SKIP_MAIN_PART == skip, don't execute any section
 case "$BOOTPROTO$SKIP_MAIN_PART" in
@@ -969,7 +1003,8 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 				# remove event) would trigger automatic module loading (Bug 199456)
 				if [ -d /sys/class/net/$INTERFACE ] ; then
 					ip link set dev $INTERFACE down &>/dev/null
-					ip addr flush dev $INTERFACE &>/dev/null
+					ip -4 addr flush dev $INTERFACE &>/dev/null
+					ip -6 addr flush dev $INTERFACE &>/dev/null
 				fi
 				retcode=0 # $?
 			;;
