@@ -894,6 +894,33 @@ get_bonding_master () {
 	done < <(ls -1d /etc/sysconfig/network/ifcfg-* 2>/dev/null)
 }
 
+get_bridge_parent () {
+	local IF="$1"
+	test "x$IF" = "x" && return 1
+
+	local a bridge port
+	while IFS=- read a bridge; do
+		case $bridge in
+		""|*~|*.old|*.rpmnew|*.rpmsave|*.scpmbackup)
+			continue
+		;;
+		esac
+
+		local BRIDGE
+		get_variable BRIDGE "$bridge"
+		test "$BRIDGE" = yes || continue
+
+		unset BRIDGE_PORTS
+		get_variable BRIDGE_PORTS "$bridge"
+		for port in $BRIDGE_PORTS ; do
+			if test "x$IF" = "x${port}" ; then
+				echo "$bridge"
+				return 0
+			fi
+		done
+	done < <(ls -1d /etc/sysconfig/network/ifcfg-* 2>/dev/null)
+}
+
 # This function looks for interfaces which depend on the given interface. It
 # prints a list with all depending interfaces. It returns 0 if there are
 # depending interfaces and !=0 if not.
