@@ -137,8 +137,9 @@ See also \fBifcfg-tunnel(5)\fR manual page.
 .br
 .B none
 .br
-For bonding slaves, to skip the link-layer (MTU, MAC address) and IP
-configuration of the interface. See also ifcfg-bonding(5) man page.
+For bonding slaves, to skip the link-layer (MTU, MAC address) setup and IP
+configuration of the interface in ifup. The bonding script handles the link
+layer settings itself at enslave time. See also ifcfg-bonding(5) man page.
 Note:  Do not use to just skip the IP setup -- use BOOTPROTO="static"
 without any addresses in the IPADDR variables (or routes) instead.
 .TP
