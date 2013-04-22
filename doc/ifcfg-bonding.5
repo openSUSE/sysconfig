@@ -30,9 +30,10 @@ configuration files.
 Note also: Bonding slave interfaces are reserved for the bonding and are not
 usable for any another purposes (unlike e.g. interfaces used for VLANs) and
 the bonding master manages the slaves itself, e.g. it sets the MAC address
-on the slaves. To configure this accordingly, set BOOTPROTO=none in the ifcfg
-file of each slave interfaces to avoids any link-layer or IP setup on these
-interfaces.
+on the slaves by default. To configure this accordingly, set BOOTPROTO=none
+in the ifcfg file of each slave interfaces to avoid any IP or link-layer
+setup on these interfaces. The bonding script will apply the link settings
+(e.g. for fail_over_mode=active) at enslave time.
 .TP
 .B BONDING_MODULE_OPTS
 contains bonding options. Here you can set interface timeouts or working modes
@@ -80,6 +81,15 @@ Example for a bonding interface on eth0 and eth1 using the backup mode
    BOOTPROTO='none'
    #ETHTOOL_OPTIONS='wol g'
 .fi
+
+\fBNote\fR, that the slaves are configured with BOOTPROTO='none', what avoids
+link set UP and IP configuration of the slaves. Further also STARTMODE='hotplug',
+allowing that some (all) of the slaves are allowed to be missed at boot time.
+The hotplug slaves will be added to the bond as soon as are become available
+(udev BUS based persistent name rule or manual ifup bond0 is required).
+The network script waits for the slaves, but when there is no slave available
+at bonding start time (boot time), the bonding creation will fail and also
+the network script will report an error.
 
 .SH Additional Information
 

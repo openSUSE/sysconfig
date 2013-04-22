@@ -251,6 +251,33 @@ remove_bond () {
 	fi
 }
 
+# Init new slaves, e.g. link settings for the
+# fail_over_mac=active mode, without to set UP.
+init_slave ()
+{
+	local SLAVE=$1
+	local mtu lladdr
+	local MTU LLADDR LINK_OPTIONS
+
+	get_variable MTU $SLAVE
+	get_variable LLADDR $SLAVE
+	get_variable LINK_OPTIONS $SLAVE
+
+	# do not apply MTU / MAC when they're already set
+	if [ -n "$MTU" ] ; then
+		read mtu 2>/dev/null < "/sys/class/net/$SLAVE/mtu"
+		[ "$MTU" = "$mtu" ] && unset MTU
+	fi
+	if [ -n "$LLADDR" ] ; then
+		read lladdr 2>/dev/null < "/sys/class/net/$SLAVE/address"
+		[ "$LLADDR" = "$lladdr" ] && unset LLADDR
+	fi
+	[ -z "$MTU$LLADDR$LINK_OPTIONS" ] && return 0
+
+	ip link set dev $SLAVE ${MTU:+mtu $MTU} \
+		${LLADDR:+address $LLADDR} $LINK_OPTIONS >/dev/null
+}
+
 
 ######################################################################
 # now do what has to be done
@@ -294,6 +321,12 @@ up)
 			# slave has to be down while it gets added
 			if is_iface_up $BONDING_SLAVE ; then
 				ip link set down dev $BONDING_SLAVE
+			fi
+
+			err=`init_slave $BONDING_SLAVE 2>&1`
+			if [ $? -gt 0 ]; then
+				message "`printf "    %-9s unable to init slave %s: %s" \
+					"$INTERFACE" "$BONDING_SLAVE" "$err"`"
 			fi
 
 			echo "+$BONDING_SLAVE" 2>/dev/null > "$sysfs_iface/bonding/slaves"
