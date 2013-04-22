@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Mon Apr 22 12:35:57 UTC 2013 - mt@suse.de
+
+- Fixed to set link settings on bonding slaves while enslave.
+  Before enslaving a new slave, apply link settings like the MAC
+  address or MTU to the slave as required e.g. for fail_over_mac
+  active, where the bonding interface is using the MAC of the
+  currently active slave (bnc#815025).
+  [0002-Set-link-settings-on-bonding-slaves-while-enslave.patch]
+
+-------------------------------------------------------------------
 Thu Apr  4 09:18:58 UTC 2013 - mt@suse.de
 
 - Fixed to stop dhcp clients and remove IP addresses on not yet
