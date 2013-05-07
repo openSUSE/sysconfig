@@ -33,10 +33,6 @@ logger -t poll.tcpip -p mail.notice " Starting mail and news send/fetch"
 # Check resources and settings
 #
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-set -- $(runlevel)
-PREVLEVEL=$1
-RUNLEVEL=$2
-export PATH PREVLEVEL RUNLEVEL
 
 #
 # Time to get a stable connenction
@@ -47,7 +43,11 @@ sleep 5
 # Now set system time if we have some NTP servers
 # and no running ntp.
 #
-/usr/sbin/rcntp status &> /dev/null
+if type -p systemctl &> /dev/null ; then
+    systemctl status ntp.service &> /dev/null
+else
+    /usr/sbin/rcntp status &> /dev/null
+fi
 if test $? -eq 3 ; then
     /usr/sbin/rcntp ntptimeset
 else
@@ -124,39 +124,28 @@ done
 # remember that /usr/sbin/sendmail should be provided by
 # any other MTA like postfix or exim.
 #
-if test -s /etc/sendmail.cf -a -s /etc/mail/submit.cf ; then
+if test \( -s /etc/sendmail.cf -o -s /etc/mail/sendmail.cf \) \
+	-a -s /etc/mail/submit.cf ; then
     send=no
-    for rc in /etc/init.d/rc${RUNLEVEL}.d/S*sendmail
+    for rc in /usr/lib/systemd/system/sendmail-client.service \
+	      /usr/lib/systemd/system/sendmail.service \
+	      /etc/init.d/sendmail
     do
-	if test -x $rc; then
-	    $rc status &> /dev/null && send=yes
-	else
+	if test -e $rc; then
 	    send=yes
+	    break
 	fi
-	break
     done
-    if test "$send" = "yes" ; then
+    if test "$send" != "no" ; then
 	/usr/sbin/sendmail -L sendmail-client -Ac -q
 	sleep 3
 	/usr/sbin/sendmail -L sendmail -Am -q
     fi
-    unset send
-else
-    send=no
-    for rc in /etc/init.d/rc${RUNLEVEL}.d/S*postfix \
-	      /etc/init.d/rc${RUNLEVEL}.d/S*exim
-    do
-	if test -x $rc; then
-	    $rc status &> /dev/null && send=yes
-	else
-	    send=yes
-	fi
-	break
-    done
-    if test "$send" = "yes" ; then
-	/usr/sbin/sendmail -q
-    fi
-    unset send
+    unset send rc
+elif test -x /usr/sbin/sendmail ; then
+    /usr/sbin/sendmail -q
+elif test -x /usr/lib/sendmail ; then
+    /usr/lib/sendmail -q
 fi
 
 # Tell system what we're done
