@@ -1,8 +1,23 @@
 -------------------------------------------------------------------
-Thu May 16 08:41:32 UTC 2013 - mt@suse.de
+Thu May 16 09:01:58 UTC 2013 - mt@suse.de
 
 - version 0.80.6
-- Merged with changes from $OBS/Base:System/sysconfig
+- Merged changes from $OBS/Base:System/sysconfig and SLE-11-SP3.
+- Fixed to set link settings on bonding slaves while enslave.
+  Before enslaving a new slave, apply link settings like the MAC
+  address or MTU to the slave as required e.g. for fail_over_mac
+  active, where the bonding interface is using the MAC of the
+  currently active slave (bnc#815025).
+  [0002-Set-link-settings-on-bonding-slaves-while-enslave.patch]
+- Fixed to stop dhcp clients and remove IP addresses on not yet
+  enslaved bridge ports and bonding slaves. The bridge or bond
+  interface has the IP addresses assigned itself instead.
+  The port/slave may still have IP addresses, when the IP config
+  of an active (ethernet) interface has been moved into a bridge
+  or bond config, e.g. while "virsh iface-bridge eth0 br0". There
+  is no full ifdown for the port interface to not break the vlans
+  (and their bridges) which may refer to the port too (bnc#813148).
+  [0001-Flush-IPs-on-bridge-bond-children-ifup-bnc-813148.patch]
 
 -------------------------------------------------------------------
 Thu May 16 08:02:23 UTC 2013 - werner@suse.de
