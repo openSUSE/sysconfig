@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu May 16 08:41:32 UTC 2013 - mt@suse.de
+
+- version 0.80.6
+- Merged with changes from $OBS/Base:System/sysconfig
+
+-------------------------------------------------------------------
 Thu May 16 08:02:23 UTC 2013 - werner@suse.de
 
 - Add forgotten patch sysconfig-0.80.5.patch
