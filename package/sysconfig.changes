@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Thu May 16 08:02:23 UTC 2013 - werner@suse.de
+
+- Add forgotten patch sysconfig-0.80.5.patch
+
+-------------------------------------------------------------------
+Tue May  7 10:12:04 UTC 2013 - werner@suse.de
+
+- Accommodate poll.tcpip to systemd
+
+-------------------------------------------------------------------
 Wed Mar 20 09:44:26 UTC 2013 - mt@suse.de
 
 - Fixed to wait for dhcp/ipv6 under systemd again.
