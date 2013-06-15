@@ -38,7 +38,7 @@ systemd_running ()
 {
 	# We simply test whether systemd cgroup hierarchy is mounted
 	# where we return 0, non-zero if not.
-	/bin/mountpoint -q "${SYSTEMD_CGROUP_DIR}"
+	mountpoint -q "${SYSTEMD_CGROUP_DIR}"
 }
 
 systemd_booting () {
