@@ -234,6 +234,22 @@ list, currently:
     "+strongswan +openswan +racoon +openvpn +vpnc -avahi"
 .fi
 the value \fI"none"\fR or \fI""\fR allows to disable the ranking / sorting.
+.TP
+.B NETCONFIG_DNS_RESOLVER_OPTIONS
+Allows to specify options to use when writting the /etc/resolv.conf,
+for example:
+.nf
+     "debug attempts:1 timeout:10"
+.fi
+See resolv.conf(5) manual page for details.
+.TP
+.B NETCONFIG_DNS_RESOLVER_SORTLIST
+Allows to specify a sortlist to use when writting the /etc/resolv.conf,
+for example:
+.nf
+	"130.155.160.0/255.255.240.0 130.155.0.0"
+.fi
+See resolv.conf(5) manual page for details.
 
 .SS NTP
 .TP

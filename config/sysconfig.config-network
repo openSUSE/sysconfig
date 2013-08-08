@@ -294,6 +294,26 @@ NETCONFIG_DNS_STATIC_SERVERS=""
 NETCONFIG_DNS_RANKING="auto"
 
 ## Type:        string
+## Default:     ""
+#
+# Allows to specify options to use when writting the /etc/resolv.conf,
+# for example:
+# 	"debug attempts:1 timeout:10"
+# See resolv.conf(5) manual page for details.
+#
+NETCONFIG_DNS_RESOLVER_OPTIONS=""
+
+## Type:        string
+## Default:     ""
+#
+# Allows to specify a sortlist to use when writting the /etc/resolv.conf,
+# for example:
+# 	130.155.160.0/255.255.240.0 130.155.0.0"
+# See resolv.conf(5) manual page for details.
+#
+NETCONFIG_DNS_RESOLVER_SORTLIST=""
+
+## Type:        string
 ## Default:     "auto"
 #
 # Defines the NTP merge policy as documented in netconfig(8) manual page.

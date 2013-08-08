@@ -105,6 +105,14 @@ function write_resolv_conf()
 ### Please remove (at least) this line when you modify the file!
 EOT
 
+    if [ "X$NETCONFIG_DNS_RESOLVER_OPTIONS" != "X" ] ; then
+        echo "options $NETCONFIG_DNS_RESOLVER_OPTIONS" >> "$TMP_FILE"
+    fi
+
+    if [ "X$NETCONFIG_DNS_RESOLVER_SORTLIST" != "X" ] ; then
+        echo "sortlist $NETCONFIG_DNS_RESOLVER_SORTLIST" >> "$TMP_FILE"
+    fi
+
     for nd in $1; do
         # strip trailing dot added by dhcp 4.x dhclient(6)
         [ "x$nd" != "x." ] && nd="${nd%.}"
