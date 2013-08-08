@@ -308,7 +308,7 @@ cd /etc/sysconfig/network
 ######################################################################
 
 
-if [ "$MODE" = onboot -a "$ACTION" = start -a -z "$INTERFACE" ] ; then
+if [ "$MODE" = onboot -a "$ACTION" = start -a -z "$INTERFACE$SKIP$TYPE" ] ; then
 	rm -f  ${RUN_FILES_BASE}/if-*
 	rm -f  ${RUN_FILES_BASE}/ifup-*
 	rm -Rf ${RUN_FILES_BASE}/tmp
