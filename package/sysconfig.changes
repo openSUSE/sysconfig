@@ -1,4 +1,19 @@
 -------------------------------------------------------------------
+Wed Aug 14 09:18:36 UTC 2013 - mt@suse.de
+
+- version 0.80.7
+- use mountpoint utility without absolute path
+  While on 12.3 there were a /bin/mountpoint, 13.1 moved
+  it to /usr/bin/mountpoint without a compatibility link.
+  Drop path when calling it, it should work both ways.
+  Thanks to Andrey Borzenkov for his patch.
+- rcnetwork: fixed to not drop state while reload
+- netconfig: add /etc/resolv.conf options and sortlist
+  Added global network/config NETCONFIG_DNS_RESOLVER_OPTIONS
+  and NETCONFIG_DNS_RESOLVER_SORTLIST variables, allowing to
+  set /etc/resolv.conf options and sortlist (fate#316048).
+
+-------------------------------------------------------------------
 Thu May 16 09:01:58 UTC 2013 - mt@suse.de
 
 - version 0.80.6
