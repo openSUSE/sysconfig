@@ -20,19 +20,11 @@
 Name:           sysconfig
 Version:        @VERSION@
 Release:        0
-Summary:        The sysconfig scheme and traditional network scripts
+Summary:        The sysconfig scheme for traditional network scripts
 License:        GPL-2.0+
 Group:          System/Base
 Url:            http://gitorious.org/opensuse/sysconfig
 PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
-# we may create these automatically from rpm later
-Provides:       sysvinit(network)
-Requires:       bridge-utils
-Requires:       dbus-1
-Requires:       iproute2
-Requires:       procps
-Requires:       tunctl
-Requires:       vlan
 BuildRequires:  libtool
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 %if 0%{?suse_version} >= 1230
@@ -42,9 +34,14 @@ BuildRequires:  pkgconfig(systemd)
 %define         udevdir	/lib/udev
 %endif
 Source:         %name-%version.tar.bz2
+Requires:       /sbin/ifup
+Requires:       /sbin/netconfig
+Requires:       sysvinit(network)
+Requires:       udevmountd = %{version}
+Recommends:     sysconfig-network = %{version}
 
 %description
-This package provides the SuSE system configuration scheme and the
+This package provides the SuSE system configuration scheme for the
 traditional "ifup" alias "netcontrol" network scripts.
 
 Authors:
@@ -57,7 +54,69 @@ Authors:
     Michal Svec <msvec@suse.cz>
     Christian Zoz <zoz@suse.de>
     Werner Fink <werner@suse.de>
+    Hannes Reinecke <hare@suse.de>
     Marius Tomaschewski <mt@suse.de>
+
+%package -n udevmountd
+Summary:        Automount daemon for udev
+Group:          System/Base
+Requires:       sysconfig = %{version}
+Provides:       udevmountd
+
+%description -n udevmountd
+This package provides the udev mount daemon and its udev rule.
+
+Authors:
+--------
+    Hannes Reinecke <hare@suse.de>
+
+
+%package netconfig
+Summary:        Script to apply network provided settings
+Group:          System/Base
+Requires:       sysconfig = %{version}
+Provides:       /sbin/netconfig
+
+%description netconfig
+This package provides the netconfig scripts to apply network
+provided settings like DNS or NIS into system files.
+
+Authors:
+--------
+    Michael Calmer <mc@suse.de>
+    Marius Tomaschewski <mt@suse.de>
+    Milisav Radmanic <radmanic@suse.de>
+
+
+%package network
+Summary:        Traditional network scripts
+Group:          System/Base
+Requires:       bridge-utils
+Requires:       iproute2
+Requires:       procps
+Requires:       sysconfig = %{version}
+Requires:       tunctl
+Requires:       vlan
+Requires:       /sbin/netconfig
+Provides:       /sbin/ifup
+
+%description network
+This package provides the traditional "ifup" alias "netcontrol"
+network scripts.
+
+Authors:
+--------
+    Olaf Kirch <okir@suse.de>
+    Bjoern Jacke <bjoern@j3e.de>
+    Mads Martin Joergensen <mmj@suse.de>
+    Peter Poeml <poeml@suse.de>
+    Arvin Schnell <arvin@suse.de>
+    Michal Svec <msvec@suse.cz>
+    Christian Zoz <zoz@suse.de>
+    Werner Fink <werner@suse.de>
+    Hannes Reinecke <hare@suse.de>
+    Marius Tomaschewski <mt@suse.de>
+
 
 %prep
 %setup -n sysconfig-%{version}
@@ -89,36 +148,66 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 
 %files
 %defattr(-,root,root)
-/etc/init.d/*
+%dir /etc/modprobe.d
+%config /etc/modprobe.d/50-blacklist.conf
+/etc/sysconfig/network/ifcfg.template
 %ghost /etc/sysconfig/network/config
 %ghost /etc/sysconfig/network/dhcp
 %config(noreplace) %attr(600,root,root) /etc/sysconfig/network/ifcfg-lo
 %config(noreplace) /etc/sysconfig/network/ifroute-lo
+%dir /usr/share/doc/packages/sysconfig
+%doc /usr/share/doc/packages/sysconfig/Contents
+%doc /usr/share/doc/packages/sysconfig/COPYING
+
+%files network
+%defattr(-,root,root)
 %config(noreplace) /etc/ppp/ip-up
 %config(noreplace) /etc/ppp/ip-down
 %config(noreplace) /etc/ppp/ipv6-up
 %config(noreplace) /etc/ppp/ipv6-down
-%dir %udevdir
-%udevdir/udevmountd
-%dir %udevdir/rules.d
+/etc/ppp/poll.tcpip
 %udevdir/rules.d/77-network.rules
-%udevdir/rules.d/81-mount.rules
-%dir /etc/modprobe.d
-%config /etc/sysconfig/network/ifcfg.template
-%config /etc/modprobe.d/50-blacklist.conf
-/etc/sysconfig/network/scripts/*
+/etc/sysconfig/network/scripts/functions
+/etc/sysconfig/network/scripts/functions.common
+/etc/sysconfig/network/scripts/functions.rpm-utils
+/etc/sysconfig/network/scripts/extradebug
+/etc/sysconfig/network/scripts/if*
+/etc/sysconfig/network/scripts/convert*
+/etc/sysconfig/network/scripts/move_shm_sysconfig.sh
+/etc/sysconfig/network/scripts/create-ifservices-directory
+/etc/sysconfig/network/scripts/dhcpcd-hook
+/etc/sysconfig/network/scripts/link_wait
 /etc/sysconfig/network/if-up.d/ndp-proxy
 /etc/sysconfig/network/if-down.d/ndp-proxy
-/etc/netconfig.d
-/etc/ppp/poll.tcpip
-/sbin/*
-%doc /usr/share/doc/packages/sysconfig
-%_mandir/*/*
 /usr/share/omc/svcinfo.d/network.xml
 /var/adm/fillup-templates/sysconfig.dhcp-network
 /var/adm/fillup-templates/sysconfig.config-network
+%dir /usr/share/doc/packages/sysconfig
+%doc /usr/share/doc/packages/sysconfig/Network
+%doc /usr/share/doc/packages/sysconfig/README*
+%_mandir/*/if*
+%_mandir/*/routes*
+/etc/init.d/*
+/sbin/if*
+/sbin/autoip
+/sbin/rcnetwork
 
-%pre
+%files netconfig
+%dir /etc/netconfig.d
+/etc/netconfig.d/*
+/etc/sysconfig/network/scripts/functions.netconfig
+/sbin/netconfig
+/usr/share/man/man8/netconfig.8.gz
+%doc /usr/share/doc/packages/sysconfig/netconfig.png
+
+%files -n udevmountd
+%defattr(-,root,root)
+%dir %udevdir
+%udevdir/udevmountd
+%dir %udevdir/rules.d
+%udevdir/rules.d/81-mount.rules
+
+%pre network
 # package update ?
 if [ ${1:-0} -gt 1 ]; then
 	# update to >= 0.72.1 (-> openSUSE 11.2)
@@ -137,7 +226,7 @@ if [ ${1:-0} -gt 1 ]; then
 	fi
 fi
 
-%post 
+%post network
 # * update to >= 0.72.1: before anything else, move state
 #   files from dev/shm/sysconfig to dev/.sysconfig/network
 if [ -f etc/sysconfig/network/__move_shm_sysconfig__ ] ; then
@@ -208,11 +297,11 @@ else
 	sysconfig_remove_and_set network/config NETWORKMANAGER
 fi
 
-%postun
+%postun network
 %{insserv_cleanup}
 /sbin/ldconfig
 
-%preun
+%preun network
 %{stop_on_removal network}
 
 %changelog
