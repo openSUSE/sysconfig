@@ -18,9 +18,8 @@ man_MANS = 	ifup.8 \
 		ifndp-proxy.5 \
 		routes.5
 
-doc_DATA =	README COPYING Contents Network \
+doc_DATA =	COPYING Contents Network \
 		README.virtualization \
-		README.hwcfg_and_device_initialisation \
 		netconfig.png
 
 EXTRA_DIST = $(doc_DATA) $(man_MANS)
