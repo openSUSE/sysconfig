@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Fri Aug 16 10:00:49 UTC 2013 - mt@suse.de
+
+- version 0.81.0
+- Initial sysconfig split into udevmountd, sysconfig, -netconfig
+  and -network packages, to allow another implementation of the
+  /etc/init.d/network and /sbin/ifup scripts.
+- Dropped obsolete README files.
+
+-------------------------------------------------------------------
 Wed Aug 14 09:18:36 UTC 2013 - mt@suse.de
 
 - version 0.80.7
