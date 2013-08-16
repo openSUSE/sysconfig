@@ -1,5 +1,5 @@
 -------------------------------------------------------------------
-Fri Aug 16 10:00:49 UTC 2013 - mt@suse.de
+Fri Aug 16 11:51:57 UTC 2013 - mt@suse.de
 
 - version 0.81.0
 - Initial sysconfig split into udevmountd, sysconfig, -netconfig

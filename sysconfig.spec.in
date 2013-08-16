@@ -61,7 +61,6 @@ Authors:
 Summary:        Automount daemon for udev
 Group:          System/Base
 Requires:       sysconfig = %{version}
-Provides:       udevmountd
 
 %description -n udevmountd
 This package provides the udev mount daemon and its udev rule.
@@ -150,7 +149,7 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %defattr(-,root,root)
 %dir /etc/modprobe.d
 %config /etc/modprobe.d/50-blacklist.conf
-/etc/sysconfig/network/ifcfg.template
+%config /etc/sysconfig/network/ifcfg.template
 %ghost /etc/sysconfig/network/config
 %ghost /etc/sysconfig/network/dhcp
 %config(noreplace) %attr(600,root,root) /etc/sysconfig/network/ifcfg-lo
@@ -193,6 +192,7 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 /sbin/rcnetwork
 
 %files netconfig
+%defattr(-,root,root)
 %dir /etc/netconfig.d
 /etc/netconfig.d/*
 /etc/sysconfig/network/scripts/functions.netconfig
