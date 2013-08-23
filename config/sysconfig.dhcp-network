@@ -167,8 +167,8 @@ DHCLIENT_SET_DEFAULT_ROUTE="yes"
 #
 # Lease time to request ( -l option)
 #
-# Specifies (in seconds) the lease that is suggested to the server. 
-# The default is 1 hour, use -1 to request infinite lease time.
+# Specifies the lease time (in seconds), that is suggested to the
+# server. Default is to use the lease time offered by the server.
 #
 DHCLIENT_LEASE_TIME=""
 
