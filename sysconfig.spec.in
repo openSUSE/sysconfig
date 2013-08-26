@@ -23,7 +23,7 @@ Release:        0
 Summary:        The sysconfig scheme for traditional network scripts
 License:        GPL-2.0+
 Group:          System/Base
-Url:            http://gitorious.org/opensuse/sysconfig
+Url:            https://github.com/openSUSE/sysconfig
 PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
 BuildRequires:  libtool
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build

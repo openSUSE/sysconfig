@@ -1,5 +1,7 @@
 # Process this file with autoconf to produce a configure script.
-AC_INIT(sysconfig, esyscmd([tr -d '\n' < VERSION]), http://www.suse.de/feedback/)
+AC_INIT([sysconfig], esyscmd([tr -d '\n' < VERSION]),
+	[http://bugs.opensuse.org], [sysconfig],
+	[https://github.com/openSUSE/sysconfig])
 
 VERSION=$(cat ${srcdir}/VERSION)
 AC_SUBST(VERSION)
