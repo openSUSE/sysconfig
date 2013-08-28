@@ -16,10 +16,13 @@ fillup_templates_DATA =	sysconfig.dhcp-network \
 
 omc_svcinfo_DATA = network.xml
 
+unit_DATA = network.service network@.service
+
 EXTRA_DIST = $(sysconfig_network_DATA) \
 	     $(udevrules_DATA) \
 	     $(fillup_templates_DATA) \
-	     $(omc_svcinfo_DATA)
+	     $(omc_svcinfo_DATA) \
+	     $(unit_DATA)
 
 install-data-hook:
 	mkdir -p  $(DESTDIR)@sysconfig_networkdir@/providers

@@ -60,7 +60,7 @@ Authors:
 %package -n udevmountd
 Summary:        Automount daemon for udev
 Group:          System/Base
-Requires:       sysconfig = %{version}
+Requires(pre):  sysconfig = %{version}
 
 %description -n udevmountd
 This package provides the udev mount daemon and its udev rule.
@@ -73,7 +73,7 @@ Authors:
 %package netconfig
 Summary:        Script to apply network provided settings
 Group:          System/Base
-Requires:       sysconfig = %{version}
+Requires(pre):  sysconfig = %{version}
 Provides:       /sbin/netconfig
 
 %description netconfig
@@ -90,10 +90,10 @@ Authors:
 %package network
 Summary:        Traditional network scripts
 Group:          System/Base
+Requires(pre):  sysconfig = %{version}
 Requires:       bridge-utils
 Requires:       iproute2
 Requires:       procps
-Requires:       sysconfig = %{version}
 Requires:       tunctl
 Requires:       vlan
 Requires:       /sbin/netconfig
@@ -128,6 +128,7 @@ CFLAGS="$RPM_OPT_FLAGS -fPIC" \
             --libdir=/%_lib \
             --sysconfdir=%_sysconfdir \
             --mandir=%_mandir \
+            --with-unitdir=%_unitdir \
             --with-udevdir=%udevdir \
             --with-fillup-templatesdir=/var/adm/fillup-templates
 %{__make} %{?_smp_mflags}
@@ -186,7 +187,9 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %doc /usr/share/doc/packages/sysconfig/README*
 %_mandir/*/if*
 %_mandir/*/routes*
-/etc/init.d/*
+%_unitdir/network@.service
+%_unitdir/network.service
+/etc/init.d/network
 /sbin/if*
 /sbin/autoip
 /sbin/rcnetwork
@@ -275,6 +278,7 @@ done
 chmod 0600 etc/sysconfig/network/ifcfg-*
 # bnc#803058: migrate from NETWORKMANAGER=yes/no variable to
 #             network.service alias link masking rcnetwork.
+enable=yes
 if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ; then
 	. /dev/.sysconfig/network/migrate_nm_variable
 	case $NETWORKMANAGER in
@@ -290,11 +294,21 @@ if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ;
 		# as hint for migration in NetworkManager post-install ...
 		# Mask /etc/init.d/network service until NM update is done.
 		/usr/bin/systemctl --force mask network.service || :
+		enable=no
 	;;
 	esac
 else
 	# cleanup obsolete NETWORKMANAGER variable
 	sysconfig_remove_and_set network/config NETWORKMANAGER
+fi
+if test "$enable" = "yes" ; then
+	_id=`/usr/bin/systemctl --no-pager -p Id show network.service 2>/dev/null` || :
+	case "${_id#Id=}" in
+	""|network.service)
+		/usr/bin/systemctl --system daemon-reload || :
+		/usr/bin/systemctl --force enable network.service || :
+	;;
+	esac
 fi
 
 %postun network
