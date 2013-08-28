@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Wed Aug 28 16:45:53 UTC 2013 - mt@suse.de
+
+- version 0.81.1
+- Initial network and network@ service files to avoid, that systemd
+  udevd kills dhcp clients, which where forked from the udev hotplug
+  rule and for better control (bnc#821879).
+
+-------------------------------------------------------------------
 Fri Aug 16 11:51:57 UTC 2013 - mt@suse.de
 
 - version 0.81.0
