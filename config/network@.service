@@ -1,0 +1,12 @@
+[Unit]
+Description=ifup managed network interface %i
+Requisite=network.service
+PartOf=network.service
+BindsTo=sys-subsystem-net-devices-%i.device
+
+[Service]
+Type=forking
+RemainAfterExit=yes
+ExecStart=/sbin/ifup %i
+ExecStop=/sbin/ifdown %i
+SuccessExitStatus=12

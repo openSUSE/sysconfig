@@ -1,0 +1,15 @@
+[Unit]
+Description=LSB: Configure network interfaces and set up routing
+Wants=network.target
+Before=network.target shutdown.target multi-user.target
+After=local-fs.target SuSEfirewall2_init.service earlysyslog.service isdn.service openibd.service
+
+[Service]
+Type=forking
+ExecStart=/etc/init.d/network start
+ExecStop=/etc/init.d/network stop
+ExecReload=/etc/init.d/network reload
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target graphical.target
