@@ -32,6 +32,10 @@ AC_SUBST(sysconfig_network_scriptsdir)
 AC_SUBST(init_ddir)
 AC_SUBST(docdir)
 AC_SUBST(pppdir)
+AC_ARG_WITH([unitdir], [AS_HELP_STRING([--with-unitdir@<:@=PATH@:>@],
+	    [path to the systemd/system unit directory])],,
+	    [with_unitdir='${prefix}/lib/systemd/system'])
+AC_SUBST(unitdir, $with_unitdir)
 AC_ARG_WITH([udevdir], [AS_HELP_STRING([--with-udevdir@<:@=PATH@:>@],
 	    [path to the udev installation directory])],,
 	    [with_udevdir='${prefix}/lib/udev'])
