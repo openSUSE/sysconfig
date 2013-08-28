@@ -199,10 +199,42 @@ if [ "$INTERFACETYPE" == wlan_aux ] ; then
 	message "interface '$INTERFACE' is a wlan helper interface. Exiting.";
 	exit $R_SUCCESS
 fi
+declare -r _INTERFACETYPE="$INTERFACETYPE"
 
 
 ######################################################################
-# Set renamed flag for this interface
+# Now source the configuration file and check if we have an interface
+#
+INTERFACETYPE=""
+if [ -n "$CONFIG" ] ; then
+	source_iface_config "$CONFIG"
+
+	# Complain when INTERFACETYPE is set in the config
+	# and ask the user to report a bug as it should be
+	# used only when detection fails, _not_ by default.
+	if test "X$INTERFACETYPE" != "X" ; then
+		IM=`printf "    %-9s" $INTERFACE`
+		BM=`printf "    %-9s" "" "      Please open a bug report."`
+		if test "X$INTERFACETYPE" = "X$_INTERFACETYPE" ; then
+			logerror "$IM Warning: ifcfg-$CONFIG"\
+				 "overrides interface type detection.\n$BM"
+		else
+			logerror "$IM Warning: ifcfg-$CONFIG"\
+				 "modifies interface type from"\
+				 "'$_INTERFACETYPE' to '$INTERFACETYPE'.\n$BM"
+		fi
+	fi
+
+	# Store config name persistently for use in ifplugd-selectif after
+	# interface has gone. Without that info it will not activate
+	# alternative interface in this case. Used in get_ifplugd_priority()
+	echo $CONFIG > $RUN_FILES_BASE/config-$INTERFACE
+fi
+test "X$INTERFACETYPE" = "X" && export INTERFACETYPE="$_INTERFACETYPE"
+
+
+######################################################################
+# Set renamed flag for this interface while hotplug event
 #
 # This is needed if ifup is called via udev before rcnetwork was started.
 # Without this flag rcnetwork does not know if renaming was completed and
@@ -229,11 +261,11 @@ if [ "$SCRIPTNAME" = ifup ] ; then
 				exit $R_SUCCESS
 			;;
 		esac
-	fi
-	# check if service network was started and skip ifup in auto mode
-	if [ "$MODE" = auto ] && ! netcontrol_running ; then
-		message "Service network not started and mode 'auto' -> skipping"
-		exit $R_SUCCESS
+		# check if service network was started and skip ifup in auto mode
+		if ! netcontrol_running ; then
+			message "Service network not started -> skipping"
+			exit $R_SUCCESS
+		fi
 	fi
 fi
 
@@ -246,45 +278,47 @@ if [ "x$network_service_id" != "xnetwork.service" ] ; then
 	mesg "Network is managed by '$network_service_id' -> skipping"
 	exit $R_NOTIMPL
 fi
+
+######################################################################
+# Read temporary startmode which may be set by iscsi, ... subsystems
+# serving root-fs and cleanup aliases and hotplug [handled already].
+#
+case "$SCRIPTNAME" in
+ifup|ifdown)
+	tmp_startmode=`read_cached_config_data startmode $INTERFACE`
+	[ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"
+;;
+esac
+case "$STARTMODE" in
+"")			STARTMODE=manual;;
+on|boot|onboot|hotplug)	STARTMODE=auto	;;
+esac
+
+######################################################################
+# Check how to handle arguments and redirect to systemd when needed
+#
 case $SCRIPTNAME in
 ifup)
-	# start everything in network service cgroup
-	if ! in_network_service_cgroup ; then
-		add_to_network_service_cgroup
+	case "$STARTMODE" in
+	off|manual)
+		if test "$HOTPLUG" = "yes" -o "$BOOTING" = "yes" ; then
+			message "`printf "    %-9s Startmode is '%s' -> skipping" $INTERFACE $STARTMODE`"
+			exit $R_NOTCONFIGURED
+		fi
+	;;
+	esac
+
+	if test $PPID -ne 1 -a "$INTERFACE" != "lo" -a "$DHCP" != yes ; then
+		exec systemctl start "network@${INTERFACE}.service"
+	fi
+;;
+ifdown)
+	if test $PPID -ne 1 -a "$INTERFACE" != "lo" -a "$DHCP" != yes ; then
+		exec systemctl stop "network@${INTERFACE}.service"
 	fi
 ;;
 esac
 
-######################################################################
-# Now source the configuration file and check if we have an interface
-#
-declare -r _INTERFACETYPE="$INTERFACETYPE"
-INTERFACETYPE=""
-if [ -n "$CONFIG" ] ; then
-	source_iface_config "$CONFIG"
-
-	# Complain when INTERFACETYPE is set in the config
-	# and ask the user to report a bug as it should be
-	# used only when detection fails, _not_ by default.
-	if test "X$INTERFACETYPE" != "X" ; then
-		IM=`printf "    %-9s" $INTERFACE`
-		BM=`printf "    %-9s" "" "      Please open a bug report."`
-		if test "X$INTERFACETYPE" = "X$_INTERFACETYPE" ; then
-			logerror "$IM Warning: ifcfg-$CONFIG"\
-			         "overrides interface type detection.\n$BM"
-		else
-			logerror "$IM Warning: ifcfg-$CONFIG"\
-			         "modifies interface type from"\
-			         "'$_INTERFACETYPE' to '$INTERFACETYPE'.\n$BM"
-		fi
-	fi
-
-	# Store config name persistently for use in ifplugd-selectif after
-	# interface has gone. Without that info it will not activate
-	# alternative interface in this case. Used in get_ifplugd_priority()
-	echo $CONFIG > $RUN_FILES_BASE/config-$INTERFACE
-fi
-test "X$INTERFACETYPE" = "X" && export INTERFACETYPE="$_INTERFACETYPE"
 
 ######################################################################
 # Check if the interface is available
@@ -572,8 +606,8 @@ fi
 ######################################################################
 # read possibly stored provider
 #
-# If we don't know a provider name, let's have a look if a provider was stored
-# in the runtime data cache for this configuration.
+# If we don't know a provider name, let's have a look if a provider was
+# stored in the runtime data cache for this configuration.
 if [ "$SCRIPTNAME" != ifdown -a -z "$PROVIDER" ] ; then
 	PROVIDER=`read_cached_config_data provider $INTERFACE`
 fi
@@ -584,11 +618,6 @@ fi
 #
 # STARTMODE is from config file; MODE is current mode
 #
-# Read temporary startmode
-if [ "$SCRIPTNAME" = ifdown ] ; then
-	tmp_startmode=`read_cached_config_data startmode $INTERFACE`
-	[ -n "$tmp_startmode" ] && STARTMODE="$tmp_startmode"
-fi
 
 ######################################################################
 # handle bonding slave "up" hotplugging event
@@ -610,10 +639,6 @@ if [ "$SCRIPTNAME" = ifup -a "$HOTPLUG" = yes -a \
 	fi
 fi
 
-test "$STARTMODE" = "on"      && STARTMODE=auto
-test "$STARTMODE" = "boot"    && STARTMODE=auto
-test "$STARTMODE" = "onboot"  && STARTMODE=auto
-test "$STARTMODE" = "hotplug" && STARTMODE=auto
 if [ "$STARTMODE" = "nfsroot" ] ; then
 	STARTMODE=auto
 	# if this interface serves nfs root, then don't shut it down via rcnetwork
@@ -637,7 +662,6 @@ if [ "$STARTMODE" == ifplugd -a "$CONTROL_IFPLUGD" == yes ] ; then
 		exit $R_DHCP_BG
 	fi
 fi
-test -z "$STARTMODE" && STARTMODE=manual
 if [ "$SCRIPTNAME" = ifup ] ; then
 	case "$MODE:$STARTMODE" in
 		force:*)       : go on ;;
