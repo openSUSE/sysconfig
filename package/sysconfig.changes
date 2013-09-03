@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Tue Sep  3 10:20:22 UTC 2013 - mt@suse.de
+
+- version 0.81.2
+- Added otherproviders(/sbin/ifup) conflict to sysconfig-network.
+- Do not stop the network interfaces, but kill the network and all
+  network@<ifname> services to kill all dhcp clients on uninstall.
+
+-------------------------------------------------------------------
 Wed Aug 28 16:45:53 UTC 2013 - mt@suse.de
 
 - version 0.81.1
