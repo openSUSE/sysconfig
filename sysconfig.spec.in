@@ -98,6 +98,7 @@ Requires:       tunctl
 Requires:       vlan
 Requires:       /sbin/netconfig
 Provides:       /sbin/ifup
+Conflicts:      otherproviders(/sbin/ifup)
 
 %description network
 This package provides the traditional "ifup" alias "netcontrol"
