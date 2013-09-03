@@ -119,6 +119,20 @@ test -f scripts/functions.common \
    || exit $R_INTERNAL
 
 
+kill_all_instances()
+{
+	local s l
+
+	l=`systemctl show -p ConsistsOf network.service 2>/dev/null`
+	for s in ${l#ConsistsOf=} ; do
+		case $s in
+		network@*.service)
+			/bin/systemctl "$@" kill "$s"
+		;;
+		esac
+	done
+}
+
 #
 # Check if to redirect to systemd or not
 #
@@ -148,15 +162,16 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 			# suspend, but don't do anything when not running
 			netcontrol_running || exit 0
 
-			# kill hard to avoid deconfiguration
-			opts=($SYSTEMCTL_OPTIONS "--signal=9")
-			SYSTEMCTL_OPTIONS="${opts[*]}"
-
 			# set a kill flag
 			rm -f            "${RUN_FILES_BASE}/killed"
 			echo "$ACTION" > "${RUN_FILES_BASE}/killed"
 
-			# and map both to kill
+			# kill hard to avoid deconfiguration
+			opts=($SYSTEMCTL_OPTIONS "--signal=9")
+			SYSTEMCTL_OPTIONS="${opts[*]}"
+			kill_all_instances --signal=9
+
+			# and map it to kill
 			ACTION="kill"
 			unset TYPE SKIP INTERFACE CONFIG OPTIONS
 		;;
@@ -164,12 +179,13 @@ if test $PPID -ne 1 -a -z "$RCNETWORK" ; then
 			# resume, but don't do anything when not running
 			netcontrol_running || exit 0
 
-			# kill hard to avoid deconfiguration
-			/bin/systemctl --signal=9 kill network.service
-
 			# set a kill flag
 			rm -f            "${RUN_FILES_BASE}/killed"
 			echo "$ACTION" > "${RUN_FILES_BASE}/killed"
+
+			# kill hard to avoid deconfiguration
+			kill_all_instances --signal=9
+			/bin/systemctl --signal=9 kill network.service
 
 			# and map it to restart (start has no effect),
 			# so systemd resets its state ...

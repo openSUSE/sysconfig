@@ -316,6 +316,8 @@ fi
 /sbin/ldconfig
 
 %preun network
-%{stop_on_removal network}
+if test "$1" = "0" -a -x /etc/init.d/network ; then
+	/etc/init.d/network stop-all-dhcp-clients || :
+fi
 
 %changelog

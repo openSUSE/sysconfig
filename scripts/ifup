@@ -316,6 +316,9 @@ ifdown)
 	if test $PPID -ne 1 -a "$INTERFACE" != "lo" -a "$DHCP" != yes ; then
 		exec systemctl stop "network@${INTERFACE}.service"
 	fi
+
+	# /etc/init.d/network has been killed, don't stop
+	test -e "${RUN_FILES_BASE}/killed" && exit 0
 ;;
 esac
 
