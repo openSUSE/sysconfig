@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Mon Sep  9 13:43:20 UTC 2013 - mt@suse.de
+
+- version 0.81.3
+- Fixed to reload syslog on hostname changes using systemctl as
+  there is no /etc/init.d/syslog script since syslog-service-2.0
+  (bnc#830467).
+- Added a systemctl guard to rpm post script
+
+-------------------------------------------------------------------
 Tue Sep  3 10:20:22 UTC 2013 - mt@suse.de
 
 - version 0.81.2
