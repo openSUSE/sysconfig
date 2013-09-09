@@ -302,7 +302,7 @@ else
 	# cleanup obsolete NETWORKMANAGER variable
 	sysconfig_remove_and_set network/config NETWORKMANAGER
 fi
-if test "$enable" = "yes" ; then
+if test "$enable" = "yes" -a -x /usr/bin/systemctl ; then
 	_id=`/usr/bin/systemctl --no-pager -p Id show network.service 2>/dev/null` || :
 	case "${_id#Id=}" in
 	""|network.service)
