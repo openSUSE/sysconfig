@@ -24,6 +24,7 @@ sysconfig_network_scripts_SCRIPTS =	functions \
 					ifup-sysctl \
 					ifup-wireless \
 					ifup-tunnel \
+					ifup-dummy \
 					ifplugd-selectif \
 					if-up.ndp-proxy \
 					dhcpcd-hook \
@@ -78,6 +79,8 @@ install-data-hook:
 	ln -sf ifup-bonding		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-bonding
 	ln -sf ifup-infiniband		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-infiniband
 	ln -sf ifup-infiniband		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-infiniband
+	ln -sf ifup-dummy		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifdown-dummy
+	ln -sf ifup-dummy		$(DESTDIR)/$(sysconfig_network_scriptsdir)/ifstatus-dummy
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ip-down
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ipv6-up
 	ln -sf ip-up			$(DESTDIR)/$(pppdir)/ipv6-down

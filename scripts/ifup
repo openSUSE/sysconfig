@@ -800,6 +800,11 @@ if [ "$DHCP" != yes ] ; then
 			scripts/${SCRIPTNAME}-tunnel $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			test "$?" -ne 0 && exit
 		;;
+		dummy)
+			# Frob dummy interface
+			scripts/${SCRIPTNAME}-dummy $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
 		esac
 	fi
 
@@ -848,6 +853,7 @@ if [ "$DHCP" != yes ] ; then
 		wireless)      : ;;
 		tun|tap)       : ;;
 		ipip|sit|gre)  : ;;
+		dummy)         : ;;
 		*)
 			if [ -x "$INTERFACESCRIPT" ] ; then
 				$INTERFACESCRIPT $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
@@ -1423,6 +1429,11 @@ if [ "$DHCP" != yes ] ; then
 		ipip|sit|gre|tun|tap)
 			# Frob tunnel interface, part II
 			scripts/${SCRIPTNAME}-tunnel $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
+			test "$?" -ne 0 && exit
+		;;
+		dummy)
+			# Frob dummy interface, part II
+			scripts/${SCRIPTNAME}-dummy $CONFIG $INTERFACE ${OPTIONS:+-o $OPTIONS}
 			test "$?" -ne 0 && exit
 		;;
 		esac
