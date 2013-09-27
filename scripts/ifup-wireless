@@ -342,7 +342,7 @@ EOL
         case "$WIRELESS_MODE" in
                 ([M,m]anaged|[A,a]d-[H,h]oc|"")
                     case "${DRIVER}" in
-                        (wl)
+                        (wl|wlags49*)
                             # bnc#555774, wl driver does not like it
                         ;;
                         (ath_pci)
