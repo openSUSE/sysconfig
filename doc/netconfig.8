@@ -227,11 +227,12 @@ provide preferred (e.g. vpn services), and which services fallback settings
 (e.g. avahi). It causes a per service sorting of the nameservers and search
 list settings.
 Preferred service names have to be prepended with a \fB"+"\fR, fallback
-service names with a \fB"\-"\fR character.
+service names can be marked with a \fB"\-"\fR character. Instead of the
+service name also a regex is supported using +/pattern/ and -/pattern/.
 The special default value \fI"auto"\fR enables the build-in service ranking
 list, currently:
 .nf
-    "+strongswan +openswan +racoon +openvpn +vpnc -avahi"
+    "+/vpn/ -/auto/ +strongswan +openswan +racoon -avahi"
 .fi
 the value \fI"none"\fR or \fI""\fR allows to disable the ranking / sorting.
 .TP
