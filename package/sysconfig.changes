@@ -1,8 +1,31 @@
 -------------------------------------------------------------------
-Mon Sep 30 09:51:01 UTC 2013 - mt@suse.de
+Wed Oct  2 15:06:05 UTC 2013 - mt@suse.de
 
-- /etc/modprobe.d/50-blacklist.conf: removed sk98lin, dropped from
-  the kernel in 2.6.26 (bnc#843141).
+- /etc/modprobe.d/50-blacklist.conf: cleaned up obsolete/dropped
+  kernel drivers (bnc#843141,bnc#843169). Thanks to Michal Marek!
+  sk98lin: dropped from the kernel in 2.6.26
+  stradis: dropped in 2.6.38 (39c3d48)
+  eepro100: dropped in 2.6.29 (6b1abba)
+  slamr,slusb: no smartlink-softmodem-kmp since 10.3
+  ich2rom: rplaced by ichxrom in 2.6.12 (304aa41)
+  eth1394: dropped in 2.6.37 (66fa12c)
+  uhci: dropped in 2.5.27
+  tsdev: removed in 2.6.24 (7009317)
+  snd_bt87x: duplicate of snd-bt87x
+  clgenfb: replaced by cirrusfb in 2.5.67
+  cyblafb: replaced by tridentfb in 2.6.30
+  unikey: not in mainline history, 2.4?
+  encode-{big5,gb,gbk,jis,kscm}: not in mainline history, 2.4?
+  fbcon-{afb,ilbm,iplan2p2,iplan2p4,iplan2p8}: removed in 2.5.51
+  fbcon-{cfb2,cfb4,hga,mfb,vga-planes},fbgen: removed in 2.5.51
+  fbcon-{mac,vga}: removed in 2.5.28
+  vmware: never upstream, no reference in  2.5+
+
+-------------------------------------------------------------------
+Wed Oct  2 15:02:09 UTC 2013 - mt@suse.de
+
+- bt878 card causes udevd to complain (bnc#800897)
+  Fixed to use 'echo' shell builtin instead /bin/echo
 
 -------------------------------------------------------------------
 Fri Sep 27 15:05:28 UTC 2013 - mt@suse.de
