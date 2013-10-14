@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Mon Oct 14 13:07:27 UTC 2013 - vcizek@suse.com
+
+- set SELinux label for /dev/.sysconfig after creation (bnc#845792)
+  * sysconfig-0.81.5-restore_selinux_context_on_RUN_FILES_BASE.patch
+- use systemctl when possible instead of calling init scripts directly
+  * sysconfig-0.81.5-netconfig-use_systemctl.patch
+
+-------------------------------------------------------------------
 Wed Oct  2 15:06:05 UTC 2013 - mt@suse.de
 
 - /etc/modprobe.d/50-blacklist.conf: cleaned up obsolete/dropped
