@@ -226,8 +226,16 @@ do_runtime_update()
     NTP_CONF="/etc/ntp.conf"
     NTPDC_BIN="/usr/sbin/ntpdc"
 
+    local status
+    if [ "$(cat /proc/1/comm)" = "systemd" ]; then
+        systemctl status ntp >/dev/null 2>&1
+    elif [ -x $r/etc/init.d/ntp ]; then
+        $r/etc/init.d/ntp status >/dev/null 2>&1
+    fi
+    status=$?
+
     if [ -n "${NTP_SERVER_LIST[*]}" -a -f "${NTP_CONF}" ] && \
-         /etc/init.d/ntp status >/dev/null 2>/dev/null ; then
+         [ $status -eq 0 ]; then
         NTP_KEYS=$(awk -- '/^keys/ { print $2 }' $NTP_CONF 2>/dev/null)
         NTP_KEYID=$(awk -- '/^requestkey[[:blank:]]/ { print $2 }' $NTP_CONF 2>/dev/null)
         NTP_PASSWD=$(test -n "$NTP_KEYS" -a -n "$NTP_KEYID" -a -r "$NTP_KEYS" && \

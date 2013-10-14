@@ -444,7 +444,9 @@ write_nisdomainname
 
 # here we should restart services if needed
 # => reload ypbind
-if [ -x $r/etc/init.d/ypbind ]; then
+if [ "$(cat /proc/1/comm)" = "systemd" ]; then
+    systemctl reload ypbind >/dev/null 2>&1
+elif [ -x $r/etc/init.d/ypbind ]; then
     $r/etc/init.d/ypbind reload >/dev/null 2>&1
 fi
 
