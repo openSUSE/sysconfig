@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Oct 16 13:42:52 UTC 2013 - oneukum@suse.com
+
+- blacklist udlfb because only udl can be used with xrandr 1.4
+  (bnc#846218)
+
+-------------------------------------------------------------------
 Mon Oct 14 13:07:27 UTC 2013 - vcizek@suse.com
 
 - set SELinux label for /dev/.sysconfig after creation (bnc#845792)
