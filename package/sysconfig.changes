@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Oct 29 07:24:52 UTC 2013 - mt@suse.com
+
+- version 0.81.6
+- Merged changes from $OBS/Base:System/sysconfig
+
+-------------------------------------------------------------------
 Wed Oct 16 13:42:52 UTC 2013 - oneukum@suse.com
 
 - blacklist udlfb because only udl can be used with xrandr 1.4
