@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Tue Nov  5 13:50:46 UTC 2013 - mt@suse.de
+
+- Fixed to check restorecon existence before calling it as selinux
+  is not installed by default (bnc#845792).
+  [+ 0006-Check-restorecon-existence-before-calling-it-bnc-845.patch]
+
+-------------------------------------------------------------------
 Tue Nov  5 11:25:26 UTC 2013 - mt@suse.de
 
 - Merged fixes, fixed missed patch1 reference in changes file
