@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Nov  5 10:16:30 UTC 2013 - ludwig.nussel@suse.de
+
+- fix starting dhcpcd from ifplugd (bnc#846031)
+  [+ 0005-fix-starting-dhcpcd-from-ifplugd-bnc-846031.patch]
+
+-------------------------------------------------------------------
 Wed Oct 16 13:42:52 UTC 2013 - oneukum@suse.com
 
 - blacklist udlfb because only udl can be used with xrandr 1.4
