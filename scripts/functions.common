@@ -28,7 +28,7 @@
 # It __must__ __not__ contain a trailing slash.
 RUN_FILES_BASE=/dev/.sysconfig/network
 test -d $RUN_FILES_BASE || mkdir -p $RUN_FILES_BASE
-restorecon -R /dev/.sysconfig 2>/dev/null || :
+test -x /sbin/restorecon && /sbin/restorecon -R /dev/.sysconfig 2>/dev/null || :
 
 #####################################################################
 # Returnvalues
