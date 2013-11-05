@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Tue Nov  5 14:20:33 UTC 2013 - mt@suse.de
+
+- version 0.81.7
+- Skip also systemd redirection for ifdown -o ifplugd (bnc#846031).
+- Fixed to check restorecon existence before calling it as selinux
+  is not installed by default (bnc#845792).
+
+-------------------------------------------------------------------
+Tue Nov  5 10:16:30 UTC 2013 - ludwig.nussel@suse.de
+
+- fix starting dhcpcd from ifplugd (bnc#846031)
+
+-------------------------------------------------------------------
 Tue Oct 29 07:24:52 UTC 2013 - mt@suse.com
 
 - version 0.81.6
