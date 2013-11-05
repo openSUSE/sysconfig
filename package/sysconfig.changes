@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Nov  5 11:25:26 UTC 2013 - mt@suse.de
+
+- Merged fixes, fixed missed patch1 reference in changes file
+  and added reference/upstream tags to all patch files.
+
+-------------------------------------------------------------------
 Tue Nov  5 10:16:30 UTC 2013 - ludwig.nussel@suse.de
 
 - fix starting dhcpcd from ifplugd (bnc#846031)
@@ -24,6 +30,7 @@ Wed Oct  2 15:02:09 UTC 2013 - mt@suse.de
 
 - bt878 card causes udevd to complain (bnc#800897)
   Fixed to use 'echo' shell builtin instead /bin/echo
+  [+ 0001-bt878-card-causes-udevd-to-complain-bnc-800897.patch]
 
 -------------------------------------------------------------------
 Fri Sep 27 15:05:28 UTC 2013 - mt@suse.de
