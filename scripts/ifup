@@ -308,7 +308,7 @@ ifup)
 	;;
 	esac
 
-	if test $PPID -ne 1 -a "$INTERFACE" != "lo" -a "$DHCP" != yes ; then
+	if test $PPID -ne 1 -a "$INTERFACE" != "lo" -a "$DHCP" != yes -a "$CONTROL_IFPLUGD" != no ; then
 		exec systemctl start "network@${INTERFACE}.service"
 	fi
 ;;
