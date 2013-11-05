@@ -1,6 +1,8 @@
 -------------------------------------------------------------------
-Tue Nov  5 13:50:46 UTC 2013 - mt@suse.de
+Tue Nov  5 14:20:33 UTC 2013 - mt@suse.de
 
+- Skip also systemd redirection for ifdown -o ifplugd (bnc#846031).
+  [+ 0007-Skip-also-systemd-redirection-for-ifdown-o-ifplugd-b.patch]
 - Fixed to check restorecon existence before calling it as selinux
   is not installed by default (bnc#845792).
   [+ 0006-Check-restorecon-existence-before-calling-it-bnc-845.patch]
