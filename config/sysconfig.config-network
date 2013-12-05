@@ -180,23 +180,14 @@ IPV6_DAD_WAIT=""
 FIREWALL="yes"
 
 ## Type:	yesno
-## Default:	no
+## Default:	yes
 #
-# This variable is used to disable the Zero Configuration Networking
-# (zeroconf) route (169.254.0.0) on local interfaces, which match
-# the pattern in LINKLOCAL_INTERFACES variable.
+# This variable is a policy to disable the Zero Configuration Networking
+# (zeroconf) route (169.254.0.0) on local interfaces by default and has
+# to be enabled in per-interface ifcfg files (fate#314482).
+# The LINKLOCAL_INTERFACES is obsolete and has been dropped.
 #
-NOZEROCONF="no"
-
-## Type:        string
-## Default:     "eth*[0-9]|tr*[0-9]|wlan[0-9]|ath[0-9]"
-#
-# When is not disabled using the NOZEROCONF variable, automatically
-# add a IPv4 linklocal route to the matching interfaces.
-# This string is used in a bash "case" statement, so it may contain
-# '*', '[', ']'  and '|' meta-characters.
-#
-LINKLOCAL_INTERFACES="eth*[0-9]|tr*[0-9]|wlan[0-9]|ath[0-9]"
+NOZEROCONF='yes'
 
 ## Type:        string
 ## Default:     "-f -I"

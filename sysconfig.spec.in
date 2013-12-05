@@ -221,6 +221,10 @@ fi
 ## rpm macro that is able to handle files in subdirs, and more
 . etc/sysconfig/network/scripts/functions.rpm-utils
 #
+# new NOZEROCONF=yes default, https://fate.suse.com/314482
+sysconfig_remove_and_set network/config NOZEROCONF
+sysconfig_remove_and_set network/config LINKLOCAL_INTERFACES
+##
 %{fillup_and_insserv -fY network}
 %{fillup_only -dns dhcp network network}
 %{fillup_only -dns config network network}
