@@ -37,7 +37,6 @@ Source:         %name-%version.tar.bz2
 Requires:       /sbin/ifup
 Requires:       /sbin/netconfig
 Requires:       sysvinit(network)
-Requires:       udevmountd = %{version}
 Recommends:     sysconfig-network = %{version}
 
 %description
@@ -56,19 +55,6 @@ Authors:
     Werner Fink <werner@suse.de>
     Hannes Reinecke <hare@suse.de>
     Marius Tomaschewski <mt@suse.de>
-
-%package -n udevmountd
-Summary:        Automount daemon for udev
-Group:          System/Base
-Requires(pre):  sysconfig = %{version}
-
-%description -n udevmountd
-This package provides the udev mount daemon and its udev rule.
-
-Authors:
---------
-    Hannes Reinecke <hare@suse.de>
-
 
 %package netconfig
 Summary:        Script to apply network provided settings
@@ -203,13 +189,6 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 /sbin/netconfig
 /usr/share/man/man8/netconfig.8.gz
 %doc /usr/share/doc/packages/sysconfig/netconfig.png
-
-%files -n udevmountd
-%defattr(-,root,root)
-%dir %udevdir
-%udevdir/udevmountd
-%dir %udevdir/rules.d
-%udevdir/rules.d/81-mount.rules
 
 %pre network
 # package update ?
