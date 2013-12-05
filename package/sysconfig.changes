@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Thu Dec  5 10:51:54 UTC 2013 - mt@suse.de
+
+- version 0.82.1
+- Changed global NOZEROCONF default to "yes" (automatic zeroconf
+  route disabled), removed obsolete LINKLOCAL_INTERFACES variable.
+  Use NOZEROCONF="no" per interface to enable (fate#314482).
+
+-------------------------------------------------------------------
 Thu Dec  5 09:57:07 UTC 2013 - mt@suse.de
 
 - version 0.82.0
