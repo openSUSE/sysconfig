@@ -180,14 +180,14 @@ IPV6_DAD_WAIT=""
 FIREWALL="yes"
 
 ## Type:	yesno
-## Default:	yes
+## Default:	no
 #
 # This variable is a policy to disable the Zero Configuration Networking
 # (zeroconf) route (169.254.0.0) on local interfaces by default and has
 # to be enabled in per-interface ifcfg files (fate#314482).
 # The LINKLOCAL_INTERFACES is obsolete and has been dropped.
 #
-NOZEROCONF='yes'
+ZEROCONF_ROUTE='no'
 
 ## Type:        string
 ## Default:     "-f -I"

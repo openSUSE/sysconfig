@@ -97,7 +97,7 @@ fi
 
 ######################################################################
 # make sure, the global setting is disabled (fate#314482)
-NOZEROCONF=yes
+ZEROCONF_ROUTE=no
 
 ######################################################################
 # check presence of configuration files and source one 
@@ -147,7 +147,7 @@ filter_routes()
 EXTRALINKLOCAL=
 # Calling 'ip' if there is no interface (ifdown called from udev for remove
 # event) would trigger automatic module loading (Bug 199456)
-if [ -d /sys/class/net/$INTERFACE -a "$NOZEROCONF" = "no" ] ; then
+if [ -d /sys/class/net/$INTERFACE -a "$ZEROCONF_ROUTE" = "yes" ] ; then
 	# Don't add this route if interface has no v4 address (Bug 65557)
 	islinklocal=true
 	test -z "`ip -4 a l dev $INTERFACE 2>/dev/null`" && islinklocal=

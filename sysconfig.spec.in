@@ -221,7 +221,8 @@ fi
 ## rpm macro that is able to handle files in subdirs, and more
 . etc/sysconfig/network/scripts/functions.rpm-utils
 #
-# new NOZEROCONF=yes default, https://fate.suse.com/314482
+# new ZEROCONF_ROUTE=no default, https://fate.suse.com/314482
+# obsoletes the NOZEROCONF and LINKLOCAL_INTERFACES variables.
 sysconfig_remove_and_set network/config NOZEROCONF
 sysconfig_remove_and_set network/config LINKLOCAL_INTERFACES
 ##

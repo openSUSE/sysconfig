@@ -57,12 +57,12 @@ IFPLUGD_PRIORITY=
 BOOTPROTO=
 
 ## Type:	yesno
-## Default:	yes
+## Default:	no
 #
 # This variable is used to enable/disable the Zero Configuration Networking
 # (zeroconf) route (169.254.0.0) on local interfaces. Disabled by default.
 #
-NOZEROCONF='yes'
+ZEROCONF_ROUTE='no'
 
 ## Type:    string
 ## Default: ""
