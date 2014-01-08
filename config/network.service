@@ -5,7 +5,7 @@ Before=network.target shutdown.target multi-user.target
 After=local-fs.target SuSEfirewall2_init.service earlysyslog.service isdn.service openibd.service
 
 [Service]
-Type=forking
+Type=oneshot
 ExecStart=/etc/init.d/network start
 ExecStop=/etc/init.d/network stop
 ExecReload=/etc/init.d/network reload
