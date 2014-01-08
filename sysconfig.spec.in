@@ -37,7 +37,7 @@ Source:         %name-%version.tar.bz2
 Requires:       /sbin/ifup
 Requires:       /sbin/netconfig
 Requires:       sysvinit(network)
-Recommends:     sysconfig-network = %{version}
+Recommends:     wicked-service
 
 %description
 This package provides the SuSE system configuration scheme for the
