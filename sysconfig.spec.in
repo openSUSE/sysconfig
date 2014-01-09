@@ -188,7 +188,7 @@ for file in etc/sysconfig/network/dhcp etc/sysconfig/network/ifcfg-* ; do
 	umask $_umask
 done
 # be a little bit paranoid and set the correct mode even we set umask
-chmod 0600 etc/sysconfig/network/ifcfg-*
+chmod 0600 etc/sysconfig/network/ifcfg-* 2>/dev/null || :
 # bnc#803058: migrate from NETWORKMANAGER=yes/no variable to
 #             network.service alias link masking rcnetwork.
 if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ; then
