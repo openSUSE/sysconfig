@@ -1,4 +1,28 @@
 -------------------------------------------------------------------
+Thu Jan  9 13:06:12 UTC 2014 - mt@suse.de
+
+- version 0.83.0
+- Recommend wicked-service instead of sysconfig-network as the
+  default network service and drop sysconfig-network. The wicked
+  service package provides systemd service files requesting the
+  network.service alias at service enable time as well as the
+  ifup compatibility scripts using wicked as network backend
+  (fate#316768,bnc#856591).
+- ifcfg-bonding.5: fixed to use startmode hotplug in slave example
+- Use ZEROCONF_ROUTE=no as new default (fate#314482)
+  The NOZEROCONF="yes" variable were double-negated in it's meaning
+  and did not reflect what the variable really does (fate#314482).
+
+-------------------------------------------------------------------
+Wed Jan  8 14:45:41 UTC 2014 - mt@suse.de
+
+- rcnetwork: use service type oneshot, not forking
+  Sometimes, network fails to start / stops itself, because the per
+  interface services started inside it, need already started network
+  and fail as network did not yet reached started state. This does
+  not happen with oneshot network service type (bnc#853908).
+
+-------------------------------------------------------------------
 Thu Dec  5 10:51:54 UTC 2013 - mt@suse.de
 
 - version 0.82.1
