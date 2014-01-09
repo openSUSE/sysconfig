@@ -73,37 +73,6 @@ Authors:
     Milisav Radmanic <radmanic@suse.de>
 
 
-%package network
-Summary:        Traditional network scripts
-Group:          System/Base
-Requires(pre):  sysconfig = %{version}
-Requires:       bridge-utils
-Requires:       iproute2
-Requires:       procps
-Requires:       tunctl
-Requires:       vlan
-Requires:       /sbin/netconfig
-Provides:       /sbin/ifup
-Conflicts:      otherproviders(/sbin/ifup)
-
-%description network
-This package provides the traditional "ifup" alias "netcontrol"
-network scripts.
-
-Authors:
---------
-    Olaf Kirch <okir@suse.de>
-    Bjoern Jacke <bjoern@j3e.de>
-    Mads Martin Joergensen <mmj@suse.de>
-    Peter Poeml <poeml@suse.de>
-    Arvin Schnell <arvin@suse.de>
-    Michal Svec <msvec@suse.cz>
-    Christian Zoz <zoz@suse.de>
-    Werner Fink <werner@suse.de>
-    Hannes Reinecke <hare@suse.de>
-    Marius Tomaschewski <mt@suse.de>
-
-
 %prep
 %setup -n sysconfig-%{version}
 
@@ -130,8 +99,7 @@ rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT install
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/config
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/dhcp
-# remove template dir
-rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
+test -x /sbin/service && ln -s /sbin/service %{_sbindir}/rcnetwork || :
 
 %files
 %defattr(-,root,root)
@@ -140,46 +108,15 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 %config /etc/sysconfig/network/ifcfg.template
 %ghost /etc/sysconfig/network/config
 %ghost /etc/sysconfig/network/dhcp
-%config(noreplace) %attr(600,root,root) /etc/sysconfig/network/ifcfg-lo
-%config(noreplace) /etc/sysconfig/network/ifroute-lo
 %dir /usr/share/doc/packages/sysconfig
 %doc /usr/share/doc/packages/sysconfig/Contents
 %doc /usr/share/doc/packages/sysconfig/COPYING
-
-%files network
-%defattr(-,root,root)
-%config(noreplace) /etc/ppp/ip-up
-%config(noreplace) /etc/ppp/ip-down
-%config(noreplace) /etc/ppp/ipv6-up
-%config(noreplace) /etc/ppp/ipv6-down
-/etc/ppp/poll.tcpip
-%udevdir/rules.d/77-network.rules
-/etc/sysconfig/network/scripts/functions
-/etc/sysconfig/network/scripts/functions.common
 /etc/sysconfig/network/scripts/functions.rpm-utils
-/etc/sysconfig/network/scripts/extradebug
-/etc/sysconfig/network/scripts/if*
-/etc/sysconfig/network/scripts/convert*
-/etc/sysconfig/network/scripts/move_shm_sysconfig.sh
-/etc/sysconfig/network/scripts/create-ifservices-directory
-/etc/sysconfig/network/scripts/dhcpcd-hook
-/etc/sysconfig/network/scripts/link_wait
-/etc/sysconfig/network/if-up.d/ndp-proxy
-/etc/sysconfig/network/if-down.d/ndp-proxy
-/usr/share/omc/svcinfo.d/network.xml
 /var/adm/fillup-templates/sysconfig.dhcp-network
 /var/adm/fillup-templates/sysconfig.config-network
-%dir /usr/share/doc/packages/sysconfig
-%doc /usr/share/doc/packages/sysconfig/Network
-%doc /usr/share/doc/packages/sysconfig/README*
-%_mandir/*/if*
-%_mandir/*/routes*
-%_unitdir/network@.service
-%_unitdir/network.service
-/etc/init.d/network
-/sbin/if*
-/sbin/autoip
-/sbin/rcnetwork
+/usr/share/omc/svcinfo.d/network.xml
+%ghost %{_sbindir}/rcnetwork
+/sbin/ifuser
 
 %files netconfig
 %defattr(-,root,root)
@@ -190,13 +127,9 @@ rm -rf $RPM_BUILD_ROOT/etc/sysconfig/network/ifservices.template/
 /usr/share/man/man8/netconfig.8.gz
 %doc /usr/share/doc/packages/sysconfig/netconfig.png
 
-%pre network
+%pre
 # package update ?
 if [ ${1:-0} -gt 1 ]; then
-	# update to >= 0.72.1 (-> openSUSE 11.2)
-	if [ ! -f etc/sysconfig/network/scripts/move_shm_sysconfig.sh ] ; then
-		touch etc/sysconfig/network/__move_shm_sysconfig__
-	fi
 	# trigger update from < 0.80.x only (-> openSUSE 12.3),
 	# (guard for variable added to network/config later...)
 	if [ -x /usr/sbin/NetworkManager ] && grep -qs "^NETWORKMANAGER=" \
@@ -209,41 +142,36 @@ if [ ${1:-0} -gt 1 ]; then
 	fi
 fi
 
-%post network
-# * update to >= 0.72.1: before anything else, move state
-#   files from dev/shm/sysconfig to dev/.sysconfig/network
-if [ -f etc/sysconfig/network/__move_shm_sysconfig__ ] ; then
-	etc/sysconfig/network/scripts/move_shm_sysconfig.sh .
-	rm -f etc/sysconfig/network/__move_shm_sysconfig__
-fi
+%post
+#
+# Install rcnetwork -> network.service wrapper as described at
+# http://en.opensuse.org/openSUSE:Systemd_packaging_guidelines
+#
+test -x /sbin/service && ln -s /sbin/service %{_sbindir}/rcnetwork || :
 #
 ## we provide own, improved variant of the remove_and_set suse
 ## rpm macro that is able to handle files in subdirs, and more
 . etc/sysconfig/network/scripts/functions.rpm-utils
 #
-# new ZEROCONF_ROUTE=no default, https://fate.suse.com/314482
-# obsoletes the NOZEROCONF and LINKLOCAL_INTERFACES variables.
+# remove obsolete sysconfig-network specific variables
 sysconfig_remove_and_set network/config NOZEROCONF
 sysconfig_remove_and_set network/config LINKLOCAL_INTERFACES
+sysconfig_remove_and_set network/config IFPLUGD_OPTIONS
+sysconfig_remove_and_set network/config DEFAULT_BROADCAST
+sysconfig_remove_and_set network/config FORCE_PERSISTENT_NAMES
+sysconfig_remove_and_set network/config MANDATORY_DEVICES
+sysconfig_remove_and_set network/dhcp   DHCLIENT_BIN
+sysconfig_remove_and_set network/dhcp   DHCLIENT6_BIN
+sysconfig_remove_and_set network/dhcp   DHCLIENT_WAIT_LINK
+sysconfig_remove_and_set network/dhcp   DHCLIENT_USER_OPTIONS
+sysconfig_remove_and_set network/dhcp   DHCLIENT6_USER_OPTIONS
+sysconfig_remove_and_set network/dhcp   DHCPCD_USER_OPTIONS
+sysconfig_remove_and_set network/dhcp   DHCP6C_USER_OPTIONS
 ##
-%{fillup_and_insserv -fY network}
 %{fillup_only -dns dhcp network network}
 %{fillup_only -dns config network network}
 /sbin/ldconfig
-echo "Removing old autogenerated device configuration files:"
-#
-# * update to >= 11.1 / SLE11:
-#
-# convert dns / modify_resolvconf to netconfig
-if [ -e etc/sysconfig/network/scripts/convert_to_netconfig_dns ] ; then
-    ROOT=$PWD bash etc/sysconfig/network/scripts/convert_to_netconfig_dns
-fi
-# convert nis / dhclient variables to netconfig
-if [ -e etc/sysconfig/network/scripts/convert_to_netconfig_nis ] ; then
-    ROOT=$PWD bash etc/sysconfig/network/scripts/convert_to_netconfig_nis
-fi
-# remove ntp variables obsoleted by netconfig (new default is "yes")
-# as well as some another obsolete dhcp variables
+# remove obsolete dhcp and per interface variables
 _umask=`umask`
 for file in etc/sysconfig/network/dhcp etc/sysconfig/network/ifcfg-* ; do
 	name="${file##*\/ifcfg-}"
@@ -263,7 +191,6 @@ done
 chmod 0600 etc/sysconfig/network/ifcfg-*
 # bnc#803058: migrate from NETWORKMANAGER=yes/no variable to
 #             network.service alias link masking rcnetwork.
-enable=yes
 if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ; then
 	. /dev/.sysconfig/network/migrate_nm_variable
 	case $NETWORKMANAGER in
@@ -279,30 +206,20 @@ if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ;
 		# as hint for migration in NetworkManager post-install ...
 		# Mask /etc/init.d/network service until NM update is done.
 		/usr/bin/systemctl --force mask network.service || :
-		enable=no
 	;;
 	esac
 else
 	# cleanup obsolete NETWORKMANAGER variable
 	sysconfig_remove_and_set network/config NETWORKMANAGER
 fi
-if test "$enable" = "yes" -a -x /usr/bin/systemctl ; then
-	_id=`/usr/bin/systemctl --no-pager -p Id show network.service 2>/dev/null` || :
-	case "${_id#Id=}" in
-	""|network.service)
-		/usr/bin/systemctl --system daemon-reload || :
-		/usr/bin/systemctl --force enable network.service || :
-	;;
-	esac
-fi
 
-%postun network
-%{insserv_cleanup}
+%postun
 /sbin/ldconfig
+test -L %{_sbindir}/rcnetwork && rm -f %{_sbindir}/rcnetwork || :
 
-%preun network
+%preun
 if test "$1" = "0" -a -x /etc/init.d/network ; then
-	/etc/init.d/network stop-all-dhcp-clients || :
+	/etc/init.d/network stop-all-dhcp-clients 2>/dev/null || :
 fi
 
 %changelog

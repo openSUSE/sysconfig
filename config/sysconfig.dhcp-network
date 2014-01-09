@@ -1,77 +1,21 @@
 ## Path:	Network/DHCP/DHCP client
-## Description:	DHCP configuration tweaking
+## Description:	Global DHCP client configuration
 #
 # Note: 
 # To configure one or more interfaces for DHCP configuration, you have to
 # change the BOOTPROTO variable in /etc/sysconfig/network/ifcfg-<interface>
 # to 'dhcp' (and possibly set STARTMODE='onboot'). 
 #
-# Most of these options are used only by dhcpcd, not by the ISC dhclient
-# (which uses a config file).
+# Most of the options can and should be overridden by per-interface
+# settings in the ifcfg-* files.
 #
-# Most of the options can be overridden by setting them in the ifcfg-* files,
-# too.
+# Note: NetworkManager is not using any sysconfig settings.
 #
-# Note: The ISC dhclient started by the NetworkManager is not using any
-# of these options -- NetworkManager is not using any sysconfig settings.
-#
-
-## Type:	list(dhcpcd,dhclient,)
-## Default:	""
-## ServiceRestart: network
-#
-# Which DHCPv4 client should be used? 
-# Currently the following client are supported:
-# 	dhcpcd   (DHCP client daemon)
-# 	dhclient (ISC dhclient)
-# If empty, dhcpcd is tried, then dhclient 
-DHCLIENT_BIN=""
-
-## Type:	list(dhclient6,)
-## Default:	""
-## ServiceRestart: network
-#
-# Which DHCPv6 client should be used? 
-# Currently the following client are supported:
-#       dhclient6  (ISC dhcp 4.x client)
-#       dhcp6c     (dhcpv6 client -- deprecated, package dropped)
-# If empty, dhclient6 is tried, then dhcp6c
-#
-DHCLIENT6_BIN=""
-
-## Type:        string
-## Default:     ""
-## ServiceRestart: network
-#
-# Additional user start options to use when the 'dhcpcd' DHCPv4 client
-# is enabled in the DHCLIENT_BIN variable (default).
-#
-DHCPCD_USER_OPTIONS=""
-
-## Type:        string
-## Default:     ""
-## ServiceRestart: network
-#
-# Additional user start options to use when the 'dhclient' ISC DHCPv4
-# client is enabled in the DHCLIENT_BIN variable.
-#
-DHCLIENT_USER_OPTIONS=""
-
-## Type:        string
-## Default:     ""
-## ServiceRestart: network
-#
-# Additional user start options to use when the 'dhcp6c' DHCPv6 client
-# is enabled in the DHCLIENT6_BIN variable (default).
-#
-DHCP6C_USER_OPTIONS=""
 
 ## Type:	yesno
 ## Default:	no
 #
 # Start in debug mode? (yes|no)
-# (debug info will be logged to /var/log/messages for dhcpcd, or to
-# /var/log/dhclient-script for ISC dhclient)
 #
 DHCLIENT_DEBUG="no"
 
@@ -258,16 +202,6 @@ DHCLIENT_RELEASE_BEFORE_QUIT="no"
 #
 DHCLIENT6_RELEASE_BEFORE_QUIT="no"
 
-## Type:        integer
-## Default:     ""
-#
-# Before ifup-dhcp is going to start dhcp clients, it will set up the link
-# when needed. Then it has to wait until the link is ready. This setting
-# allows to specify the time how long to wait. Default is half of the time
-# in the DHCLIENT_WAIT_AT_BOOT variable.
-#
-DHCLIENT_WAIT_LINK=""
-
 ## Type:	integer
 ## Default:	0
 #
@@ -297,12 +231,17 @@ DHCLIENT_WAIT_AT_BOOT="15"
 ## Default:     no
 ## ServiceRestart: yast2
 #
-# This option is read by YaST during network configuration.
+# This option is read by YaST during network configuration and not
+# used by network scripts. If unset, YaST will not touch /etc/hosts.
 #
 # If set, then the hostname is added to /etc/hosts with IP address
 # 127.0.0.2. This allows the hostname to be resolved (and thus, the
 # host to be reached), if the real network is not reachable.
 #
-# If unset, YaST will not touch /etc/hosts.
+# On the another side, it causes that the hostname is then never
+# resolved via DNS, but always from /etc/hosts and points to the
+# 127.0.0.2 address. This may (will) also break some software,
+# trying to resolve own hostname instead to use getifaddrs(3).
+#
 WRITE_HOSTNAME_TO_HOSTS="no"
 

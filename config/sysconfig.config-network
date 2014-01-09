@@ -1,15 +1,14 @@
 ## Path:	Network/General
-## Description:	Set some general network configuration
-## Type:	string("","-","+")
-## Default:	"+"
-## ServiceRestart: network
+## Description:	Global network configuration
 #
-# DEFAULT_BROADCAST is used when no individual BROADCAST is set. It can get one
-# of the following values:
-# ""  : don't set a broadcast address
-# "-" : use IPADDR with all host bits deleted
-# "+" : use IPADDR with all host bits set
-DEFAULT_BROADCAST="+"
+# Note: 
+# Most of the options can and should be overridden by per-interface
+# settings in the ifcfg-* files.
+#
+# Note: The ISC dhclient started by the NetworkManager is not using any
+# of these options -- NetworkManager is not using any sysconfig settings.
+#
+
 
 ## Type:	yesno
 ## Default:	yes
