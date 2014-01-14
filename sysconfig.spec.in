@@ -99,7 +99,8 @@ rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT install
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/config
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/dhcp
-test -x /sbin/service && ln -s /sbin/service %{_sbindir}/rcnetwork || :
+mkdir -p $RPM_BUILD_ROOT%{_sbindir}
+ln -s /sbin/service $RPM_BUILD_ROOT%{_sbindir}/rcnetwork
 
 %files
 %defattr(-,root,root)
@@ -115,7 +116,7 @@ test -x /sbin/service && ln -s /sbin/service %{_sbindir}/rcnetwork || :
 /var/adm/fillup-templates/sysconfig.dhcp-network
 /var/adm/fillup-templates/sysconfig.config-network
 /usr/share/omc/svcinfo.d/network.xml
-%ghost %{_sbindir}/rcnetwork
+%{_sbindir}/rcnetwork
 /sbin/ifuser
 
 %files netconfig
@@ -143,11 +144,6 @@ if [ ${1:-0} -gt 1 ]; then
 fi
 
 %post
-#
-# Install rcnetwork -> network.service wrapper as described at
-# http://en.opensuse.org/openSUSE:Systemd_packaging_guidelines
-#
-test -x /sbin/service && ln -s /sbin/service %{_sbindir}/rcnetwork || :
 #
 ## we provide own, improved variant of the remove_and_set suse
 ## rpm macro that is able to handle files in subdirs, and more
@@ -215,7 +211,6 @@ fi
 
 %postun
 /sbin/ldconfig
-test -L %{_sbindir}/rcnetwork && rm -f %{_sbindir}/rcnetwork || :
 
 %preun
 if test "$1" = "0" -a -x /etc/init.d/network ; then
