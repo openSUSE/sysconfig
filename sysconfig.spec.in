@@ -99,8 +99,8 @@ rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT install
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/config
 touch $RPM_BUILD_ROOT/etc/sysconfig/network/dhcp
-mkdir -p $RPM_BUILD_ROOT%{_sbindir}
-ln -s /sbin/service $RPM_BUILD_ROOT%{_sbindir}/rcnetwork
+mkdir -p $RPM_BUILD_ROOT/sbin
+ln -s /sbin/service $RPM_BUILD_ROOT/sbin/rcnetwork
 
 %files
 %defattr(-,root,root)
@@ -116,7 +116,7 @@ ln -s /sbin/service $RPM_BUILD_ROOT%{_sbindir}/rcnetwork
 /var/adm/fillup-templates/sysconfig.dhcp-network
 /var/adm/fillup-templates/sysconfig.config-network
 /usr/share/omc/svcinfo.d/network.xml
-%{_sbindir}/rcnetwork
+/sbin/rcnetwork
 /sbin/ifuser
 
 %files netconfig
