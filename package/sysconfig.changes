@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jan 23 10:29:28 UTC 2014 - mt@suse.de
+
+- A systemctl status is quite expensive as it (by default) parses
+  logs, etc. Use is-active where we need the code only (bnc#859360).
+  [+ 0009-Use-systemctl-quiet-is-active-instead-status.patch]
+
+-------------------------------------------------------------------
 Wed Jan  8 14:45:41 UTC 2014 - mt@suse.de
 
 - rcnetwork: use service type oneshot, not forking
