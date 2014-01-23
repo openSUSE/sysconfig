@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jan 23 17:03:11 UTC 2014 - mt@suse.de
+
+- version 0.83.2
+- A systemctl status is quite expensive as it (by default) parses
+  logs, etc. Use is-active where we need the code only (bnc#859360).
+
+-------------------------------------------------------------------
 Fri Jan 17 20:17:36 UTC 2014 - mt@suse.de
 
 - version 0.83.1
