@@ -228,7 +228,7 @@ do_runtime_update()
 
     local status
     if [ "$(cat /proc/1/comm)" = "systemd" ]; then
-        systemctl status ntp >/dev/null 2>&1
+        systemctl --quiet is-active ntp >/dev/null 2>&1
     elif [ -x $r/etc/init.d/ntp ]; then
         $r/etc/init.d/ntp status >/dev/null 2>&1
     fi

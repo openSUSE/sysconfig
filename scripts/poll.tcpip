@@ -44,7 +44,7 @@ sleep 5
 # and no running ntp.
 #
 if type -p systemctl &> /dev/null ; then
-    systemctl status ntp.service &> /dev/null
+    systemctl --quiet is-active ntp.service &> /dev/null
 else
     /usr/sbin/rcntp status &> /dev/null
 fi
