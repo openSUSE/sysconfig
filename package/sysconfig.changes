@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Wed Jan  8 14:45:41 UTC 2014 - mt@suse.de
+
+- rcnetwork: use service type oneshot, not forking
+  Sometimes, network fails to start / stops itself, because the per
+  interface services started inside it, need already started network
+  and fail as network did not yet reached started state. This does
+  not happen with oneshot network service type (bnc#853908).
+  [+ 0008-rcnetwork-use-service-type-oneshot-not-forking.patch]
+
+-------------------------------------------------------------------
 Tue Nov  5 14:20:33 UTC 2013 - mt@suse.de
 
 - Skip also systemd redirection for ifdown -o ifplugd (bnc#846031).
