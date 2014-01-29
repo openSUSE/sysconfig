@@ -101,15 +101,13 @@ DHCLIENT_SET_HOSTNAME="no"
 #
 # Should the DHCP client set a default route (default Gateway) (yes|no)
 #
-# When multiple copies of dhcpcd run, it would make sense that only one
-# of them does it. 
+# When multiple copies of dhcp client run, it would make sense that only
+# one of them does it. 
 #
 DHCLIENT_SET_DEFAULT_ROUTE="yes"
 
 ## Type:	integer
 ## Default:	""
-#
-# Lease time to request ( -l option)
 #
 # Specifies the lease time (in seconds), that is suggested to the
 # server. Default is to use the lease time offered by the server.
@@ -119,9 +117,7 @@ DHCLIENT_LEASE_TIME=""
 ## Type:        yesno
 ## Default:     yes
 #
-# dhcpcd -E/--lastlease option
-#
-# This setting controls whether dhcpcd should try to use DHCP settings
+# This setting controls whether dhcp client should try to use DHCP settings
 # provided in its last lease when the dhcp-server is not reachable and
 # the lease hasn't expired yet.
 # Set this variable to "no" to disable the fallback to the last lease.
@@ -131,27 +127,20 @@ DHCLIENT_USE_LAST_LEASE=yes
 ## Type:	integer
 ## Default:	"0"
 #
-# dhcpcd -t/--timeout option
-#
-# You can set the timeout - dhcpcd will terminate after this time when
-# does not get a reply from the dhcp server. The dhcpcd default timeout
-# is 20 seconds, we set it to 0 to and wait forever to get a lease.
-#
-# Note: In the past, this setting was set to a much higher value (999999)
-# by default, because the dhcpcd < 3.2.3 didn't provided a infinite one.
+# You can set the timeout - dhcp client will stop processing after this
+# time when does not get a reply from the dhcp server.
 #
 DHCLIENT_TIMEOUT="0"
 
 ## Type:	string
 ## Default:	AUTO
 #
-# specify a hostname to send ( -h option)
-#
-# specifies a string used for the hostname option field when dhcpcd sends DHCP
-# messages. Some DHCP servers will update nameserver entries (dynamic DNS).
-# Also, some DHCP servers, notably those used by @Home Networks, require the
-# hostname option field containing a specific string in the DHCP messages from
-# clients.
+# specifies a string used for the hostname option field when dhcp client
+# sends DHCP messages. Some DHCP servers will update nameserver entries 
+# (dynamic DNS).
+# Also, some DHCP servers, notably those used by @Home Networks, require
+# the hostname option field containing a specific string in the DHCP
+# messages from clients.
 #
 # By default the current hostname is sent ("AUTO"), if one is defined in 
 # /etc/HOSTNAME. 
@@ -165,22 +154,16 @@ DHCLIENT_HOSTNAME_OPTION="AUTO"
 #
 # specify a client ID ( -I option)
 #
-# Specifies a client identifier string. By default the hardware address of the
-# network interface is sent as client identifier string, if none is specified
-# here.
-#
-# Note that dhcpcd will prepend a zero to what it sends to the server. In the
-# server configuration, you need to write the following to match on it:
-#  option dhcp-client-identifier "\0foo";
+# Specifies a client identifier string. By default an id dericed from the
+# hardware address of the network interface is sent as client identifier.
 #
 DHCLIENT_CLIENT_ID=""
 
-## Type:	string("dhcpcd dhclient")
+## Type:	string
 ## Default:	""
 #
-# specify a vendor class ID ( -i option)
-#
-# Specifies the vendor class identifier string. The default is dhcpcd-<version>.
+# Specifies the vendor class identifier string. The default is dhcp client
+# specific.
 #
 DHCLIENT_VENDOR_CLASS_ID=""
 
