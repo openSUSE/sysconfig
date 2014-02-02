@@ -4,6 +4,7 @@ Requisite=network.service
 PartOf=network.service
 BindsTo=sys-subsystem-net-devices-%i.device
 IgnoreOnIsolate=yes
+Before=network-online.target
 
 [Service]
 Type=forking
