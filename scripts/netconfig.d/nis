@@ -19,7 +19,7 @@
 #
 ##
 
-unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
 
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
     echo "You must be root to start $0." >&2
@@ -444,10 +444,8 @@ write_nisdomainname
 
 # here we should restart services if needed
 # => reload ypbind
-if [ "$(cat /proc/1/comm)" = "systemd" ]; then
-    systemctl reload ypbind >/dev/null 2>&1
-elif [ -x $r/etc/init.d/ypbind ]; then
-    $r/etc/init.d/ypbind reload >/dev/null 2>&1
+if systemctl --quiet is-active ypbind.service &>/dev/null ; then
+    systemctl reload ypbind.service &>/dev/null
 fi
 
 exit 0;

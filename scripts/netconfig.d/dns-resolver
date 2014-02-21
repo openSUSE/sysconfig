@@ -19,7 +19,7 @@
 #
 ##
 
-unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
+unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
 
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
     echo "You must be root to start $0." >&2
@@ -335,6 +335,7 @@ elif [ $RET -eq 2 ]; then
 fi
 
 # here we should restart services if needed
+# => not applicable to reload anything
 
 exit 0;
 
