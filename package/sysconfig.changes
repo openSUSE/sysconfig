@@ -9,6 +9,11 @@ Fri Feb 21 07:48:15 UTC 2014 - mt@suse.de
   which forwards to init scripts as needed.
 
 -------------------------------------------------------------------
+Fri Feb  7 12:07:53 UTC 2014 - rsalevsky@suse.com
+
+- Remove the blacklist entry for the uas driver (bnc#862397)
+
+-------------------------------------------------------------------
 Thu Jan 23 17:03:11 UTC 2014 - mt@suse.de
 
 - version 0.83.2
