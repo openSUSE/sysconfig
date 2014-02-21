@@ -140,64 +140,12 @@ MANDATORY_DEVICES=""
 #
 WAIT_FOR_INTERFACES="30"
 
-## Type:        list("",yes,no)
-## Default:     ""
-#
-# Forces all interfaces eth* ath* wlan* and ra* to be persistent via udev
-# or disables the persistent rename flag check. Default is to check if udev
-# is running -- it may be not used, e.g. inside of LXC containers.
-#
-FORCE_PERSISTENT_NAMES=""
-
-## Type:        integer
-## Default:     0
-#
-# The number of seconds to wait for link to become useable / ready.
-# Default is 0, causing to not wait for a ready link (0), because link
-# detection can't be enabled in all cases (e.g. bridges without ports).
-# Please use per interface settings to enable it.
-#
-LINK_READY_WAIT=0
-
-## Type:        integer
-## Default:     ""
-#
-# The number of seconds to wait for the end of IPv6 duplicate address
-# detection in ifup.
-# Default is to use WAIT_FOR_INTERFACES/2 seconds in normal ifup runs.
-# When ifup is called by /etc/init.d/network at boot time, the check
-# is done, but /etc/init.d/network waits WAIT_FOR_INTERFACES seconds
-# for all interfaces togerther. Set to 0 to disable it.
-#
-IPV6_DAD_WAIT=""
-
 ## Type:	yesno
 ## Default:	yes
 #
 # With this variable you can determine if the SuSEfirewall when enabled
 # should get started when network interfaces are started.
 FIREWALL="yes"
-
-## Type:	yesno
-## Default:	no
-#
-# This variable is a policy to disable the Zero Configuration Networking
-# (zeroconf) route (169.254.0.0) on local interfaces by default and has
-# to be enabled in per-interface ifcfg files (fate#314482).
-# The LINKLOCAL_INTERFACES is obsolete and has been dropped.
-#
-ZEROCONF_ROUTE='no'
-
-## Type:        string
-## Default:     "-f -I"
-#
-# Set default options for ifplugd. You may also set them in an ifcfg-* file
-# individually. Have a look at 'man ifplug' for details. We let ifplugd set the
-# interface UP when starting, because there are many interfaces where link beat
-# cannot be detected otherwise. If you want the interface to stay down then add
-# the option '-a'. If you like ifplugd to beep on cable (un)plug, remove '-b'.
-#
-IFPLUGD_OPTIONS="-f -I -b"
 
 ## Type:	int
 ## Default:	0
