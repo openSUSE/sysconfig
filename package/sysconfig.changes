@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Thu Jan 30 15:21:19 UTC 2014 - werner@suse.de
+
+- Add patch
+  0001-Order-network-if.service-before-network-online.targe.patch
+  to make sure that remote filesystems are unmounted before network
+  interfaces are stopped (bnc#857031)
+
+-------------------------------------------------------------------
 Thu Jan 23 10:29:28 UTC 2014 - mt@suse.de
 
 - A systemctl status is quite expensive as it (by default) parses
