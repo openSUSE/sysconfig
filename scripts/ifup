@@ -297,6 +297,15 @@ esac
 ######################################################################
 # Check how to handle arguments and redirect to systemd when needed
 #
+SYSTEMD_REDIRECT=yes
+case $INTERFACETYPE in
+	lo|modem|dsl|ppp)
+		SYSTEMD_REDIRECT=no
+	;;
+esac
+if test "$PPID" -eq 1 -o "$DHCP" = "yes" -o "$CONTROL_IFPLUGD" = "yes" ; then
+	SYSTEMD_REDIRECT=no
+fi
 case $SCRIPTNAME in
 ifup)
 	case "$STARTMODE" in
@@ -308,12 +317,12 @@ ifup)
 	;;
 	esac
 
-	if test $PPID -ne 1 -a "$INTERFACE" != "lo" -a "$DHCP" != yes -a "$CONTROL_IFPLUGD" != no ; then
+	if test "$SYSTEMD_REDIRECT" = "yes" ; then
 		exec systemctl start "network@${INTERFACE}.service"
 	fi
 ;;
 ifdown)
-	if test $PPID -ne 1 -a "$INTERFACE" != "lo" -a "$DHCP" != yes -a "$CONTROL_IFPLUGD" != no ; then
+	if test "$SYSTEMD_REDIRECT" = "yes" ; then
 		exec systemctl stop "network@${INTERFACE}.service"
 	fi
 
