@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Wed Feb 26 17:35:19 UTC 2014 - mt@suse.de
+
+- ifup: do not redirect to systemd for ppp (bnc#846361)
+  [+ 0011-ifup-do-not-redirect-to-systemd-for-ppp-bnc-846361.patch]
+- renamed last patch to match spec file patch number
+  [- 0001-Order-network-if.service-before-network-online.targe.patch
+   + 0010-Order-network-if.service-before-network-online.targe.patch]
+
+-------------------------------------------------------------------
 Thu Jan 30 15:21:19 UTC 2014 - werner@suse.de
 
 - Add patch
