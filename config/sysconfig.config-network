@@ -20,13 +20,13 @@ GLOBAL_POST_UP_EXEC="yes"
 GLOBAL_PRE_DOWN_EXEC="yes"
 
 ## Type:        yesno
-## Default:     no
+## Default:     yes
 # If ifup should check if an ip address is already in use, set this to yes.
 # Make sure that packet sockets (CONFIG_PACKET) are supported in the kernel,
 # since this feature uses arping, which depends on that.
 # Also be aware that this takes one second per interface; consider that when
 # setting up a lot of interfaces. 
-CHECK_DUPLICATE_IP="no"
+CHECK_DUPLICATE_IP="yes"
 
 ## Type:        yesno
 ## Default:     no
