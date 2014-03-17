@@ -250,6 +250,7 @@ if [ "$bus" = "ccw" ] ; then
 		;;
 	    1731/05)
                 # Hipersockets
+		type="qeth"
 		ccwtype="hsi"
 		CCW_CHAN_NUM=3
 		;;
