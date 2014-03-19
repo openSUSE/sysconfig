@@ -29,36 +29,59 @@ test -z "$MD5DIR" && {
 }
 
 debug () {
+    test "$QUIET"   = "yes" && return
     test "$VERBOSE" = "yes" || return
     echo -e "debug: $*" >&2
 }
 
 warn () {
     test "$QUIET" = "yes" && return
-    echo -e "$*" >&2
+    logger -s -p warn -t "$PROGNAME" "$*"
 }
 
 log () {
-    logger -t "$PROGNAME" "$*"
-    debug "$*"
-    if [ "$ACTION" = "cleanup" -a "$QUIET" != "yes" ] ; then
-        echo -e "$*" >&2
-    fi
+    test "$QUIET" = "yes" && return
+    logger -s -t "$PROGNAME" "$*"
+}
+
+find_current_service()
+{
+    local name=$1
+    local pfx file link
+    for pfx in /etc/systemd /var/run/systemd /run/systemd ; do
+        file="$pfx/system/$name"
+        test -f "$file" || continue
+        link=`readlink -f "$file" 2>/dev/null`
+        test "X$link" = "X" -o "X$link" = "X$name" && continue
+        echo "${link##*/}"
+        return 0
+    done
+    echo "$name"
+    return 1
 }
 
 netconfig_policy()
 {
     local policy="$1"
+    local hint="${2:+$2-}"
     local Id=`systemctl --no-pager -p Id show network.service 2>/dev/null`
+    local service=${Id#Id=}
 
-    case ${Id#Id=} in
-    NetworkManager.service)
+    service=${service%.service}
+    if test "X$service" = "X" ; then
+        debug "Systemd did not reported any enabled network service"
+        service=`find_current_service "network.service" 2>/dev/null`
+        service=${service%.service}
+        debug "Using '$service' as network service"
+    fi
+
+    case ${service} in
+    NetworkManager)
         #
         # Use NetworkManager policy merged data
         #
         test "x$policy" = "xauto" && \
             policy='STATIC_FALLBACK NetworkManager'
-        echo "$policy"
     ;;
     network.service|*)
         #
@@ -67,9 +90,11 @@ netconfig_policy()
         #
         test "x$policy" = "xauto" && \
             policy='STATIC *'
-        echo "$policy"
     ;;
     esac
+    debug "Resolved ${hint}policy '$1' for service '${service}' to '$policy'"
+
+    echo "$policy"
 }
 
 function get_variable()

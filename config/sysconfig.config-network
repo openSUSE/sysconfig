@@ -231,6 +231,29 @@ NM_ONLINE_TIMEOUT="0"
 #
 NETCONFIG_MODULES_ORDER="dns-resolver dns-bind dns-dnsmasq nis ntp-runtime"
 
+## Type:        yesno
+## Default:     no
+#
+# Enable netconfig verbose reporting.
+#
+NETCONFIG_VERBOSE="no"
+
+## Type:	yesno
+## Default:	no
+#
+# This variable enables netconfig to always force a replace of modified
+# files and automatically enables the -f | --force-replace parameter.
+#
+# The purpose is to use it as workaround, when some other tool trashes
+# the files, e.g. /etc/resolv.conf and you observe messages like this
+# in your logs on in "netconfig update" output:
+# ATTENTION: You have modified /etc/resolv.conf. Leaving it untouched.
+#
+# Please do not forget to also report a bug as we have a system policy
+# to use netconfig.
+#
+NETCONFIG_FORCE_REPLACE="no"
+
 ## Type:        string
 ## Default:     "auto"
 #

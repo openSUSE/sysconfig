@@ -23,7 +23,7 @@
 unset POSIXLY_CORRECT ; set +o posix # we're using non-posix bash features
 
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
-    echo "You must be root to start $0." >&2
+    warn "You must be root to start $0."
     exit 1
 fi
 
@@ -174,7 +174,7 @@ case "$_NETCONFIG_DNS_RANKING" in
 esac
 
 # just for the case we need the original value...
-_NETCONFIG_DNS_POLICY=`netconfig_policy "$NETCONFIG_DNS_POLICY"`
+_NETCONFIG_DNS_POLICY=`netconfig_policy "$NETCONFIG_DNS_POLICY" dns`
 if [ "x$_NETCONFIG_DNS_POLICY" = "x" ]; then
     #
     # empty policy means do not touch anything. 

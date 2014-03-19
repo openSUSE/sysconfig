@@ -52,7 +52,7 @@ function modify() {
     fi
 
     if test "x${LEASEFILE}" != x -a ! -r "${LEASEFILE}" ; then
-        echo "Unable to read specified input file '${LEASEFILE}'" >&2
+        warn "Unable to read specified input file '${LEASEFILE}'"
         exit 1
     fi
 
@@ -77,7 +77,7 @@ function modify() {
                 (SERVICE|INTERFACE)
                     eval "_$key='$val'"
                     if test "x${!key}" != x -a "x${!key}" != "x$val" ; then
-                        echo "Input value $key conflicts with command line argument" >&1
+                        warn "Input value $key conflicts with command line argument"
                         exit 1
                     fi
                 ;;
@@ -89,11 +89,11 @@ function modify() {
             VALS[${#VALS[@]}]=$val
         done < <(netconfig_kv_filter ${LEASEFILE:+"$LEASEFILE"})
         if test $err -ne 0 ; then
-            echo "Invalid syntax in ${LEASEFILE:+${LEASEFILE}, }line $err" >&2
+            warn "Invalid syntax in ${LEASEFILE:+${LEASEFILE}, }line $err"
             exit 1
         fi
     else
-	echo "Unsupported lease file / input format '$INPUTFORMAT'" >&2
+	warn "Unsupported lease file / input format '$INPUTFORMAT'"
 	exit 1
     fi
 
@@ -352,12 +352,17 @@ EOT
   exit 1
 }
 
-COMMANDLINE="$@"
+COMMANDLINE="$*"
 ACTION=""
 SERVICE=""
 INTERFACE=""
 VARIABLE=""
 MODFILTER=""
+FORCE_REPLACE=false
+QUIET=no
+VERBOSE=no
+test "X$NETCONFIG_VERBOSE" = "Xyes"       && VERBOSE="yes"
+test "X$NETCONFIG_FORCE_REPLACE" = "Xyes" && FORCE_REPLACE="true"
 while true ; do
     # Interface is checked against sysfs before the data is used;
     # reject just the most the ugliest characters...
@@ -371,9 +376,10 @@ while true ; do
         -l|--lease-file)    VARIABLE=LEASEFILE;;
         -I|--input-file)    VARIABLE=LEASEFILE;;
         -F|--input-format)  VARIABLE=INPUTFORMAT;;
-        -f|--force-replace) FORCE_REPLACE="true";;
-        -v|--verbose)       VERBOSE="yes";;
         -m|--module-only)   VARIABLE=MODFILTER;;
+        -f|--force-replace) FORCE_REPLACE="true";;
+        -v|--verbose)       VERBOSE="yes"; QUIET="no";;
+        -q|--quiet)         QUIET="yes"; VERBOSE="no";;
         -h|--help)          usage;;
         "") break ;;
         --)
@@ -409,21 +415,20 @@ done
 
 test -z "$ACTION" && usage No action was given
 
-if [ "$VERBOSE" = "yes" ]; then
-    export VERBOSE=$VERBOSE
-fi
+test "X$VERBOSE" = "Xyes" && log "Executing '$COMMANDLINE' for pid $PPID"
+export VERBOSE QUIET
 
 #
 # before we start, check for root
 #
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
-    echo "You must be root to start $0." >&2
+    log "You must be root to start $0."
     exit 1
 fi
 
 # Check if we can write in /tmp
 if ! touch $r/tmp &>/dev/null; then
-    echo "Filesystem read only: Cannot modify anything" >&2
+    log "Filesystem read only: Cannot modify anything"
     exit 1
 fi
 
@@ -432,7 +437,7 @@ umask 0022
 
 # Create state directory
 if ! mkdir -p "$STATEDIR" ; then
-    echo "Unable to create netconfig state directory '$STATEDIR'" >&2
+    log "Unable to create netconfig state directory '$STATEDIR'"
     exit 1
 fi
 
