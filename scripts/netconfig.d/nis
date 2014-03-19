@@ -22,7 +22,7 @@
 unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
 
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
-    echo "You must be root to start $0." >&2
+    warn "You must be root to start $0."
     exit 1
 fi
 
@@ -357,7 +357,7 @@ function manage_interfaceconfig()
 
 
 # just for the case we need the original value...
-_NETCONFIG_NIS_POLICY=`netconfig_policy "$NETCONFIG_NIS_POLICY"`
+_NETCONFIG_NIS_POLICY=`netconfig_policy "$NETCONFIG_NIS_POLICY" nis`
 if [ "x$_NETCONFIG_NIS_POLICY" = "x" ]; then
     #
     # empty policy means do not touch anything. 
