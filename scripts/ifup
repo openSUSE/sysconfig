@@ -303,7 +303,7 @@ case $INTERFACETYPE in
 		SYSTEMD_REDIRECT=no
 	;;
 esac
-if test "$PPID" -eq 1 -o "$DHCP" = "yes" -o "$CONTROL_IFPLUGD" = "yes" ; then
+if test "$PPID" -eq 1 -o "$DHCP" = "yes" -o "$CONTROL_IFPLUGD" = "no" ; then
 	SYSTEMD_REDIRECT=no
 fi
 case $SCRIPTNAME in
