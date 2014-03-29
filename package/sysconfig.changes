@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Sat Mar 29 11:42:29 UTC 2014 - mt@suse.de
+
+- ifup: startmode ifplugd logic error regression fix
+  Fixed a logic error regression breaking startmode ifplugd
+  introduced while fixing bnc#846361 (bnc#869761,bnc#866870)
+  [+ 0013-ifup-startmode-ifplugd-logic-error-regression-fix.patch]
+
+-------------------------------------------------------------------
+Wed Mar 19 12:45:02 UTC 2014 - mt@suse.de
+
+- netconfig: improved troubleshooting capabilities
+  Added NETCONFIG_VERBOSE and NETCONFIG_FORCE_REPLACE config
+  variables allowing to run all netconfig calls in debug mode
+  and force update of modified files as default. Show service,
+  policy resolving info and log the commandline in debug mode.
+  Fixed to log info/warnings that were printed to stderr only
+  before (bnc#860644, bnc#868323).
+  [+ 0012-netconfig-improved-troubleshooting-capabilities.patch]
+
+-------------------------------------------------------------------
 Wed Feb 26 17:35:19 UTC 2014 - mt@suse.de
 
 - ifup: do not redirect to systemd for ppp (bnc#846361)
