@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Wed Apr  9 08:03:03 UTC 2014 - mt@suse.de
+
+- ppp/ip-up: fixed netconfig modify calls
+  The global config file now explicitly sets the NETCONFIG_VERBOSE
+  variable to yes/no, what breaks the netconfig call from ip-up
+  using it to pass a "-v" as a command line option (bnc#872689).
+
+-------------------------------------------------------------------
 Sat Mar 29 11:42:29 UTC 2014 - mt@suse.de
 
 - ifup: startmode ifplugd logic error regression fix
