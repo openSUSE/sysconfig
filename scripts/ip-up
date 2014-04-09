@@ -76,7 +76,7 @@ add_nameservers()
 			fi
 			echo "NETBIOSNAMESERVER='${winsservers[@]}'"
 		#fi
-	} | /sbin/netconfig modify -s pppd -i "$INTERFACE" $NETCONFIG_VERBOSE
+	} | /sbin/netconfig modify -s pppd -i "$INTERFACE"
 }
 restore_nameservers()
 {
@@ -90,7 +90,7 @@ restore_nameservers()
 			`)
 		test -z "$noremove" || return
 	fi
-	/sbin/netconfig remove -s pppd -i "$INTERFACE" $NETCONFIG_VERBOSE
+	/sbin/netconfig remove -s pppd -i "$INTERFACE"
 }
 
 # using this function currently breaks Dial On Demand setups, because
