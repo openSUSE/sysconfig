@@ -1,4 +1,19 @@
 -------------------------------------------------------------------
+Wed May 28 07:17:30 UTC 2014 - mt@suse.de
+
+- version 0.83.5
+- sysconfig/network/config: new default to send gratuitous arp
+  Enabled to send gratuitous arp by default, when duplicate IPv4
+  check is enabled and were successful (bnc#879911,fate#314399).
+- netconfig: improved troubleshooting capabilities
+  Added NETCONFIG_VERBOSE and NETCONFIG_FORCE_REPLACE config
+  variables allowing to run all netconfig calls in debug mode
+  and force update of modified files as default. Show service,
+  policy resolving info and log the commandline in debug mode.
+  Fixed to log info/warnings that were printed to stderr only
+  before (bnc#860644, bnc#868323).
+
+-------------------------------------------------------------------
 Wed Mar 12 17:39:50 UTC 2014 - mt@suse.de
 
 - version 0.83.4
