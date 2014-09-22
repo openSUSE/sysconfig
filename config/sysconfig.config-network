@@ -151,7 +151,7 @@ WAIT_FOR_INTERFACES="30"
 FIREWALL="yes"
 
 ## Type:	int
-## Default:	0
+## Default:	30
 #
 # When using NetworkManager you may define a timeout to wait for NetworkManager
 # to connect in /etc/init.d/network(-remotefs) script.  Other network services
@@ -159,7 +159,7 @@ FIREWALL="yes"
 # 
 # This variable has no effect if NetworkManager is disabled.
 #
-NM_ONLINE_TIMEOUT="0"
+NM_ONLINE_TIMEOUT="30"
 
 ## Type:        string
 ## Default:     "dns-resolver dns-bind ntp-runtime nis"
