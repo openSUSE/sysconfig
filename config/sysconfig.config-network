@@ -154,9 +154,9 @@ FIREWALL="yes"
 ## Default:	30
 #
 # When using NetworkManager you may define a timeout to wait for NetworkManager
-# to connect in /etc/init.d/network(-remotefs) script.  Other network services
+# to connect in NetworkManager-wait-online.service.  Other network services
 # may require the system to have a valid network setup in order to succeed.
-# 
+#
 # This variable has no effect if NetworkManager is disabled.
 #
 NM_ONLINE_TIMEOUT="30"
