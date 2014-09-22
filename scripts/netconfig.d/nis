@@ -21,11 +21,6 @@
 
 unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
 
-if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
-    warn "You must be root to start $0."
-    exit 1
-fi
-
 # The environment variable ROOT indicates the root of the system to be
 # managed by SuSEconfig when that root is not '/'
 r="$ROOT"
@@ -33,12 +28,16 @@ r="$ROOT"
 . "$r/etc/sysconfig/network/scripts/functions.netconfig"
 
 PROGNAME="${0##*/}"
+if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
+    warn "You must be root to start $0."
+    exit 1
+fi
+
 STATEDIR="$r/var/run/netconfig"
 
 debug "$PROGNAME Module called"
 
 . "$r/etc/sysconfig/network/config"
-. "$r/etc/sysconfig/network/dhcp"
 
 NIS_YPSRV_ENTRIES=()
 NIS_DOMAIN_ENTRIES=()
