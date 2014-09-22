@@ -55,8 +55,8 @@ function write_ntp_servers()
     debug "write_ntp_servers: $1"
 
     # make sure that the directory exists
-    test -d "${DESTFILE%/*}" || {
-        debug "no ${DESTFILE%/*} directory - skipping"
+    test -d "${DESTFILE%/*}" || mkdir -p "${DESTFILE%/*}" || {
+        warn "no ${DESTFILE%/*} directory -- failed to create it"
         return 1
     }
 
