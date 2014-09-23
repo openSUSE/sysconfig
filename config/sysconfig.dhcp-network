@@ -1,5 +1,5 @@
 ## Path:	Network/DHCP/DHCP client
-## Description:	Global DHCP client configuration
+## Description:	DHCPv4 client configuration variables
 #
 # Note: 
 # To configure one or more interfaces for DHCP configuration, you have to
@@ -15,76 +15,7 @@
 ## Type:	yesno
 ## Default:	no
 #
-# Start in debug mode? (yes|no)
-#
-DHCLIENT_DEBUG="no"
-
-## Type: list("",yes,no,first)
-## Default: ""
-#
-# Multiple DHCP clients:
-#
-# With two or more DHCP clients running, they would concurrently try to replace
-# the default route or set the hostname. There are several ways of dealing with
-# this conflict (and it is a conflict, because you can have only one default
-# route even though routes are stackable and the dhcp clients would change it
-# while every lease renew):
-#
-#  1) Allow both clients to do that stuff. This would work in many cases if
-#     only one of the interfaces is used at a time. However, it would lead to
-#     undefined behaviour such as changing default route e.g. on dhcp renew.
-#
-#  2) When both interfaces are connected to the same network, you may configure
-#     a bonding interface in active-backup mode (or another, e.g. 802.3ad, when
-#     supported and configured by the switch) and configure dhcp on the bonding
-#     instead.
-#
-#  3) When only one of the interfaces is used at time, you may set STARTMODE to
-#     ifplugd and specify the priority of the interfaces in IFPLUGD_PRIORITY.
-#     This is a common scenario for notebooks to use the wired interface when
-#     connected, wireless otherwise.
-#
-#  4) allow only one of the DHCP clients to do that stuff.
-#     This implies that there would be a "primary" interface and a "secondary".
-#     This is the assumption the default configuration is based on. But since
-#     the system often can't guess which interface is "more important", we
-#     simply choose one depending on related configuration or take the first
-#     interface that is started with DHCP to be primary ("authoritative").
-#     This can be configured by setting DHCLIENT_PRIMARY_DEVICE=yes in one of
-#     the /etc/sysconfig/network/ifcfg-* files and DHCLIENT_PRIMARY_DEVICE=no
-#     in /etc/sysconfig/network/dhcp (or in all other ifcfg files using DHCP).
-#
-# When DHCLIENT_PRIMARY_DEVICE is not explicitly configured to yes/no, the
-# "primary" interface is choosed as follows:
-#
-# - On systems with iSCSI Boot Firmare Table, the iBFT primary interface
-#   is used as the primary DHCP interface by default.
-# - On systems booting via PXE, the interface specified by the BOOTIF kernel
-#   parameter is used as primary DHCP interface. Set the global "ipappend 2"
-#   parameter in pxelinux.cfg/* files, so the BOOTIF kernel parameter is set.
-# - Otherwise, the DHCP client that is started first will be "primary" and
-#   allowed the set the default route and hostname ("first up wins" mode,
-#   the only one before openSUSE 11.4). To force this "first up wins" mode,
-#   set DHCLIENT_PRIMARY_DEVICE="first" in /etc/sysconfig/network/dhcp.
-#
-# All other running dhcp clients will only configure the interface with an
-# address and network routes, but not change the "global" default route or
-# hostname.
-# See also DHCLIENT_SET_DEFAULT_ROUTE and DHCLIENT_SET_HOSTNAME variables,
-# that allow to modify the DHCLIENT_PRIMARY_DEVICE parameter behaviour once
-# again.
-#
-# Thus, to specifically allow an interface's DHCP client to change "global"
-# configuration, set the following variable to "yes". Or you can make an
-# interface's DHCP client never change these settings if you set it to "no".
-# If you leave it empty then ifup-dhcp will decide.
-#
-DHCLIENT_PRIMARY_DEVICE=
-
-## Type:	yesno
-## Default:	no
-#
-# Should the DHCP client set the hostname? (yes|no)
+# Should the DHCPv4 client set the hostname? (yes|no)
 # 
 # When it is likely that this would occur during a running X session, 
 # your DISPLAY variable could be screwed up and you won't be able to open
@@ -96,6 +27,21 @@ DHCLIENT_PRIMARY_DEVICE=
 #
 DHCLIENT_SET_HOSTNAME="no"
 
+## Type:	string
+## Default:	AUTO
+#
+# Specifies the hostname option field when DHCPv4 client sends messages.
+# Some DHCP servers will update nameserver entries (dynamic DNS) to it.
+# Also, some DHCP servers, notably those used by @Home Networks, require
+# the hostname option field containing a specific string in the DHCP
+# messages from clients.
+#
+# When set to "AUTO", the current hostname from /etc/hostname is sent.
+# Use this variable to override it with another hostname, or leave it
+# empty to not send any hostname.
+#
+DHCLIENT_HOSTNAME_OPTION="AUTO"
+
 ## Type:	yesno
 ## Default:	yes
 #
@@ -105,6 +51,31 @@ DHCLIENT_SET_HOSTNAME="no"
 # one of them does it. 
 #
 DHCLIENT_SET_DEFAULT_ROUTE="yes"
+
+## Type:        integer
+## Default:     "0"
+#
+# This option allows to set a metrics/priority for DHCPv4 routes.
+#
+DHCLIENT_ROUTE_PRIORITY="0"
+
+## Type:	string
+## Default:	""
+#
+# specify a client ID
+#
+# Specifies a client identifier string. By default an id derived from the
+# hardware address of the network interface is sent as client identifier.
+#
+DHCLIENT_CLIENT_ID=""
+
+## Type:	string
+## Default:	""
+#
+# Specifies the vendor class identifier string. The default is dhcp client
+# specific.
+#
+DHCLIENT_VENDOR_CLASS_ID=""
 
 ## Type:	integer
 ## Default:	""
@@ -122,50 +93,7 @@ DHCLIENT_LEASE_TIME=""
 # the lease hasn't expired yet.
 # Set this variable to "no" to disable the fallback to the last lease.
 #
-DHCLIENT_USE_LAST_LEASE=yes
-
-## Type:	integer
-## Default:	"0"
-#
-# You can set the timeout - dhcp client will stop processing after this
-# time when does not get a reply from the dhcp server.
-#
-DHCLIENT_TIMEOUT="0"
-
-## Type:	string
-## Default:	AUTO
-#
-# specifies a string used for the hostname option field when dhcp client
-# sends DHCP messages. Some DHCP servers will update nameserver entries 
-# (dynamic DNS).
-# Also, some DHCP servers, notably those used by @Home Networks, require
-# the hostname option field containing a specific string in the DHCP
-# messages from clients.
-#
-# By default the current hostname is sent ("AUTO"), if one is defined in 
-# /etc/HOSTNAME. 
-# Use this variable to override this with another hostname, or leave empty
-# to not send a hostname.
-#
-DHCLIENT_HOSTNAME_OPTION="AUTO"
-
-## Type:	string
-## Default:	""
-#
-# specify a client ID ( -I option)
-#
-# Specifies a client identifier string. By default an id dericed from the
-# hardware address of the network interface is sent as client identifier.
-#
-DHCLIENT_CLIENT_ID=""
-
-## Type:	string
-## Default:	""
-#
-# Specifies the vendor class identifier string. The default is dhcp client
-# specific.
-#
-DHCLIENT_VENDOR_CLASS_ID=""
+DHCLIENT_USE_LAST_LEASE="yes"
 
 ## Type:	yesno
 ## Default:	no
@@ -175,6 +103,115 @@ DHCLIENT_VENDOR_CLASS_ID=""
 # is requested. But some servers require it.
 #
 DHCLIENT_RELEASE_BEFORE_QUIT="no"
+
+## Type:	integer
+## Default:	0
+#
+# Some interfaces need time to initialize and/or do not report correct status.
+# Add the latency time in seconds so these can be handled properly. Should
+# probably set per interface rather than here.
+# This setting causes a sleep time before dhcp clients are started regardless
+# of the link status.
+#
+# Note: RFC 2131 specifies, that the dhcp client should wait a random time
+# between one and ten seconds to desynchronize the use of DHCP at startup.
+# We do not use this initial delay to not slow down start/boot time.
+#
+DHCLIENT_SLEEP="0"
+
+## Type:	integer
+## Default:	15
+#
+# The DHCPv4 client will try to get a lease for DHCLIENT_WAIT_AT_BOOT seconds,
+# then inform ifup waiting for it, that it continues in background.
+# When you increase this time, increase also the WAIT_FOR_INTERFACES variable
+# e.g. to a value twice as high as the time specified here.
+#
+DHCLIENT_WAIT_AT_BOOT="15"
+
+## Type:	integer
+## Default:	"0"
+#
+# The DHCPv4 client will stop processing / fail after this time when it does
+# not get a reply from the dhcp server. Before you set this variable, take a
+# look at DHCLIENT_WAIT_AT_BOOT allowing to continue in background instead.
+#
+DHCLIENT_TIMEOUT="0"
+
+## Path:	Network/DHCP/DHCPv6 client
+## Description:	Global DHCPv6 client configuration
+
+## Type:        list(auto,managed,info)
+## Default:     auto
+#
+# This option allows to specify the request mode used by the DHCPv6
+# client when the BOOTPROTO is set to dhcp or dhcp6, and overrides
+# the "Managed Address Configuration" and the "Other Configuration"
+# flags provided by the IPv6 router its Router Advertisement (RA)
+# for the network connected to this interface.
+#
+#   auto:    follow RA flags, remain silent when no RA flag is set
+#   info:    request other configuration (dns,ntp) only, no IP address
+#   managed: request IP address as well as other configuration
+#
+DHCLIENT6_MODE="auto"
+
+## Type:        yesno
+### Default:     yes
+#
+# This option allows the DHCPv6 client to indicate its desire to accept
+# rapid commit leases using two-packet exchange (solicitation, lease ack)
+# instead of the four packet (solicitation, offer, request, lease ack).
+#
+DHCLIENT6_RAPID_COMMIT="yes"
+
+## Type:	yesno
+## Default:	no
+#
+# Should the DHCPv6 client set the hostname? (yes|no)
+#
+# When it is likely that this would occur during a running X session,
+# your DISPLAY variable could be screwed up and you won't be able to
+# open new windows anymore, then this should be "no".
+#
+# If it happens during booting it won't be a problem and you can
+# safely say "yes" here. For a roaming notebook with X kept running,
+# "no" makes more sense.
+#
+DHCLIENT6_SET_HOSTNAME="no"
+
+## Type:        string
+### Default:     AUTO
+#
+# Specifies the hostname option field when DHCPv6 client sends messages.
+# Some DHCP servers will update nameserver entries (dynamic DNS) to it.
+#
+# When set to "AUTO", the current hostname from /etc/hostname is sent.
+# Use this variable to override it with another hostname, or leave it
+# empty to not send any hostname.
+#
+DHCLIENT6_HOSTNAME_OPTION="AUTO"
+
+## Type:        integer
+### Default:     ""
+#
+# Specifies the preferred lifetime (in seconds) used as T1/renewal
+# (1/2 of it) and T1/rebind (4/5 of it) in DHCPv6 IA NA requests.
+#
+# Default is to not propose anything but use the times as offered
+# by the DHCPv6 server.
+#
+DHCLIENT6_LEASE_TIME=""
+
+## Type:        yesno
+## Default:     yes
+#
+# This setting controls whether DHCPv6 client should try to use settings
+# provided in its last lease when the DHCPv6-server is not reachable and
+# the lease hasn't expired yet.
+# Set this variable to "no" to disable the fallback to the last lease.
+#
+DHCLIENT6_USE_LAST_LEASE="yes"
 
 ## Type:	yesno
 ## Default:	no
@@ -189,42 +226,28 @@ DHCLIENT6_RELEASE_BEFORE_QUIT="no"
 ## Default:	0
 #
 # Some interfaces need time to initialize and/or do not report correct status.
-# Add the latency time in seconds so these can be handled properly. Should
-# probably set per interface rather than here.
-# This setting causes a sleep time before dhcp clients are started regardless
-# of the link status (wait time in DHCLIENT_WAIT_LINK).
+# By default, DHCPv6 waits until the link-local address (fe80::) is available
+# and then ~1 second as specified by RFC3315.
+# This setting allows override to use a non-standsrd initial delay.
 #
-DHCLIENT_SLEEP="0"
+DHCLIENT6_SLEEP="0"
 
 ## Type:	integer
 ## Default:	15
 #
-# When the DHCP client is started at boot time, the boot process will stop
-# until the interface is successfully configured, but at most for
-# DHCLIENT_WAIT_AT_BOOT seconds. Do not set this variable higher than the
-# WAIT_FOR_INTERFACES variable -- it is adjusted to WAIT_FOR_INTERFACES/2
-# as default.
+# The DHCPv6 client will try to get a lease for DHCLIENT6_WAIT_AT_BOOT seconds,
+# then inform ifup waiting for it, that it continues in background.
+# When you increase this time, increase also the WAIT_FOR_INTERFACES variable
+# e.g. to a value twice as high as the time specified here.
 #
-# Note: RFC 2131 specifies, that the dhcp client should wait a random time
-# between one and ten seconds to desynchronize the use of DHCP at startup.
-#
-DHCLIENT_WAIT_AT_BOOT="15"
+DHCLIENT6_WAIT_AT_BOOT="15"
 
-## Type:        yesno
-## Default:     no
-## ServiceRestart: yast2
+## Type:	integer
+## Default:	"0"
 #
-# This option is read by YaST during network configuration and not
-# used by network scripts. If unset, YaST will not touch /etc/hosts.
+# The dhcpv6 client will stop processing / fail after this time when it does
+# not get a reply from the dhcp server. Before you set this variable, take a
+# look at DHCLIENT6_WAIT_AT_BOOT allowing to continue in background instead.
 #
-# If set, then the hostname is added to /etc/hosts with IP address
-# 127.0.0.2. This allows the hostname to be resolved (and thus, the
-# host to be reached), if the real network is not reachable.
-#
-# On the another side, it causes that the hostname is then never
-# resolved via DNS, but always from /etc/hosts and points to the
-# 127.0.0.2 address. This may (will) also break some software,
-# trying to resolve own hostname instead to use getifaddrs(3).
-#
-WRITE_HOSTNAME_TO_HOSTS="no"
+DHCLIENT6_TIMEOUT="0"
 
