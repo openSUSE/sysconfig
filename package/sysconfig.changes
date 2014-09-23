@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Tue Sep 23 06:57:31 UTC 2014 - mt@suse.de
+
+- version 0.83.7
+- netconfig: create missed /var/run/ntp directory (bnc#892877)
+  When the directory does not exists yet, the ntp service is not
+  yet started/running and it is even more important to write the
+  servers so ntpd can pickup them at start.
+- config: changed NM_ONLINE_TIMEOUT to 30 (bnc#889175)
+- config: updated to list new variables in network/dhcp,
+  cleanup of ifcfg.template and network/config variables
+
+-------------------------------------------------------------------
 Wed May 28 10:29:03 UTC 2014 - mt@suse.de
 
 - version 0.83.6
