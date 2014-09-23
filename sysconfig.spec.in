@@ -156,10 +156,13 @@ sysconfig_remove_and_set network/config IFPLUGD_OPTIONS
 sysconfig_remove_and_set network/config DEFAULT_BROADCAST
 sysconfig_remove_and_set network/config FORCE_PERSISTENT_NAMES
 sysconfig_remove_and_set network/config MANDATORY_DEVICES
+sysconfig_remove_and_set network/config USE_SYSLOG
 sysconfig_remove_and_set network/dhcp   DHCLIENT_BIN
 sysconfig_remove_and_set network/dhcp   DHCLIENT6_BIN
+sysconfig_remove_and_set network/dhcp   DHCLIENT_DEBUG
 sysconfig_remove_and_set network/dhcp   DHCLIENT_WAIT_LINK
 sysconfig_remove_and_set network/dhcp   DHCLIENT_USER_OPTIONS
+sysconfig_remove_and_set network/dhcp   DHCLIENT_PRIMARY_DEVICE
 sysconfig_remove_and_set network/dhcp   DHCLIENT6_USER_OPTIONS
 sysconfig_remove_and_set network/dhcp   DHCPCD_USER_OPTIONS
 sysconfig_remove_and_set network/dhcp   DHCP6C_USER_OPTIONS
