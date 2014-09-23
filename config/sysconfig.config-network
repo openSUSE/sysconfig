@@ -9,16 +9,6 @@
 # of these options -- NetworkManager is not using any sysconfig settings.
 #
 
-
-## Type:	yesno
-## Default:	yes
-# sometimes we want some script to be executed after an interface has been
-# brought up, or before an interface is taken down. 
-# default dir is /etc/sysconfig/network/if-up.d for POST_UP and
-# /etc/sysconfig/network/if-down.d for PRE_DOWN
-GLOBAL_POST_UP_EXEC="yes"
-GLOBAL_PRE_DOWN_EXEC="yes"
-
 ## Type:        yesno
 ## Default:     yes
 # If ifup should check if an IPv4 address is already in use, set this to yes.
@@ -44,95 +34,6 @@ SEND_GRATUITOUS_ARP="auto"
 # Switch on/off debug messages for all network configuration stuff. If set to no
 # most scripts can enable it locally with "-o debug".
 DEBUG="no"
-
-## Type:        yesno
-## Default:     yes
-# All error and info messages from network and hardware configuration scripts go
-# to stderr. Most tools that call sysconfig scripts (udev, rcnetwork, scpm,
-# YaST) catch these messages and can log them. So some messages appear twice in
-# syslog. If you don't like that, then set USE_SYSLOG=no.
-USE_SYSLOG="yes"
-
-# Handling of network connections
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-# These features are designed for the convenience of the experienced
-# user. If you encounter problems you don't understand then switch
-# them off. That is the default.
-# Please do not complain if you get troubles. But if you want help to
-# make them smarter write to <http://www.suse.de/feedback>.
-
-## Type:	yesno
-## Default:	no
-#
-# If you are interested in the connections and nfs mounts that use a
-# network interface, you can set CONNECTION_SHOW_WHEN_IFSTATUS="yes".
-# Then you will see them with 'ifstatus <interface>' (or 'ifstatus
-# <config>')
-# This one _should_ never harm ;)
-#
-CONNECTION_SHOW_WHEN_IFSTATUS="no"
-
-## Type:	yesno
-## Default:	no
-#
-# If an interface should be set down only if there are no active
-# connections, then use CONNECTION_CHECK_BEFORE_IFDOWN="yes"
-#
-CONNECTION_CHECK_BEFORE_IFDOWN="no"
-
-## Type:	yesno
-## Default:	no
-#
-# If these connetions (without the nfs mounts) should be closed when
-# shutting down an interface, set CONNECTION_CLOSE_BEFORE_IFDOWN="yes".
-# WARNING: Be aware that this may terminate applications which need
-# one of these connections!
-#
-CONNECTION_CLOSE_BEFORE_IFDOWN="no"
-
-## Type:	yesno
-## Default:	no
-#
-# If you are a mobile laptop user and like even nfs mounts to be
-# closed when you leave your current workplace, then set
-# CONNECTION_UMOUNT_NFS_BEFORE_IFDOWN="yes". This does only work
-# if CONNECTION_CLOSE_BEFORE_IFDOWN="yes", too.
-# WARNING: Be aware that this may terminate applications which use
-# these nfs mounts as working directory. Be very carefull if your home
-# is mounted via nfs!!!
-# WARNING: This may even lead to hanging ifdown processes if there are
-# processes that could not be terminated. If you are using
-# hotpluggable devices (pcmcia, usb, firewire), first shut them down
-# before unplugging!
-#
-CONNECTION_UMOUNT_NFS_BEFORE_IFDOWN="no"
-
-## Type:	yesno
-## Default:	no
-#
-# If terminating processes that use a connection or nfs mount is not
-# enough, then they can be killed after an unsuccesfull termination.
-# If you want that set CONNECTION_SEND_KILL_SIGNAL="yes"
-#
-CONNECTION_SEND_KILL_SIGNAL="no"
-
-## Type:        string
-## Default:     ""
-#
-# Here you may specify which interfaces have to be up and configured properly
-# after 'rcnetwork start'. rcconfig will return 'failed' if any of these
-# interfaces is not up. You may use interface names as well but better use
-# hardware descriptions of the devices (eth-id-<macaddress> or eth-bus-...  See
-# man ifup for 'hardware description'). The network start script will wait for
-# these interfaces, but not longer as set in WAIT_FOR_INTERFACES.
-# You need not to add dialup or tunnel interfaces here, only physical devices.
-# The interface 'lo' is always considered to be mandatory and can be omitted.
-#
-# If this variable is empty, rcnetwork tries to derive the list of mandatory
-# devices automatically from the list of existing configurations. Configurations
-# with names bus-pcmcia or bus-usb or with STARTMODE=hotplug are skipped. (try
-# '/etc/init.d/rc5.d/S*network start -o debug fake | grep MANDAT')
-MANDATORY_DEVICES=""
 
 ## Type:	integer
 ## Default:	30
