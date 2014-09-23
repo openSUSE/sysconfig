@@ -56,24 +56,17 @@ IFPLUGD_PRIORITY=
 #
 BOOTPROTO=
 
-## Type:	yesno
-## Default:	no
-#
-# This variable is used to enable/disable the Zero Configuration Networking
-# (zeroconf) route (169.254.0.0) on local interfaces. Disabled by default.
-#
-ZEROCONF_ROUTE='no'
-
 ## Type:    string
 ## Default: ""
 #
 # If using a static configuration you have to set an IP address and a netmask
 # or prefix length. The following examples are equivalent:
-# 1) IPADDR=192.168.1.1
-#    NETMASK=255.255.255.0
+#
+# 1) IPADDR=192.168.1.1/24     # NETMASK and PREFIXLEN will be ignored
 # 2) IPADDR=192.168.1.1
 #    PREFIXLEN=24              # NETMASK will be ignored
-# 3) IPADDR=192.168.1.1/24     # NETMASK and PREFIXLEN will be ignored
+# 3) IPADDR=192.168.1.1
+#    NETMASK=255.255.255.0
 #
 # For multiple addresses use this variable multiple times and extend them with
 # different suffixes. For example IPADDR_1=, IPADDR_2=. See section 'Multiple
@@ -88,6 +81,8 @@ IPADDR=
 # Set the network mask for the ip address. This variable will be ignored if a
 # prefixlength is set in variable PREFIXLEN in IPADDR.
 # For multiple addresses use the same suffixes as with IPADDR.
+#
+# Note: Deprecated IPv4 only variable.
 #
 NETMASK=
 
@@ -106,6 +101,8 @@ PREFIXLEN=
 # Set the broadcast address of the interface. If you leave it empty a default
 # will be used. See DEFAULT_BROADCAST in /etc/sysconfig/network/config.
 # For multiple addresses use the same suffixes as with IPADDR.
+#
+# Note: Deprecated IPv4 only variable.
 #
 BROADCAST=
 
@@ -127,33 +124,6 @@ REMOTE_IPADDR=
 #
 LABEL=
 
-## Type:    string
-## Default: ""
-#
-# Set the  scope  of the area where this address is valid. 
-# See manpage ip for details.
-# For multiple addresses use the same suffixes as with IPADDR.
-#
-SCOPE=
-
-## Type:    string
-## Default: ""
-#
-# Every other option from "ip address add" can be added here.
-# See manpage ip for details.
-# For multiple addresses use the same suffixes as with IPADDR.
-#
-IP_OPTIONS=
-
-## Type:    string
-## Default: ""
-#
-# Set the interface type if ifup cannot determine it properly. This may be
-# needed if you use unusual interface names for special interfaces like
-# modems.
-#
-INTERFACETYPE=
-
 ## Type:    integer
 ## Default: ""
 #
@@ -168,38 +138,6 @@ MTU=
 # address, for this interface (if the driver supports it).
 #
 LLADDR=
-
-## Type:    string
-## Default: ""
-#
-# Every other option from "ip link set" can be added here.
-# Example:
-#       LINK_OPTIONS="multicast off"
-# See manpage ip for details.
-#
-LINK_OPTIONS=
-
-## Type:        integer
-## Default:     0
-#
-# The number of seconds to wait for link to become useable / ready.
-# Default is 0, causing to not wait for a ready link (0), because link
-# detection can't be enabled in all cases (e.g. bridges without ports).
-# Please use per interface settings to enable it.
-#
-LINK_READY_WAIT=
-
-## Type:        integer
-## Default:     ""
-#
-# The number of seconds to wait for the end of IPv6 duplicate address
-# detection in ifup.
-# Default is to use WAIT_FOR_INTERFACES/2 seconds in normal ifup runs.
-# When ifup is called by /etc/init.d/network at boot time, the check
-# is done, but /etc/init.d/network waits WAIT_FOR_INTERFACES seconds
-# for all interfaces togerther. Set to 0 to disable it.
-#
-IPV6_DAD_WAIT=
 
 ## Type:    string
 ## Default: ""
@@ -247,84 +185,18 @@ UNIQUE=
 
 ##########################################################################
 ## DHCP settings
-
-## Type: list("",yes,no)
-## Default: ""
 #
-# Multiple DHCP clients:
+# See /etc/sysconfig/network/dhcp file for details.
 #
-# With two or more DHCP clients running, they would concurrently try to replace
-# the default route or set the hostname. There are several ways of dealing with
-# this conflict (and it is a conflict, because you can have only one default
-# route even though routes are stackable and the dhcp clients would change it
-# while every lease renew):
-#
-#  1) Allow both clients to do that stuff. This would work in many cases if
-#     only one of the interfaces is used at a time. However, it would lead to
-#     undefined behaviour such as changing default route e.g. on dhcp renew.
-#
-#  2) When both interfaces are connected to the same network, you may configure
-#     a bonding interface in active-backup mode (or another, e.g. 802.3ad, when
-#     supported and configured by the switch) and configure dhcp on the bonding
-#     instead.
-#
-#  3) When only one of the interfaces is used at time, you may set STARTMODE to
-#     ifplugd and specify the priority of the interfaces in IFPLUGD_PRIORITY.
-#     This is a common scenario for notebooks to use the wired interface when
-#     connected, wireless otherwise.
-#
-#  4) allow only one of the DHCP clients to do that stuff.
-#     This implies that there would be a "primary" interface and a "secondary".
-#     This is the assumption the default configuration is based on. But since
-#     the system often can't guess which interface is "more important", we
-#     simply choose one depending on related configuration or take the first
-#     interface that is started with DHCP to be primary ("authoritative").
-#     This can be configured by setting DHCLIENT_PRIMARY_DEVICE=yes in one of
-#     the /etc/sysconfig/network/ifcfg-* files and DHCLIENT_PRIMARY_DEVICE=no
-#     in /etc/sysconfig/network/dhcp (or in all other ifcfg files using DHCP).
-#
-# When DHCLIENT_PRIMARY_DEVICE is not explicitly configured to yes/no, the
-# "primary" interface is choosed as follows:
-#
-# - On systems with iSCSI Boot Firmare Table, the iBFT primary interface
-#   is used as the primary DHCP interface by default.
-# - On systems booting via PXE, the interface specified by the BOOTIF kernel
-#   parameter is used as primary DHCP interface. Set the global "ipappend 2"
-#   parameter in pxelinux.cfg/* files, so the BOOTIF kernel parameter is set.
-# - Otherwise, the DHCP client that is started first will be "primary" and
-#   allowed the set the default route and hostname ("first up wins" mode,
-#   the only one before openSUSE 11.4). To force this "first up wins" mode,
-#   set DHCLIENT_PRIMARY_DEVICE="first" in /etc/sysconfig/network/dhcp.
-#
-# All other running dhcp clients will only configure the interface with an
-# address and network routes, but not change the "global" default route or
-# hostname.
-# See also DHCLIENT_SET_DEFAULT_ROUTE and DHCLIENT_SET_HOSTNAME variables,
-# that allow to modify the DHCLIENT_PRIMARY_DEVICE parameter behaviour once
-# again.
-#
-# Thus, to specifically allow an interface's DHCP client to change "global"
-# configuration, set the following variable to "yes". Or you can make an
-# interface's DHCP client never change these settings if you set it to "no".
-# If you leave it empty then ifup-dhcp will decide.
-#
-DHCLIENT_PRIMARY_DEVICE=
-
-## Type:
-## Default:
-#
-# Even more finegrained control can be excerted by setting any of the
-# variables from /etc/sysconfig/network/dhcp in ifcfg files:
-#
-DHCLIENT_DEBUG=
 DHCLIENT_SET_HOSTNAME=
-DHCLIENT_SET_DEFAULT_ROUTE=
-DHCLIENT_TIMEOUT=
-DHCLIENT_CLIENT_ID=
 DHCLIENT_HOSTNAME_OPTION=
-DHCLIENT_VENDOR_CLASS_ID=
-DHCLIENT_LEASE_TIME=
+DHCLIENT_SET_DEFAULT_ROUTE=
+DHCLIENT_ROUTE_PRIORITY
 
+DHCLIENT6_MODE=
+DHCLIENT6_RAPID_COMMIT=
+DHCLIENT6_SET_HOSTNAME=
+DHCLIENT6_HOSTNAME_OPTION=
 
 ##########################################################################
 ## bridge settings. See ifcfg-bridge(5) and brctl(8) for mor information
@@ -336,7 +208,7 @@ DHCLIENT_LEASE_TIME=
 # This option must be set to 'yes' to identify this interface as a bridge
 # interface.
 #
-BRIDGE='yes'
+BRIDGE=
 
 ## Type:    string
 ## Default: 
@@ -344,7 +216,7 @@ BRIDGE='yes'
 # This variable contains a space-separated list of N interfaces which take part 
 # in the bridging.
 #
-BRIDGE_PORTS=''
+BRIDGE_PORTS=
 
 ## Type:    integer(0:)
 ## Default: 
@@ -354,7 +226,7 @@ BRIDGE_PORTS=''
 # will delete that address from the forwarding database. Setting ageing time 
 # to zero makes all entries permanent.
 #
-BRIDGE_AGEINGTIME=''
+BRIDGE_AGEINGTIME=
 
 ## Type:    integer(0:)
 ## Default:
@@ -364,7 +236,7 @@ BRIDGE_AGEINGTIME=''
 # so that when a new bridge comes onto a busy network it looks at some traffic 
 # before participating.
 #
-BRIDGE_FORWARDDELAY=''
+BRIDGE_FORWARDDELAY=
 
 ## Type:    integer(0:)
 ## Default:
@@ -373,7 +245,7 @@ BRIDGE_FORWARDDELAY=''
 # bridges. Hello packets are used to communicate information about the topology 
 # throughout the entire bridged local area network.
 #
-BRIDGE_HELLOTIME=''
+BRIDGE_HELLOTIME=
 
 ## Type:    integer(0:)
 ## Default:
@@ -382,7 +254,7 @@ BRIDGE_HELLOTIME=''
 # a long period of time, it is assumed to be dead. This timeout can be set with 
 # this variable.
 #
-BRIDGE_MAXAGE=''
+BRIDGE_MAXAGE=
 
 ## Type:    string
 ## Default:
@@ -392,7 +264,7 @@ BRIDGE_MAXAGE=''
 # and this value is used when deciding which link to use. Faster interfaces
 # should have lower costs. 
 #
-BRIDGE_PATHCOSTS=''
+BRIDGE_PATHCOSTS=
 
 ## Type:    string
 ## Default:
@@ -402,7 +274,7 @@ BRIDGE_PATHCOSTS=''
 # between 0 and 255), and has no dimension. This metric is used in the
 # designated port and root port selection algorithms.
 #
-BRIDGE_PORTPRIORITIES=''
+BRIDGE_PORTPRIORITIES=
 
 ## Type:    integer(0:65535)
 ## Default: 
@@ -412,7 +284,7 @@ BRIDGE_PORTPRIORITIES=''
 # priority values are 'better'. The bridge with the lowest priority will be
 # elected 'root bridge'.
 #
-BRIDGE_PRIORITY=''
+BRIDGE_PRIORITY=
 
 ## Type:    list(on,off)
 ## Default: off
@@ -427,7 +299,7 @@ BRIDGE_PRIORITY=''
 # the only bridge on the LAN, or when you know that there are no loops in
 # the topology.)
 #
-BRIDGE_STP=''
+BRIDGE_STP=
 
 ## Type:	yesno
 ## Default:	""
@@ -435,8 +307,7 @@ BRIDGE_STP=''
 # Defines whether this interface is wireless or not.  This variable is usually
 # not set, WLAN capabilities get auto-detected in this case.  As the WIRELESS
 # variable is device speficic and not network specific, it can have no suffix.
-WIRELESS=''
-
+WIRELESS=
 
 ## Type:	string
 ## Default:	"managed"
@@ -446,7 +317,7 @@ WIRELESS=''
 # Point, managed for network composed of many cells, with roaming or with an
 # Access Point, master if you want your system act as an Access Point or
 # synchronisation master. If unset, managed will be used.
-WIRELESS_MODE=''
+WIRELESS_MODE=
 
 ## Type:	string
 ## Default:	""
@@ -457,7 +328,7 @@ WIRELESS_MODE=''
 # Access Point with the best signal strength around (in managed operating
 # mode). For WLANs that make use of WPA (see WIRELESS_AUTH_MODE below)
 # you need to set your ESSID.
-WIRELESS_ESSID=''
+WIRELESS_ESSID=
 
 ## Type:	list(open,sharedkey,psk,eap)
 ## Default:	open
@@ -477,7 +348,7 @@ WIRELESS_ESSID=''
 # to use WPA-EAP (WPA with Extensible Authentication Protocol, aka WPA
 # "Enterprise"), set this to eap. WPA authentication modes are only
 # possible when WIRELESS_MODE is set to managed.
-WIRELESS_AUTH_MODE=''
+WIRELESS_AUTH_MODE=
 
 ## Type:	string
 ## Default:	""
@@ -486,7 +357,7 @@ WIRELESS_AUTH_MODE=''
 # here. The key is used for authentication and encryption purposes. You can
 # enter it in hex digits (needs to be exactly 64 digits long) or as passphrase
 # getting hashed (8 to 63 ASCII characters long).
-WIRELESS_WPA_PSK=''
+WIRELESS_WPA_PSK=
 
 ## Type:	string
 ## Default:	""
@@ -494,7 +365,7 @@ WIRELESS_WPA_PSK=''
 # WPA-EAP can use different authentication modes. Supported
 # values are TLS, PEAP, and TTLS. Default is to allow any.
 # When using WIRELESS_AP_SCANMODE 2, this variable needs to be set.
-WIRELESS_EAP_AUTH=''
+WIRELESS_EAP_AUTH=
 
 ## Type:	string
 ## Default:	""
@@ -503,21 +374,21 @@ WIRELESS_EAP_AUTH=''
 # Valid values are WPA and RSN (aka WPA2, can be also used as synonym).
 # Default is to allow both. When using WIRELESS_AP_SCANMODE 2, this
 # variable needs to be set, otherwise WPA will be used as fallback.
-WIRELESS_WPA_PROTO=''
+WIRELESS_WPA_PROTO=
 
 ## Type:	string
 ## Default:	""
 #
 # Needs to be set in conjunction with WPA-EAP. Set to your identity as
 # configured on the RADIUS server.
-WIRELESS_WPA_IDENTITY=''
+WIRELESS_WPA_IDENTITY=
 
 ## Type:	string
 ## Default:	""
 #
 # Needs to be set in conjunction with WPA-EAP. Set to your password as
 # configured on the RADIUS server.
-WIRELESS_WPA_PASSWORD=''
+WIRELESS_WPA_PASSWORD=
 
 ## Type:	string
 ## Default:	"anonymous"
@@ -525,7 +396,7 @@ WIRELESS_WPA_PASSWORD=''
 # Sets anonymous identity. Default is "anonymous". The anonymous identity is
 # used with WPA-EAP protocols that support different tunnelled identities
 # (e.g., TTLS).
-WIRELESS_WPA_ANONID=''
+WIRELESS_WPA_ANONID=
 
 ## Type:	string
 ## Default:	""
@@ -534,7 +405,7 @@ WIRELESS_WPA_ANONID=''
 # which is highly recommended, you need specify the certificate of the
 # CA (Certification Authority) which signed the server's certificate.
 # Point this variable to the certificate file including full path.
-WIRELESS_CA_CERT=''
+WIRELESS_CA_CERT=
 
 ## Type:	string
 ## Default:	""
@@ -542,7 +413,7 @@ WIRELESS_CA_CERT=''
 # Used with WPA-EAP. If you are using TLS as authentication protocol you need
 # to authenticate yourself through a client certificate. Point this variable
 # to the certificate file including full path.
-WIRELESS_CLIENT_CERT=''
+WIRELESS_CLIENT_CERT=
 
 ## Type:	string
 ## Default:	""
@@ -550,13 +421,13 @@ WIRELESS_CLIENT_CERT=''
 # Used with WPA-EAP. Authentication mode TLS uses a public/private key method
 # to encrypt negotiation data. Point this variable to the file containing your
 # client private key including full path.
-WIRELESS_CLIENT_KEY=''
+WIRELESS_CLIENT_KEY=
 
 ## Type:	string
 ## Default:	""
 #
 # Used with WPA-EAP. Set to the passphrase of your client private key file.
-WIRELESS_CLIENT_KEY_PASSWORD=''
+WIRELESS_CLIENT_KEY_PASSWORD=
 
 ## Type:	yesno
 ## Default:	yes
@@ -564,7 +435,7 @@ WIRELESS_CLIENT_KEY_PASSWORD=''
 # Defines whether hidden SSID scan support should be enabled.  Setting this to
 # "no" can speed up scanning and makes the usage of WIRELESS_PRIORITY
 # possible. This is only used in conjunction with wpa_supplicant.
-WIRELESS_HIDDEN_SSID=''
+WIRELESS_HIDDEN_SSID=
 
 ## Type:	integer
 ## Default:	""
@@ -576,7 +447,7 @@ WIRELESS_HIDDEN_SSID=''
 # configured with WIRELESS_HIDDEN_SSID="yes" (which is default). For networks
 # with hidden SSID scanning support the suffix number is important.  The
 # network with the lowest suffix number gets probed first.
-WIRELESS_PRIORITY=''
+WIRELESS_PRIORITY=
 
 ## Type:	list(0,1,2)
 ## Default:	1
@@ -588,19 +459,7 @@ WIRELESS_PRIORITY=''
 # settings. Default is "1" for most drivers. Try "0" or "2" if you have
 # problems associating to your access point. This variable can have no
 # suffix. This is only used in conjuntion with wpa_supplicant.
-WIRELESS_AP_SCANMODE=''
-
-## Type:	string
-## Default:	""
-#
-# If have configured a WPA mode in WIRELESS_AUTH_MODE you can use this
-# variable to supply a custom wpa_supplicant.conf that will be used instead of
-# the one ifup would generate. The file has to be specified with full path. Of
-# course you can setup any configuration suitable for wpa_supplicant with
-# this, not only WPA modes. This variable can have no suffix. If you want to
-# have multiple network support, you need to create a wpa_supplicant.conf with
-# mulitle network sections (see wpa_supplicant documentation).
-WIRELESS_WPA_CONF=''
+WIRELESS_AP_SCANMODE=
 
 ## Type:        string
 ## Default:     ""
@@ -613,24 +472,7 @@ WIRELESS_WPA_CONF=''
 # can be set in /etc/sysconfig/network/config, WIRELESS_REGULATORY_DOMAIN
 # variable (global).
 #
-WIRELESS_WPA_DRIVER=''
-
-## Type:        string
-## Default:     "-dddt"
-#
-# This variable allows to set the wpa_supplicant debug option, used while
-# wpa_supplicant start when the DEBUG variable is set to "yes".
-#
-WIRELESS_WPA_DEBUG_OPTION='-dddt'
-
-## Type:	yesno
-## Default:	yes
-#
-# If you configured only one wireless network and are not using WPA, the
-# device can be set up without using wpa_supplicant, although it would be
-# possible to use it. This variable defines whether wpa_supplicant should be
-# used in that case.
-PREFER_WPA_SUPPLICANT=''
+WIRELESS_WPA_DRIVER=
 
 ## Type:	string
 ## Default:	""
@@ -644,23 +486,7 @@ PREFER_WPA_SUPPLICANT=''
 # to a specific access point address, 'any' or 'off' to start scanning for
 # an appropriate cell, so ifup-wireless sets it to 'any' in Managed and
 # Ad-Hoc modes when the variable is empty.
-WIRELESS_AP=''
-
-## Type:	string(yes,no,none,)
-## Default:	"none"
-#
-# Used to manipulate power management scheme parameters and mode.
-# Can be set to 'yes', 'no', 'none' or '' (default) or to any setting that
-# is defined in iwconfig(8) manual page as value for the power option.
-#
-# If set to "" or "none", ifup will not manipulate power saving for this device.
-# If set to "no", ifup tries to disable the power saving for this device.
-# If set to "yes", ifup tries to enable power saving for this device.
-# Other settings are passed directly to the iwconfig power command.
-#
-# Note, that this setting is not supported by all cards resp. drivers
-# and shall be tested before the user decides to set it.
-WIRELESS_POWER=''
+WIRELESS_AP=
 
 ## Type:	string
 ## Default:	""
@@ -668,7 +494,7 @@ WIRELESS_POWER=''
 # but this is not used as far as the protocols (MAC, IP, TCP) are concerned
 # and completely accessory as far as configuration goes. If this variable is
 # empty the hostname will be used as nick.
-WIRELESS_NICK=''
+WIRELESS_NICK=
 
 ## Type:	string
 ## Default:	""
@@ -677,7 +503,7 @@ WIRELESS_NICK=''
 # adjacent wireless networks share the same medium, this parameter is used to
 # differenciate them (create logical colocated networks) and identify nodes
 # belonging to the same cell.
-WIRELESS_NWID=''
+WIRELESS_NWID=
 
 ## Type:	string
 ## Default:	""
@@ -687,7 +513,7 @@ WIRELESS_NWID=''
 # numbered starting at 1, and you may use iwpriv(8) to get the total number of
 # channels and list the available frequencies. Depending on regulations, some
 # frequencies/channels may not be available.
-WIRELESS_CHANNEL=''
+WIRELESS_CHANNEL=
 
 ## Type:	integer
 ## Default:	""
@@ -695,7 +521,7 @@ WIRELESS_CHANNEL=''
 # Set the sensitivity threshold. This is the lowest signal level for which we
 # attempt a packet reception, signal lower than this are not received. This
 # is used to avoid receiving background noise.
-WIRELESS_SENS=''
+WIRELESS_SENS=
 
 ## Type:	string
 ## Default:	"auto"
@@ -703,7 +529,7 @@ WIRELESS_SENS=''
 # Usually the highest bitrate available gets used. If you have specific needs
 # to set a bitrate, you can do it here (rates are in Mbit/s). Bitrates above
 # 11 are only available for cards compliant to 802.11a or 802.11g standards.
-WIRELESS_RATE=''
+WIRELESS_RATE=
 
 ## Type:	string
 ## Default:	""
@@ -723,7 +549,7 @@ WIRELESS_RATE=''
 #
 # You  can also use 1, 2, or 3 as suffix for multiple key settings. This
 # is usually not necessary. Leave empty if you do not want WEP.
-WIRELESS_KEY=''
+WIRELESS_KEY=
 
 ## Type:	list(40,104)
 ## Default:	104
@@ -732,7 +558,7 @@ WIRELESS_KEY=''
 # bit keys supported. Sometimes they are also called 64 resp. 128 bits
 # (depends on whether you count the 24 bit initialization vetor or not).
 # This variable is only meaningful if you enter the key as passphrase.
-WIRELESS_KEY_LENGTH=''
+WIRELESS_KEY_LENGTH=
 
 ## Type:	list(0,1,2,3)
 ## Default:	0
@@ -740,9 +566,7 @@ WIRELESS_KEY_LENGTH=''
 # Sets the default WEP key. The default key is used to encrypt outgoing
 # packets, incoming ones are decrypted with the key number specified in the
 # packet. This defaults to 0.
-WIRELESS_DEFAULT_KEY=''
-
-
+WIRELESS_DEFAULT_KEY=
 
 ## Type:	string
 ## Default:	"off"
@@ -752,7 +576,7 @@ WIRELESS_DEFAULT_KEY=''
 # of hidden nodes or large number of active nodes. Possible values: any
 # integer (representing the size of the smallest packet for which the node
 # sends RTS), auto, fixed, or off.
-WIRELESS_RTS=''
+WIRELESS_RTS=
 
 ## Type:	string
 ## Default:	"off"
@@ -761,34 +585,7 @@ WIRELESS_RTS=''
 # transmitted on the medium. In most cases this adds overhead, but in very
 # noisy environment this reduce the error penalty. Possible values: any
 # integer (representing the maximum fragment size), auto, fixed, or off.
-WIRELESS_FRAG=''
-
-## Type:	string
-## Default:	""
-#
-# If you need other options for iwconfig, then write the complete option string
-# as you would append it to iwconfig but without the interface name to the
-# variables below. For multiple options you may (but need not) add linebreaks in
-# the string.
-WIRELESS_IWCONFIG_OPTIONS=''
-
-## Type:	string
-## Default:	""
-#
-# If you need to set options for iwspy, then write the complete option string as
-# you would append it to iwspy but without the interface name to the variables
-# below. For multiple options you may (but need not) add linebreaks in the
-# string.
-WIRELESS_IWSPY_OPTIONS=''
-
-## Type:	string
-## Default:	''
-#
-# If you need to set options for iwpriv then write the complete option string as
-# you would append it to iwpriv but without the interface name to the variables
-# below. For multiple options you may (but need not) add linebreaks in the
-# string.
-WIRELESS_IWPRIV_OPTIONS=''
+WIRELESS_FRAG=
 
 ## Type:	string
 ## Default:	''
@@ -802,7 +599,7 @@ WIRELESS_IWPRIV_OPTIONS=''
 # Default is to allow both. In case you want to restrict it to one
 # protocol, set this variable. When using WIRELESS_AP_SCANMODE 2, this
 # variable needs to be set, otherwise TKIP will be used as fallback.
-WIRELESS_CIPHER_PAIRWISE=''
+WIRELESS_CIPHER_PAIRWISE=
 
 ## Type:	string
 ## Default:	''
@@ -813,7 +610,7 @@ WIRELESS_CIPHER_PAIRWISE=''
 # restrict it to one protocol, set this variable. When using
 # WIRELESS_AP_SCANMODE 2, this variable needs to be set, otherwise
 # TKIP will be used as fallback.
-WIRELESS_CIPHER_GROUP=''
+WIRELESS_CIPHER_GROUP=
 
 ## Type:	string
 ## Default:	''
@@ -821,4 +618,4 @@ WIRELESS_CIPHER_GROUP=''
 # When using WPA-EAP with PEAP authentication, you can use
 # this variable to force which PEAP version (0 or 1) to be used.
 # Default is to allow both.
-WIRELESS_PEAP_VERSION=''
+WIRELESS_PEAP_VERSION=
