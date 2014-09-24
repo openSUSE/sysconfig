@@ -40,7 +40,7 @@ Requires:       sysvinit(network)
 Recommends:     wicked-service
 
 %description
-This package provides the SuSE system configuration scheme for the
+This package provides the SUSE system configuration scheme for the
 traditional "ifup" alias "netcontrol" network scripts.
 
 Authors:
