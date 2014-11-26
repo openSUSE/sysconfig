@@ -44,6 +44,11 @@ MODULEDIR=$r/etc/netconfig.d/
 
 INPUTFORMAT=dhcpcd
 
+function prepend() {
+    test "x$1" != "x" -a -f "$1" || return 0
+    netconfig_kv_filter "$1" | grep -Evs '^(SERVICE|INTERFACE)='
+}
+
 function modify() {
     if [ "x$SERVICE" = "x" ]; then
         warn "No service informations available"
@@ -61,6 +66,15 @@ function modify() {
     local CREATETIME=$a
     local _INTERFACE='' _SERVICE=''
     local -a KEYS VALS
+    local _PREPEND=''
+
+    # prepend previous NetworkManager policy settings
+    if [ "x$SERVICE"        = "xNetworkManager" -a \
+         "x$INTERFACE"      = "x" -a \
+         "x$MODFILTER"     != "x" ] ;
+    then
+        _PREPEND="$STATEDIR/NetworkManager.netconfig"
+    fi
 
     if [ "$INPUTFORMAT" == "dhcpcd" ]; then
         local key val err=0
@@ -87,7 +101,7 @@ function modify() {
             done
             KEYS[${#KEYS[@]}]=$key
             VALS[${#VALS[@]}]=$val
-        done < <(netconfig_kv_filter ${LEASEFILE:+"$LEASEFILE"})
+        done < <(prepend "$_PREPEND" ; netconfig_kv_filter ${LEASEFILE:+"$LEASEFILE"})
         if test $err -ne 0 ; then
             warn "Invalid syntax in ${LEASEFILE:+${LEASEFILE}, }line $err"
             exit 1
