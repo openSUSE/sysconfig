@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Tue Jan 13 18:59:26 UTC 2015 - mt@suse.de
+
+- version 0.83.8
+- netconfig: use domain name from hostname (bug#912891)
+  When there is no dns domain or search list provided (by dhcp),
+  but a hostname as FQDN, use it's domain for /etc/resolv.conf
+  search list.
+- netconfig: merge NetworkManager settings on -m (bug#900982)
+
+-------------------------------------------------------------------
 Tue Oct 28 14:18:53 UTC 2014 - mt@suse.de
 
 - rpm: kill all NetworkManager child processes on migration
