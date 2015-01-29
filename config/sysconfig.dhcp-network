@@ -77,6 +77,30 @@ DHCLIENT_CLIENT_ID=""
 #
 DHCLIENT_VENDOR_CLASS_ID=""
 
+## Type:        list<rfc3004,string>
+## Default:     string
+#
+# Specifies the format of the DHCLIENT_USER_CLASS_ID variable.
+#
+# The DHCPv4 option and it's format is specified by RFC3004 as an array
+# of class identifiers, but most DHCP clients/servers aren't compliant
+# with the specification and send/expect a single string without proper
+# RFC3004 length-value tuple format instead.
+#
+# When set to "rfc3004" DHCLIENT_USER_CLASS_ID[SUFFIX] permit an RFC
+# compliant array, otherwise DHCLIENT_USER_CLASS_ID is used as string.
+#
+DHCLIENT_USER_CLASS_FORMAT=""
+
+## Type:        string
+## Default:     ""
+## Suffix:      yes
+#
+# Specifies the user class identifier (array) to send in dhcp requests.
+# The DHCLIENT_USER_CLASS_FORMAT variable specified how to interpret it.
+#
+DHCLIENT_USER_CLASS_ID=""
+
 ## Type:	integer
 ## Default:	""
 #
