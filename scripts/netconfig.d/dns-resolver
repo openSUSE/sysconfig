@@ -181,6 +181,16 @@ function get_dns_settings()
         get_variable "DNSDOMAIN" "$cfg"
         if [ "x$DNSDOMAIN" != "x" ]; then
             DNS_SEARCHLIST=(${DNS_SEARCHLIST[@]} $DNSDOMAIN)
+        else
+            local H=$HOSTNAME
+            local HOSTNAME
+            get_variable "HOSTNAME" "$cfg"
+            HOSTNAME="${HOSTNAME%.}"
+            if [ "x$HOSTNAME" != "x" -a "x${HOSTNAME#*.}" != "x" \
+                 -a "${HOSTNAME#*.}" != "${HOSTNAME}" ] ; then
+		DNS_SEARCHLIST=(${DNS_SEARCHLIST[@]} "${HOSTNAME#*.}")
+            fi
+	    HOSTNAME=$H
         fi
     fi
     unset DNSSEARCH DNSDOMAIN

@@ -196,6 +196,8 @@ if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ;
 	no)
 		# NetworkManager.service were always started before; stop
 		# and disable it, so /etc/init.d/network isn't masked...
+		# kill all, NM is using KillMode=Process (bnc#895447)
+		/usr/bin/systemctl --kill-who=all kill NetworkManager.service || :
 		/usr/bin/systemctl stop NetworkManager.service || :
 		/usr/bin/systemctl --force disable NetworkManager.service || :
 		rm -f /dev/.sysconfig/network/migrate_nm_variable || :
