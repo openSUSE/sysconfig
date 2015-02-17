@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Feb 17 11:23:22 UTC 2015 - mt@suse.de
+
+- dhcp: add variables for handling of DHCPv4 user-class (bsc#909307)
+  [+ 0001-dhcp-network-variables-for-dhcp4-user-class.909307.patch]
+
+-------------------------------------------------------------------
 Tue Jan 13 18:59:26 UTC 2015 - mt@suse.de
 
 - version 0.83.8
