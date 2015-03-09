@@ -526,7 +526,7 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 		test $n = 1 && message_if_not_run_from_rc "Configured IPv4 routes for interface $INTERFACE:"
 		message_if_not_run_from_rc "  $LINE"
 		for R in $ALL_ROUTES ; do
-			if test "$R" = "${DEST}_${GWAY}_${IFACE}_${TYPE}" ; then
+			if test "$R" = "${DEST}_${GWAY}_${IFACE:-$INTERFACE}_${TYPE}" ; then
 				m=$((m + 1))
 			fi
 		done
