@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Mon Mar  9 11:52:34 UTC 2015 - mt@suse.de
+
+- Applied patch by Hannes Reinecke correcting the type name of
+  hsi devices to qeth in the hwcfg2rules script (bnc#865754).
+  [+ 0003-hwcfg2rules-Fixup-hsi-device-rules.patch]
+- Applied patch proposed by Michal Kubecek to report correct
+  number of applied IPv4 routes in ifstatus (bsc#918664).
+  [+ 0004-ifstatus-applied-routes-status-fix-bsc-918664.patch]
+
+-------------------------------------------------------------------
 Mon Apr 22 12:35:57 UTC 2013 - mt@suse.de
 
 - Fixed to set link settings on bonding slaves while enslave.
