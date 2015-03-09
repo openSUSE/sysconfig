@@ -212,9 +212,9 @@ fi
 if [ "$SCRIPTNAME" = ifup ] ; then
 	if [ "$HOTPLUG" = yes ] ; then
 		# set renamed (ready to configure) flag
-		IFINDEX=/sys/$DEVPATH/ifindex
-		if [ -r "$IFINDEX" ] ; then
-			STAMPFILE=$STAMPFILE_STUB`cat $IFINDEX`
+		IFINDEX_FILE="/sys/$DEVPATH/ifindex"
+		if [ -r "$IFINDEX_FILE" ] ; then
+			STAMPFILE=$STAMPFILE_STUB`cat "$IFINDEX_FILE" 2>/dev/null`
 			echo renamed > $STAMPFILE
 		fi
 		# don't continue on (creation) events for virtual interfaces;
@@ -331,6 +331,11 @@ if [ "${BOOTPROTO:0:4}" != dhcp -a "$DHCP" = yes ] ; then
 	exit $R_USAGE
 fi
 
+######################################################################
+# initialize ifindex if possible, e.g. for cleanup at ifdown
+if [ -z "$IFINDEX" -a -f "/sys/class/net/$INTERFACE/ifindex" ] ; then
+	IFINDEX=`cat "/sys/class/net/$INTERFACE/ifindex" 2>/dev/null`
+fi
 
 ######################################################################
 # If we were called via hotplug or from rc-script then start/stop ifplugd if
@@ -474,6 +479,10 @@ setexitstate () {
 			commit_cached_config_data $INTERFACE
 			delete_from_cached_config_data '*' '' $INTERFACE PFX=ifup-
 			commit_cached_config_data $INTERFACE PFX=ifup-
+			if [ ! -f "/sys/class/net/$INTERFACE/ifindex" ] ; then
+				[ -n "$IFINDEX" ] && rm -f "$STAMPFILE_STUB$IFINDEX" &>/dev/null
+				[ "$RET_STATE" = removed ] && rm -f "$RUN_FILES_BASE/config-$INTERFACE" &>/dev/null
+			fi
 		;;
 	esac
 }
