@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Jun  9 08:18:41 UTC 2015 - mt@suse.de
+
+- netconfig: use ntpd.service on >13.1 (boo#930309)
+  [+ 0002-netconfig-use-ntpd.service-on-13.2-boo-930309.patch]
+
+-------------------------------------------------------------------
 Tue May 12 16:56:10 UTC 2015 - crrodriguez@opensuse.org
 
 - sysconfig-netconfig requires /bin/logger, otherwise the following
