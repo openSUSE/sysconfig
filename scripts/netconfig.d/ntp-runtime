@@ -227,7 +227,7 @@ do_runtime_update()
     NTPDC_BIN="/usr/sbin/ntpdc"
 
     local status
-    systemctl --quiet is-active ntp.service &>/dev/null
+    systemctl --quiet is-active ntpd.service &>/dev/null
     status=$?
 
     if [ -n "${NTP_SERVER_LIST[*]}" -a -f "${NTP_CONF}" ] && [ $status -eq 0 ]; then
