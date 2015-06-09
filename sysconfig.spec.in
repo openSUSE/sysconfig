@@ -1,7 +1,7 @@
 #
 # spec file for package sysconfig
 #
-# Copyright (c) 2014 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2015 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -14,7 +14,6 @@
 
 # Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
-
 
 
 Name:           sysconfig
@@ -61,6 +60,7 @@ Summary:        Script to apply network provided settings
 Group:          System/Base
 Requires(pre):  sysconfig = %{version}
 Provides:       /sbin/netconfig
+Requires:       /bin/logger
 
 %description netconfig
 This package provides the netconfig scripts to apply network

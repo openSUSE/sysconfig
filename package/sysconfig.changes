@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Tue May 12 16:56:10 UTC 2015 - crrodriguez@opensuse.org
+
+- sysconfig-netconfig requires /bin/logger, otherwise the following
+  happens:
+  linux.site wickedd[31]:
+  /etc/sysconfig/network/scripts/functions.netconfig:
+  line 44: logger: command not found
+
+-------------------------------------------------------------------
 Tue Feb 17 11:23:22 UTC 2015 - mt@suse.de
 
 - dhcp: add variables for handling of DHCPv4 user-class (bsc#909307)
