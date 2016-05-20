@@ -125,6 +125,12 @@ ln -s /sbin/service $RPM_BUILD_ROOT/sbin/rcnetwork
 %dir %_sysconfdir/ppp/ipv6-down.d
 %dir %_sysconfdir/ppp/pre-start.d
 %dir %_sysconfdir/ppp/post-stop.d
+%_sysconfdir/ppp/ip-up
+%_sysconfdir/ppp/ip-down
+%_sysconfdir/ppp/ipv6-up
+%_sysconfdir/ppp/ipv6-down
+%_sysconfdir/ppp/post-stop
+%_sysconfdir/ppp/pre-start
 
 %files netconfig
 %defattr(-,root,root)
@@ -134,6 +140,11 @@ ln -s /sbin/service $RPM_BUILD_ROOT/sbin/rcnetwork
 /sbin/netconfig
 /usr/share/man/man8/netconfig.8.gz
 %doc /usr/share/doc/packages/sysconfig/netconfig.png
+%_sysconfdir/ppp/netconfig
+%_sysconfdir/ppp/ip-up.d/10-netconfig
+%_sysconfdir/ppp/ip-down.d/90-netconfig
+%_sysconfdir/ppp/pre-start.d/10-netconfig
+%_sysconfdir/ppp/post-stop.d/90-netconfig
 
 %pre
 # package update ?
