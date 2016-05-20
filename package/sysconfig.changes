@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Fri May 20 14:52:18 UTC 2016 - mt@suse.de
+
+- version 0.83.9
+- ppp: install refactored ip-up and related scripts (bsc#865573)
+- removed patches shipped inside of the source archive
+  [- 0001-dhcp-network-variables-for-dhcp4-user-class.909307.patch]
+  [- 0002-netconfig-use-ntpd.service-on-13.2-boo-930309.patch]
+
+-------------------------------------------------------------------
 Tue Jun  9 08:18:41 UTC 2015 - mt@suse.de
 
 - netconfig: use ntpd.service on >13.1 (boo#930309)
