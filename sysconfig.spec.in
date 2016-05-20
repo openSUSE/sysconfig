@@ -118,6 +118,13 @@ ln -s /sbin/service $RPM_BUILD_ROOT/sbin/rcnetwork
 /usr/share/omc/svcinfo.d/network.xml
 /sbin/rcnetwork
 /sbin/ifuser
+%dir %attr(0750,root,dialout) %_sysconfdir/ppp
+%dir %_sysconfdir/ppp/ip-up.d
+%dir %_sysconfdir/ppp/ip-down.d
+%dir %_sysconfdir/ppp/ipv6-up.d
+%dir %_sysconfdir/ppp/ipv6-down.d
+%dir %_sysconfdir/ppp/pre-start.d
+%dir %_sysconfdir/ppp/post-stop.d
 
 %files netconfig
 %defattr(-,root,root)
