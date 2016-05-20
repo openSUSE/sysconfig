@@ -40,7 +40,7 @@ parse_ipparam()
 	esac
 	eval set -- $IPPARAM
 	[ "$#" -ne 2 ] && return
-	
+
 	ifcfg=${1##ifcfg-}
 	provider=$2
 
@@ -205,7 +205,7 @@ fi
 case "$BASENAME" in
     *-up)
 	add_nameservers
-	
+
 	start_firewall
 
 	if [ ${BASENAME%-*} = "ip" ]; then
@@ -227,7 +227,7 @@ case "$BASENAME" in
 	restore_nameservers
 
 	isdn_restartinterface
-	
+
 	start_firewall
 
 	if [ ${BASENAME%-*} = "ip" ]; then

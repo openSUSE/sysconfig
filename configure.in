@@ -80,6 +80,7 @@ AC_CONFIG_FILES([Makefile
 		 tools/Makefile
 		 sysconfig.spec
 		 scripts/Makefile
+		 scripts/ppp/Makefile
 		 scripts/netconfig.d/Makefile
 		 scripts/hardware/Makefile])
 AC_OUTPUT
