@@ -1,0 +1,90 @@
+#!/bin/bash
+#
+#	/etc/ppp/ip-{up,down}.d/ netconfig(8) update script
+#
+#	Copyright (C) 2016 SUSE LINUX GmbH, Nuernberg, Germany.
+#
+#	This program is free software; you can redistribute it and/or modify
+#	it under the terms of the GNU General Public License as published by
+#	the Free Software Foundation; either version 2 of the License, or
+#	(at your option) any later version.
+#
+#	This program is distributed in the hope that it will be useful,
+#	but WITHOUT ANY WARRANTY; without even the implied warranty of
+#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#	GNU General Public License for more details.
+#
+#	You should have received a copy of the GNU General Public License along
+#	with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+#	Authors:
+#		Pawel Wieczorkiewicz <pwieczorkiewicz@suse.de>
+#		Marius Tomaschewski <mt@suse.de>
+###
+unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
+
+BASENAME=${0##*/}
+INTERFACE=$1
+DEVICE=$2
+SPEED=$3
+LOCALIP=$4
+REMOTEIP=$5
+IPPARAM=$6
+ACTION=${0#/etc/ppp/}
+
+###
+### remove comment chars to trace this script:
+###
+#exec &>/tmp/${ACTION//\//-}.$$.trace
+#set -x
+#echo 1>&2 "$0: $@"
+#env  1>&2
+
+test "X$INTERFACE" = X  && exit 1
+test -x /sbin/netconfig || exit 0
+
+# this assumes, there is a ifcfg file, let's look
+# if the user tried to enable verbose netconfig
+# processing ...
+if test -f "/etc/sysconfig/network/ifcfg-$INTERFACE" ; then
+	eval `grep -hs "^NETCONFIG_VERBOSE=" -- \
+		"/etc/sysconfig/network/ifcfg-$INTERFACE"`
+fi
+test "X$NETCONFIG_VERBOSE" = "Xyes" && VERBOSE="-v"
+
+netconfig_format()
+{
+	if test "X$DNS1$DNS2" != X ; then
+		echo "DNSSERVERS='$DNS1 $DNS2'"
+	fi
+	if test "X$MS_WINS1$MS_WINS2" != X ; then
+		echo "NETBIOSNAMESERVER='$MS_WINS1 $MS_WINS2'"
+	fi
+}
+
+case ${ACTION} in
+# on effective connect
+ip-up.d/*)
+	netconfig_format | \
+	/sbin/netconfig modify $VERBOSE -s pppd-ipv4 -i "$INTERFACE"
+;;
+# on disconnect (e.g. idle)
+ip-down.d/*)
+	/sbin/netconfig remove $VERBOSE -s pppd-ipv4 -i "$INTERFACE"
+;;
+
+# pre start init
+pre-start.d/*)
+	# using pppd-auto causes netconfig to lower the
+	# preference of the settings via dns ranking.
+	netconfig_format | \
+	/sbin/netconfig modify $VERBOSE -s pppd-auto4 -i "$INTERFACE"
+;;
+# post stop cleanup
+post-stop.d/*)
+	/sbin/netconfig remove $VERBOSE -s pppd-auto4 -i "$INTERFACE"
+;;
+esac
+
+exit 0
+
