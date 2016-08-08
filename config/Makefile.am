@@ -10,12 +10,5 @@ sysconfig_network_DATA =	ifcfg.template
 fillup_templates_DATA =	sysconfig.dhcp-network \
 			sysconfig.config-network
 
-omc_svcinfo_DATA = network.xml
-
 EXTRA_DIST = $(sysconfig_network_DATA) \
-	     $(fillup_templates_DATA) \
-	     $(omc_svcinfo_DATA)
-
-install-data-hook:
-	chmod 644  $(DESTDIR)@omc_svcinfodir@/network.xml
-
+	     $(fillup_templates_DATA)
