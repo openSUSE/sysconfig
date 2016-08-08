@@ -1,5 +1,5 @@
 #
-# spec file for package sysconfig
+# spec file for package sysconfig.spec
 #
 # Copyright (c) 2016 SUSE LINUX GmbH, Nuernberg, Germany.
 #
@@ -16,6 +16,12 @@
 #
 
 
+%if 0%{?suse_version} >= 1230
+%define         udevdir	%{_prefix}/lib/udev
+BuildRequires:  pkgconfig(systemd)
+%else
+%define         udevdir	/lib/udev
+%endif
 Name:           sysconfig
 Version:        @VERSION@
 Release:        0
@@ -23,135 +29,107 @@ Summary:        The sysconfig scheme for traditional network scripts
 License:        GPL-2.0+
 Group:          System/Base
 Url:            https://github.com/openSUSE/sysconfig
-PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
+Source:         %{name}-%{version}.tar.bz2
 BuildRequires:  libtool
-BuildRoot:      %{_tmppath}/%{name}-%{version}-build
-%if 0%{?suse_version} >= 1230
-BuildRequires:  pkgconfig(systemd)
-%define         udevdir	/usr/lib/udev
-%else
-%define         udevdir	/lib/udev
-%endif
-Source:         %name-%version.tar.bz2
+BuildRequires:  pkgconfig
 Requires:       /sbin/ifup
 Requires:       /sbin/netconfig
 Requires:       sysvinit(network)
+PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
 Recommends:     wicked-service
+BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
 This package provides the SUSE system configuration scheme for the
 traditional "ifup" alias "netcontrol" network scripts.
 
-Authors:
---------
-    Olaf Kirch <okir@suse.de>
-    Bjoern Jacke <bjoern@j3e.de>
-    Mads Martin Joergensen <mmj@suse.de>
-    Peter Poeml <poeml@suse.de>
-    Arvin Schnell <arvin@suse.de>
-    Michal Svec <msvec@suse.cz>
-    Christian Zoz <zoz@suse.de>
-    Werner Fink <werner@suse.de>
-    Hannes Reinecke <hare@suse.de>
-    Marius Tomaschewski <mt@suse.de>
-
 %package netconfig
 Summary:        Script to apply network provided settings
 Group:          System/Base
+Requires:       /bin/logger
 Requires(pre):  sysconfig = %{version}
 Provides:       /sbin/netconfig
-Requires:       /bin/logger
 
 %description netconfig
 This package provides the netconfig scripts to apply network
 provided settings like DNS or NIS into system files.
 
-Authors:
---------
-    Michael Calmer <mc@suse.de>
-    Marius Tomaschewski <mt@suse.de>
-    Milisav Radmanic <radmanic@suse.de>
-
-
 %prep
-%setup -n sysconfig-%{version}
+%setup -q
 
 %build
-autoreconf --force --install
-CFLAGS="$RPM_OPT_FLAGS -fPIC" \
-./configure --prefix=/ \
+autoreconf -fvi
+CFLAGS="%{optflags} -fPIC" \
+%configure --prefix=/ \
             --sbindir=/sbin \
-            --libdir=/%_lib \
-            --sysconfdir=%_sysconfdir \
-            --mandir=%_mandir \
-            --with-unitdir=%_unitdir \
-            --with-udevdir=%udevdir \
-            --with-fillup-templatesdir=/var/adm/fillup-templates
-%{__make} %{?_smp_mflags}
+            --libdir=/%{_lib} \
+            --sysconfdir=%{_sysconfdir} \
+            --mandir=%{_mandir} \
+            --with-unitdir=%{_unitdir} \
+            --with-udevdir=%{udevdir} \
+            --with-fillup-templatesdir=%{_localstatedir}/adm/fillup-templates
+make %{?_smp_mflags}
 
 %check
-make check
-
-%clean
-rm -rf $RPM_BUILD_ROOT
+make %{?_smp_mflags} check
 
 %install
-make DESTDIR=$RPM_BUILD_ROOT install
-touch $RPM_BUILD_ROOT/etc/sysconfig/network/config
-touch $RPM_BUILD_ROOT/etc/sysconfig/network/dhcp
-mkdir -p $RPM_BUILD_ROOT/sbin
-ln -s /sbin/service $RPM_BUILD_ROOT/sbin/rcnetwork
+make %{?_smp_mflags} DESTDIR=%{buildroot} install
+touch %{buildroot}%{_sysconfdir}/sysconfig/network/config
+touch %{buildroot}%{_sysconfdir}/sysconfig/network/dhcp
+mkdir -p %{buildroot}/sbin
+ln -s /sbin/service %{buildroot}/sbin/rcnetwork
 
 %files
 %defattr(-,root,root)
-%dir /etc/modprobe.d
-%config /etc/modprobe.d/50-blacklist.conf
-%config /etc/sysconfig/network/ifcfg.template
-%ghost /etc/sysconfig/network/config
-%ghost /etc/sysconfig/network/dhcp
-%dir /usr/share/doc/packages/sysconfig
-%doc /usr/share/doc/packages/sysconfig/Contents
-%doc /usr/share/doc/packages/sysconfig/COPYING
-/etc/sysconfig/network/scripts/functions.rpm-utils
-/var/adm/fillup-templates/sysconfig.dhcp-network
-/var/adm/fillup-templates/sysconfig.config-network
-/usr/share/omc/svcinfo.d/network.xml
+%dir %{_sysconfdir}/modprobe.d
+%config %{_sysconfdir}/modprobe.d/50-blacklist.conf
+%config %{_sysconfdir}/sysconfig/network/ifcfg.template
+%ghost %{_sysconfdir}/sysconfig/network/config
+%ghost %{_sysconfdir}/sysconfig/network/dhcp
+%dir %{_docdir}/sysconfig
+%doc %{_docdir}/sysconfig/Contents
+%doc %{_docdir}/sysconfig/COPYING
+%{_sysconfdir}/sysconfig/network/scripts/functions.rpm-utils
+%{_localstatedir}/adm/fillup-templates/sysconfig.dhcp-network
+%{_localstatedir}/adm/fillup-templates/sysconfig.config-network
+%{_datadir}/omc/svcinfo.d/network.xml
 /sbin/rcnetwork
 /sbin/ifuser
-%dir %attr(0750,root,dialout) %_sysconfdir/ppp
-%dir %_sysconfdir/ppp/ip-up.d
-%dir %_sysconfdir/ppp/ip-down.d
-%dir %_sysconfdir/ppp/ipv6-up.d
-%dir %_sysconfdir/ppp/ipv6-down.d
-%dir %_sysconfdir/ppp/pre-start.d
-%dir %_sysconfdir/ppp/post-stop.d
-%_sysconfdir/ppp/ip-up
-%_sysconfdir/ppp/ip-down
-%_sysconfdir/ppp/ipv6-up
-%_sysconfdir/ppp/ipv6-down
-%_sysconfdir/ppp/post-stop
-%_sysconfdir/ppp/pre-start
+%dir %attr(0750,root,dialout) %{_sysconfdir}/ppp
+%dir %{_sysconfdir}/ppp/ip-up.d
+%dir %{_sysconfdir}/ppp/ip-down.d
+%dir %{_sysconfdir}/ppp/ipv6-up.d
+%dir %{_sysconfdir}/ppp/ipv6-down.d
+%dir %{_sysconfdir}/ppp/pre-start.d
+%dir %{_sysconfdir}/ppp/post-stop.d
+%{_sysconfdir}/ppp/ip-up
+%{_sysconfdir}/ppp/ip-down
+%{_sysconfdir}/ppp/ipv6-up
+%{_sysconfdir}/ppp/ipv6-down
+%{_sysconfdir}/ppp/post-stop
+%{_sysconfdir}/ppp/pre-start
 
 %files netconfig
 %defattr(-,root,root)
-%dir /etc/netconfig.d
-/etc/netconfig.d/*
-/etc/sysconfig/network/scripts/functions.netconfig
+%dir %{_sysconfdir}/netconfig.d
+%{_sysconfdir}/netconfig.d/*
+%{_sysconfdir}/sysconfig/network/scripts/functions.netconfig
 /sbin/netconfig
-/usr/share/man/man8/netconfig.8.gz
-%doc /usr/share/doc/packages/sysconfig/netconfig.png
-%_sysconfdir/ppp/netconfig
-%_sysconfdir/ppp/ip-up.d/10-netconfig
-%_sysconfdir/ppp/ip-down.d/90-netconfig
-%_sysconfdir/ppp/pre-start.d/10-netconfig
-%_sysconfdir/ppp/post-stop.d/90-netconfig
+%{_mandir}/man8/netconfig.8%{ext_man}
+%doc %{_docdir}/sysconfig/netconfig.png
+%{_sysconfdir}/ppp/netconfig
+%{_sysconfdir}/ppp/ip-up.d/10-netconfig
+%{_sysconfdir}/ppp/ip-down.d/90-netconfig
+%{_sysconfdir}/ppp/pre-start.d/10-netconfig
+%{_sysconfdir}/ppp/post-stop.d/90-netconfig
 
 %pre
 # package update ?
 if [ ${1:-0} -gt 1 ]; then
 	# trigger update from < 0.80.x only (-> openSUSE 12.3),
 	# (guard for variable added to network/config later...)
-	if [ -x /usr/sbin/NetworkManager ] && grep -qs "^NETWORKMANAGER=" \
+	if [ -x %{_sbindir}/NetworkManager ] && grep -qs "^NETWORKMANAGER=" \
 		var/adm/fillup-templates/sysconfig.config-network ; then
 		mkdir -p /dev/.sysconfig/network/ && \
 		grep -s "^NETWORKMANAGER=" etc/sysconfig/network/config \
@@ -208,23 +186,23 @@ done
 chmod 0600 etc/sysconfig/network/ifcfg-* 2>/dev/null || :
 # bnc#803058: migrate from NETWORKMANAGER=yes/no variable to
 #             network.service alias link masking rcnetwork.
-if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x /usr/bin/systemctl ] ; then
+if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x %{_bindir}/systemctl ] ; then
 	. /dev/.sysconfig/network/migrate_nm_variable
 	case $NETWORKMANAGER in
 	no)
 		# NetworkManager.service were always started before; stop
-		# and disable it, so /etc/init.d/network isn't masked...
+		# and disable it, so %{_initddir}/network isn't masked...
 		# kill all, NM is using KillMode=Process (bnc#895447)
-		/usr/bin/systemctl --kill-who=all kill NetworkManager.service || :
-		/usr/bin/systemctl stop NetworkManager.service || :
-		/usr/bin/systemctl --force disable NetworkManager.service || :
+		%{_bindir}/systemctl --kill-who=all kill NetworkManager.service || :
+		%{_bindir}/systemctl stop NetworkManager.service || :
+		%{_bindir}/systemctl --force disable NetworkManager.service || :
 		rm -f /dev/.sysconfig/network/migrate_nm_variable || :
 	;;
 	yes)
 		# Keep the /dev/.sysconfig/network/migrate_nm_variable file,
 		# as hint for migration in NetworkManager post-install ...
-		# Mask /etc/init.d/network service until NM update is done.
-		/usr/bin/systemctl --force mask network.service || :
+		# Mask %{_initddir}/network service until NM update is done.
+		%{_bindir}/systemctl --force mask network.service || :
 	;;
 	esac
 else
@@ -232,12 +210,10 @@ else
 	sysconfig_remove_and_set network/config NETWORKMANAGER
 fi
 
-%postun
-/sbin/ldconfig
-
+%postun -p /sbin/ldconfig
 %preun
-if test "$1" = "0" -a -x /etc/init.d/network ; then
-	/etc/init.d/network stop-all-dhcp-clients 2>/dev/null || :
+if test "$1" = "0" -a -x %{_initddir}/network ; then
+	%{_initddir}/network stop-all-dhcp-clients 2>/dev/null || :
 fi
 
 %changelog
