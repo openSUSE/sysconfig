@@ -5,7 +5,7 @@
 ## the interface configuration file to overwrite the global settings.
 
 ## Type: list(auto,hotplug,ifplugd,nfsroot,manual,off,onboot)
-## Default: auto
+## Default: manual
 #
 # STARTMODE tells ifup when a interface should be set up. Possible values are:
 # - auto:    start it as soon as the interface is available. Either when booting
