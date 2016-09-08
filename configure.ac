@@ -22,7 +22,6 @@ docdir='${prefix}/usr/share/doc/packages/sysconfig'
 pppdir='${sysconfdir}/ppp'
 nm_dispatcherdir='${sysconfdir}/NetworkManager/dispatcher.d'
 modprobedir='${sysconfdir}/modprobe.d'
-omc_svcinfodir='${prefix}/usr/share/omc/svcinfo.d'
 netconfig_d_scriptsdir='${sysconfdir}/netconfig.d'
 fillup_templatesdir='${prefix}/var/adm/fillup-templates'
 AC_SUBST(sysconfigdir)
@@ -43,7 +42,6 @@ AC_SUBST(udevdir, $with_udevdir)
 AC_SUBST(udevrulesdir, ${with_udevdir}/rules.d)
 AC_SUBST(modprobedir)
 AC_SUBST(nm_dispatcherdir)
-AC_SUBST(omc_svcinfodir)
 AC_SUBST(netconfig_d_scriptsdir)
 AC_ARG_WITH(fillupdir,
 	[  --with-fillup-templatesdir=name   Set the pathname for the fillup templates directory],
