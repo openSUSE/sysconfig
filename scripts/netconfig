@@ -430,7 +430,7 @@ done
 test -z "$ACTION" && usage No action was given
 
 test "X$VERBOSE" = "Xyes" && log "Executing '$COMMANDLINE' for pid $PPID"
-export VERBOSE QUIET
+export VERBOSE QUIET ACTION
 
 #
 # before we start, check for root

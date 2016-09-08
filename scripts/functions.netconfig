@@ -318,7 +318,10 @@ function openLockWait() {
     test -z "$1" && return 1
     test -z "$2" && return 1
 
-    for i in {0..3}; do
+    step="0.25"
+    loop_count=$(($2 * 4))
+
+     for ((i=1; i<=loop_count; i++)); do
 
         openLock "$1"
         if [ "$?" = "0" ]; then
@@ -326,8 +329,8 @@ function openLockWait() {
             return 0;
         fi
 
-        debug "sleep $2 (try $i)"
-        sleep $2
+        debug "wait ${step}s to get lock (try $i)"
+        sleep $step
     done
 
     return 1;
