@@ -224,31 +224,39 @@ do_runtime_update()
     # just try to add the server at runtime ...
     #
     NTP_CONF="/etc/ntp.conf"
-    NTPDC_BIN="/usr/sbin/ntpdc"
+    NTP_TOOL="/usr/sbin/ntpq"
+    test -x "$NTP_TOOL" || return 1
 
     local status
     systemctl --quiet is-active ntpd.service &>/dev/null
     status=$?
 
     if [ -n "${NTP_SERVER_LIST[*]}" -a -f "${NTP_CONF}" ] && [ $status -eq 0 ]; then
-        NTP_KEYS=$(awk -- '/^keys/ { print $2 }' $NTP_CONF 2>/dev/null)
+        NTP_KEYS=$(awk -- '/^keys[[:blank:]]/ { print $2 }' $NTP_CONF 2>/dev/null)
         NTP_KEYID=$(awk -- '/^requestkey[[:blank:]]/ { print $2 }' $NTP_CONF 2>/dev/null)
-        NTP_PASSWD=$(test -n "$NTP_KEYS" -a -n "$NTP_KEYID" -a -r "$NTP_KEYS" && \
-                    awk -- '$0 ~ key { print $3 }' key="^[[:blank:]]*$NTP_KEYID[[:blank:]]" \
-                    $NTP_KEYS 2>/dev/null)
-
-        if [ -n "$NTP_KEYS" -a -n "$NTP_PASSWD" ] ; then
+        if test -n "$NTP_KEYS" -a -n "$NTP_KEYID" -a -r "$NTP_KEYS"; then
+                NTP_KEYTYPE=$(awk '$1 == "'$NTP_KEYID'"{ print $2 }' $NTP_KEYS)
+                NTP_PASSWD=$(awk '$1 == "'$NTP_KEYID'"{ print $3 }' $NTP_KEYS)
+        fi
+        if [ -n "$NTP_KEYS" -a -n "$NTP_PASSWD" -a -n "$NTP_KEYTYPE" ] ; then
             for server in ${NTP_SERVER_LIST[*]} ; do
-                NTPDC_CMD="keyid $NTP_KEYID\npasswd $NTP_PASSWD\naddserver $server\n"
-                NTPDC_LOG=$(echo -e "${NTPDC_CMD}quit" | $NTPDC_BIN 2>&1 >/dev/null)
-                debug "$PROGNAME add-server $server: $NTPDC_LOG"
+                CMD="keytype $NTP_KEYTYPE\nkeyid $NTP_KEYID\npasswd $NTP_PASSWD\n:config server $server\n"
+                LOG=$(echo -e "${CMD}quit" | $NTP_TOOL 2>&1 >/dev/null)
+                if test "X${VERBOSE:-$NETCONFIG_VERBOSE}" = "Xyes" ; then
+                        log "adding server $server${LOG:+ ${NTP_TOOL##*/}: $LOG}"
+                fi
             done
         fi
     fi
 }
 
 # runtime update always in background
-( do_runtime_update & )
+(
+    if test "X$ACTION" != "Xremove" -a ${#NTP_SERVER_LIST[*]} -gt 0 ; then
+        debug "$PROGNAME adding servers ${NTP_SERVER_LIST[*]}"
+        do_runtime_update </dev/null &>/dev/null &
+    fi
+)
 disown -a
 
 exit 0;
