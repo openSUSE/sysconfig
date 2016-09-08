@@ -93,7 +93,6 @@ ln -s /sbin/service %{buildroot}/sbin/rcnetwork
 %{_sysconfdir}/sysconfig/network/scripts/functions.rpm-utils
 %{_localstatedir}/adm/fillup-templates/sysconfig.dhcp-network
 %{_localstatedir}/adm/fillup-templates/sysconfig.config-network
-%{_datadir}/omc/svcinfo.d/network.xml
 /sbin/rcnetwork
 /sbin/ifuser
 %dir %attr(0750,root,dialout) %{_sysconfdir}/ppp
