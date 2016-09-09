@@ -1,4 +1,23 @@
 -------------------------------------------------------------------
+Fri Sep  9 17:19:32 UTC 2016 - mt@suse.de
+
+- version 0.84.0
+- netconfig: intoduced a batch mode (bsc#989741)
+  It permits to preform multiple modify/remove operations
+  and call the effective update at the end of the batch.
+- netconfig: use ntpq, as ntpdc is deprecated (bsc#894889),
+  lower sleep lock wait granularity and fix NTP_KEYS parsing
+- Drop the omc svcinfo data as they are not used anymore
+- Run spec-cleaner to remove few obsolete things
+- Drop cvs helper files as we are in git
+- Rename configure.in to configure.ac
+
+-------------------------------------------------------------------
+Tue May 31 15:31:24 UTC 2016 - mgorman@suse.com
+
+- Add a blacklist entry for the ACPI power meter driver (bnc#974373)
+
+-------------------------------------------------------------------
 Fri May 20 14:52:18 UTC 2016 - mt@suse.de
 
 - version 0.83.9
