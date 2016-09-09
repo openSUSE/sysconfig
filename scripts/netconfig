@@ -52,13 +52,12 @@ function prepend() {
 function modify() {
     if [ "x$SERVICE" = "x" ]; then
         warn "No service informations available"
-        unLock "$PROGNAME"
-        exit 1
+        return 1
     fi
 
     if test "x${LEASEFILE}" != x -a ! -r "${LEASEFILE}" ; then
         warn "Unable to read specified input file '${LEASEFILE}'"
-        exit 1
+        return 1
     fi
 
     local a b
@@ -92,7 +91,7 @@ function modify() {
                     eval "_$key='$val'"
                     if test "x${!key}" != x -a "x${!key}" != "x$val" ; then
                         warn "Input value $key conflicts with command line argument"
-                        exit 1
+                        return 1
                     fi
                 ;;
             esac
@@ -104,11 +103,11 @@ function modify() {
         done < <(prepend "$_PREPEND" ; netconfig_kv_filter ${LEASEFILE:+"$LEASEFILE"})
         if test $err -ne 0 ; then
             warn "Invalid syntax in ${LEASEFILE:+${LEASEFILE}, }line $err"
-            exit 1
+            return 1
         fi
     else
-	warn "Unsupported lease file / input format '$INPUTFORMAT'"
-	exit 1
+        warn "Unsupported lease file / input format '$INPUTFORMAT'"
+        return 1
     fi
 
     # NetworkManager policy merged settings
@@ -119,32 +118,30 @@ function modify() {
         CFGFILE="$STATEDIR/NetworkManager.netconfig"
 
         # first get the createtime. we want to keep it.
-	get_variable CREATETIME "$CFGFILE"
-	KEYS[0]='CREATETIME'
-	VALS[0]="$CREATETIME"
+        get_variable CREATETIME "$CFGFILE"
+        KEYS[0]='CREATETIME'
+        VALS[0]="$CREATETIME"
 
         # remove it also in modify.
         # We want to create it with the same name again.
-	rm -f "$CFGFILE"
+        rm -f "$CFGFILE"
     else
-	# use interface name from config if provided
-	if [ "x$INTERFACE" = "x" -a "x$_INTERFACE" != "x" ]; then
-	     INTERFACE="$_INTERFACE"
+        # use interface name from config if provided
+        if [ "x$INTERFACE" = "x" -a "x$_INTERFACE" != "x" ]; then
+            INTERFACE="$_INTERFACE"
         fi
 
-	if [ "x$INTERFACE" = "x" ]; then
+        if [ "x$INTERFACE" = "x" ]; then
             warn "No interface informations available"
-            unLock "$PROGNAME"
-            exit 1
-	fi
+            return 1
+        fi
 
         if [ ! -d "$STATEDIR/$INTERFACE" ]; then
-		mkdir -p "$STATEDIR/$INTERFACE" || {
-			warn "Can not create interface state dir"
-			unLock "$PROGNAME"
-			exit 1
-		}
-	fi
+            mkdir -p "$STATEDIR/$INTERFACE" || {
+                warn "Can not create interface state dir"
+                return 1
+            }
+        fi
 
         local CFGFILE=`find_cfgfile "$INTERFACE" "$SERVICE"`
         if [ "x$CFGFILE" != "x" ]; then
@@ -157,7 +154,7 @@ function modify() {
             # We want to create it with the same name again.
             rm -f "$CFGFILE"
         fi
-    
+
         if [ "x$CFGFILE" = "x" ]; then
             local CFGNAME=`get_new_cfgname`
             CFGFILE="$STATEDIR/$INTERFACE/$CFGNAME"
@@ -175,8 +172,7 @@ function modify() {
 function remove() {
     if [ "x$SERVICE" = "x" ]; then
         warn "No service informations available"
-        unLock "$PROGNAME"
-        exit 1
+        return 1
     fi
 
     # NetworkManager policy merged settings
@@ -187,10 +183,9 @@ function remove() {
         CFGFILE="$STATEDIR/NetworkManager.netconfig"
 
     else
-	if [ "x$INTERFACE" = "x" ]; then
+        if [ "x$INTERFACE" = "x" ]; then
             warn "No interface informations available"
-            unLock "$PROGNAME"
-            exit 1
+            return 1
         fi
 
         CFGFILE=`find_cfgfile "$INTERFACE" "$SERVICE"`
@@ -215,9 +210,9 @@ function find_cfgfile() {
     local INTERFACE=$1
     local CUR_SERVICE=$2
 
-    for CFG in `ls -X $STATEDIR/$INTERFACE/`; do
+    for CFG in `ls -X $STATEDIR/$INTERFACE/ 2>/dev/null`; do
         get_variable "SERVICE" $STATEDIR/$INTERFACE/$CFG
-            
+
         if [ "$CUR_SERVICE" = "$SERVICE" ]; then
                 CFGNAME=$CFG
                 echo "$STATEDIR/$INTERFACE/$CFG"
@@ -230,13 +225,13 @@ function find_cfgfile() {
 function get_new_cfgname() {
     local CFGNAME=""
 
-    for CFG in `ls -X -r $STATEDIR/$INTERFACE/`; do
+    for CFG in `ls -X -r $STATEDIR/$INTERFACE/ 2>/dev/null`; do
         CNT=`echo "$CFG" | sed 's/netconfig//'`
         ((CNT++))
         CFGNAME="netconfig$CNT"
         break
     done
-    
+
     if [ "x$CFGNAME" = "x" ]; then
         CFGNAME="netconfig0"
     fi
@@ -291,6 +286,117 @@ function run_modules() {
     return $err
 }
 
+function batch ()
+{
+    local _BATCHFILE="$BATCHFILE"
+    local _SERVICE="$SERVICE"
+    local _INTERFACE="$INTERFACE"
+    local _LEASEFILE="$LEASEFILE"
+    local _INPUTFORMAT="$INPUTFORMAT"
+    local _MODFILTER="$MODFILTER"
+    local _FORCE_REPLACE="$FORCE_REPLACE"
+    local _VERBOSE="$VERBOSE"
+    local _QUIET="$QUIET"
+    local _IFS="$IFS"
+    local ERR RET args
+
+    if test "X$_BATCHFILE" != "X" ; then
+        test -f "$_BATCHFILE" || return 1
+    fi
+
+    ERR=0
+    while read -rs -a args ; do
+        set -- "${args[@]}"
+        ACTION=""
+        BATCHFILE=""
+        SERVICE="$_SERVICE"
+        INTERFACE="$_INTERFACE"
+        LEASEFILE="$_LEASEFILE"
+        INPUTFORMAT="$_INPUTFORMAT"
+        MODFILTER="$_MODFILTER"
+        FORCE_REPLACE="$_FORCE_REPLACE"
+        VERBOSE="$_VERBOSE"
+        QUIET="$_QUIET"
+        while test $# -gt 0 ; do
+            VARIABLE=''
+            REGEX=''
+            case "$1" in
+                -s|--service)       VARIABLE=SERVICE ;
+                                    REGEX='^[[:alnum:]_-]+$' ;;
+                -i|--interface)     VARIABLE=INTERFACE ;
+                                    REGEX='^[^'"'"'`"\\/[:space:][:cntrl:]]+$' ;;
+                -l|--lease-file)    VARIABLE=LEASEFILE;;
+                -I|--input-file)    VARIABLE=LEASEFILE;;
+                -F|--input-format)  VARIABLE=INPUTFORMAT;;
+                -m|--module-only)   VARIABLE=MODFILTER;;
+                -f|--force-replace) FORCE_REPLACE="true";;
+                -B|--batch-file)    VARIABLE=BATCHFILE;;
+                -v|--verbose)       VERBOSE="yes"; QUIET="no";;
+                -q|--quiet)         QUIET="yes"; VERBOSE="no";;
+                -h|--help)          ;;
+                "") break           ;;
+                --)
+                    shift
+                    test -n "$ACTION" -o $# -gt 1 && {
+                        debug "batch: exactly one action can be given."
+                        continue 2
+                    }
+                    ACTION="$1"
+                    shift
+                    break
+                ;;
+                *)
+                    test -n "$ACTION" && {
+                        debug "batch: exactly one action may be given."
+                        continue 2
+                    }
+                    ACTION="$1"
+                ;;
+                -*) debug "batch: unknown option '$1'" ; continue 2 ;;
+            esac
+            if [ -n "$VARIABLE" ] ; then
+                case $2 in
+                (""|-*) debug "batch: option $1 needs an argument" ;;
+                esac
+                if [ -n "$REGEX" ] ; then
+                    if ! [[ ${1} =~ ${REGEX} ]] ; then
+                        debug "Invalid character in value for option $VARIABLE"
+                        continue 2
+                    fi
+                fi
+                eval $VARIABLE=\$2
+                shift
+            fi
+            shift
+        done
+        test "X$ACTION" = "Xmodify" -a -z "$LEASEFILE" && {
+            debug "batch: input file required"
+            continue
+        }
+        export VERBOSE QUIET ACTION
+        RET=0
+        case "$ACTION" in
+            modify)
+                if test -z "$LEASEFILE" ; then
+                    debug "batch: input file required in modify action"
+                else
+                    modify
+                fi
+            ;;
+            remove) remove                                  ;;
+            update)
+                run_modules "$MODFILTER" ; RET=$?
+                if [ "$RET" != "0" -a "$ERR" = "0" ]; then
+                    ERR=$RET
+                fi
+            ;;
+            *) debug "batch: unsupported action '$ACTION'"  ;;
+        esac
+        IFS="$_IFS"
+    done < <(cat -- ${_BATCHFILE:+"$_BATCHFILE"})
+
+    return $ERR
+}
 
 function usage () 
 {
@@ -326,6 +432,8 @@ Usage:
   remove    Removes the interface and service specific settings and
             updates the managed files.
   update    Updates the managed files with the current set of settings.
+  batch     Executes a batch file with modify,remove,update action lines.
+            Unlike in regular actions, modify and remove do not call update.
 
  modify options:
   < -s|--service <service name> >       service providing settings
@@ -347,6 +455,10 @@ Usage:
  update options:
   [ -m|--module-only <name | prefix> ]  module or module group updates only
   [ -f|--force-replace ]                generate files, even user modified
+  [ -v|--verbose ]                      enable debug and be verbose
+
+ batch options:
+  [ -B|--batch-file <file name> ]       file name to read, stdin by default
   [ -v|--verbose ]                      enable debug and be verbose
 
  global options:
@@ -375,6 +487,7 @@ MODFILTER=""
 FORCE_REPLACE=false
 QUIET=no
 VERBOSE=no
+BATCHFILE=""
 test "X$NETCONFIG_VERBOSE" = "Xyes"       && VERBOSE="yes"
 test "X$NETCONFIG_FORCE_REPLACE" = "Xyes" && FORCE_REPLACE="true"
 while true ; do
@@ -392,6 +505,7 @@ while true ; do
         -F|--input-format)  VARIABLE=INPUTFORMAT;;
         -m|--module-only)   VARIABLE=MODFILTER;;
         -f|--force-replace) FORCE_REPLACE="true";;
+        -B|--batch-file)    VARIABLE=BATCHFILE;;
         -v|--verbose)       VERBOSE="yes"; QUIET="no";;
         -q|--quiet)         QUIET="yes"; VERBOSE="no";;
         -h|--help)          usage;;
@@ -482,6 +596,10 @@ case "$ACTION" in
            remove                   ; RET=$?
            if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
            run_modules "$MODFILTER" ; RET=$?
+           if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
+           ;;
+    batch)
+           batch                    ; RET=$?
            if [ "$RET" != "0" -a "$ERR" = "0" ]; then ERR=$RET; fi
            ;;
     *)
