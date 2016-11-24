@@ -41,7 +41,7 @@ debug "$PROGNAME Module called"
 NTP_SERVER_LIST=()
 
 DESTFILE="$r/var/run/ntp/servers-netconfig"
-TMP_FILE=""
+TMP_FILE="$r/var/run/ntp/.servers-netconfig.XXXXXX"
 
 function write_ntp_servers()
 {
@@ -62,10 +62,12 @@ function write_ntp_servers()
 
     local SERVERS
 
-    TMP_FILE=`mktemp -t "ntp-servers-netconfig.XXXXXX"` || return 1
+    TMP_FILE=`mktemp -- "$TMP_FILE"` || return 1
 
+    # avoid $DESTFILE.$DATE backups, useless in this case
+    test "$FORCE_REPLACE" = true && rm -f -- "$DESTFILE"
     if test ! -s "$DESTFILE" ; then
-        touch "$DESTFILE"  ; chmod 644 "$DESTFILE"
+        touch -- "$DESTFILE"  ; chmod 644 -- "$DESTFILE"
     fi
 
     # * copy dest => tmp to get the file attributes
@@ -210,7 +212,9 @@ if [ $RET -eq 1 ]; then
 elif [ $RET -eq 2 ]; then
    # user modified the config. Copy aborted
     echo "ATTENTION: You have modified $DESTFILE.  Leaving it untouched..."
-    echo "You can find my version in $TMP_FILE ..."
+    if test "x$TMP_FILE" != "x" -a -f "$TMP_FILE" ; then
+      echo "You can find my version in $TMP_FILE ..."
+    fi
 
     exit 20
 fi
