@@ -299,8 +299,10 @@ netconfig_kv_filter()
     	sub("[[:space:]]+$", "", $0);
     	equ=index($0, "=");
     	key=substr($0, 1, equ - 1);
-    	val=substr($0, equ + 2, length($0) - equ - 2)
+    	if (key in array) next;
+    	val=substr($0, equ + 2, length($0) - equ - 2);
     	print key"="val;
+    	array[key]=1;
     	next;
     }
     { print "="NR; exit(NR); }' "$@"

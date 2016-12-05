@@ -95,9 +95,6 @@ function modify() {
                     fi
                 ;;
             esac
-            for k in ${KEYS[@]} ; do
-                test "x$k" = "x$key" && continue 2
-            done
             KEYS[${#KEYS[@]}]=$key
             VALS[${#VALS[@]}]=$val
         done < <(prepend "$_PREPEND" ; netconfig_kv_filter ${LEASEFILE:+"$LEASEFILE"})
