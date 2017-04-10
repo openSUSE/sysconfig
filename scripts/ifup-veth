@@ -1,0 +1,155 @@
+#! /bin/bash
+#
+# Copyright (c) 2002-2006 SuSE Linux AG Nuernberg, Germany.
+# Copyright (c) 2007-2013 SUSE LINUX Products GmbH, Germany.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors: Marius Tomaschewski <mt@suse.de>
+#
+# $Id$
+#
+
+unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
+
+usage () {
+        echo $@
+        echo ""
+        echo "Usage: if{up,down,status}-veth [<config>] <interface> [-o <options>]"
+        echo ""
+        echo "Options are:"
+        echo "    [on]boot : we are currently booting (or shutting down)"
+        echo "    hotplug  : we are handling a hotplug event"
+        echo "    auto     : alias for onboot"
+        echo "    debug    : be verbose"
+        echo ""
+        echo "All other or wrong options are silently ignored."
+        echo ""
+        exit $R_USAGE
+}
+
+######################################################################
+# change the working direcory and source some common files
+#
+R_INTERNAL=1      # internal error, e.g. no config or missing scripts
+cd /etc/sysconfig/network || exit $R_INTERNAL
+test -f ./config && . ./config
+test -f scripts/functions && . scripts/functions || exit $R_INTERNAL
+
+######################################################################
+# check arguments and how we are called (in case of links)
+#
+SCRIPTNAME=${0##*/}
+debug $*
+ACTION=${SCRIPTNAME#if}
+ACTION=${ACTION%%-*}
+case "${ACTION}" in
+        up|status|down|check) ;;
+        *) usage
+esac
+case "$1" in ""|-h|*help*) usage; esac
+CONFIG=$1
+shift
+if [ -n "$1" -a "$1" != "-o" ] ; then
+        INTERFACE=$1
+else
+        INTERFACE=$CONFIG
+fi
+shift
+test "$1" = "-o" && shift
+OPTIONS="$@"
+MODE=manual
+while [ $# -gt 0 ]; do
+        case $1 in
+                boot|onboot) MODE=auto ;;
+                hotplug)     MODE=auto ;;
+                auto)        MODE=auto ;;
+                quiet)       be_quiet_has_gone ;;
+                debug)       DEBUG=yes ;;
+                *)           debug unknown option $1 ;;
+        esac
+        shift
+done
+
+######################################################################
+# check presence of configuration file and source it
+#
+source_iface_config "$CONFIG" || {
+        message "could not find interface configuration: $CONFIG"
+}
+
+######################################################################
+# now do what has to be done
+#
+RETVAL=$R_SUCCESS
+PEER=`echo ${INTERFACE:0:-1}1`
+
+case $ACTION in
+        up)
+                if [ ! -d "/sys/class/net/$INTERFACE" ] ; then
+                        out=`ip link add "$INTERFACE" type veth peer name "$PEER" 2>&1` || {
+                                RETVAL=$R_NODEV
+                                err_mesg "`printf "    %-9s " "$INTERFACE"` $out"
+                        }                      
+                        ip link set "$INTERFACE" up &>/dev/null
+                        ip link set "$PEER" up &>/dev/null
+                        
+                        if [ "$IPADDR" != "" ] ; then
+                            ip addr add $IPADDR dev "$INTERFACE" &>/dev/null
+                        fi
+                        
+                        if [ "$LLADDR" != "" ] ; then
+                            ip link set "$INTERFACE" address $LLADDR  &>/dev/null
+                        fi   
+                        
+                        if [ "$LLADDR_PEER" != "" ] ; then
+                            ip link set "$PEER" address $LLADDR_PEER  &>/dev/null
+                        fi   
+                        
+                        if [ "$MTU" != "" ] ; then
+                            ip link set "$INTERFACE" mtu $MTU  &>/dev/null                        
+                            ip link set "$PEER" mtu $MTU  &>/dev/null
+                        fi                           
+                fi
+        ;;
+        down)
+                if [ -d "/sys/class/net/$INTERFACE" ] ; then
+                        if is_iface_up $INTERFACE ; then
+                                ip link set dev "$INTERFACE" down &>/dev/null
+                                udevadm settle &>/dev/null
+                        fi
+                        out=`ip link del "$INTERFACE" type veth 2>&1` || {
+                                RETVAL=$R_ERROR
+                                err_mesg "`printf "    %-9s " "$INTERFACE"` $out"
+                        }
+                else
+                        RETVAL=$R_NODEV
+                fi
+        ;;
+        status)
+                if [ -d "/sys/class/net/$INTERFACE" ] ; then
+                        if is_iface_up "$INTERFACE" ; then
+                                : ip addr show "$INTERFACE"
+                        else
+                                RETVAL=$R_NOTRUNNING
+                        fi
+                else
+                        RETVAL=$R_NODEV
+                fi
+        ;;
+esac
+
+exit $RETVAL
+ 

@@ -150,7 +150,7 @@ is_iface_available () {
 	test "${SCRIPTNAME%%-*}" = ifup      && { \
 	    case ${IFTYPE} in
 		bond|bridge|vlan|ibchild)       return 0 ;;
-		ppp|isdn|dummy|tun|tap)		return 0 ;;
+		ppp|isdn|dummy|veth|tun|tap)		return 0 ;;
 		ipip|ip6tnl|sit|gre|mip6mnha)	return 0 ;;
 	    esac
 	}
@@ -329,6 +329,7 @@ get_iface_type () {
 	case $IF in
 		ippp*|isdn*) TYPE=isdn;;
 		mip6mnha*)   TYPE=mip6mnha;;
+        veth*|isdn*) TYPE=veth;;		
 	esac
 	test -n "$TYPE" && echo $TYPE && return 0
 	return 3
@@ -390,6 +391,7 @@ get_iface_type_from_config () {
 		case $IF in
 			lo)          TYPE=lo;;
 			dummy*)      TYPE=dummy;;
+            veth*)       TYPE=veth;;			
 			ib*)         TYPE=ib;;
 			ip6tnl*)     TYPE=ip6tnl;;
 			mip6mnha*)   TYPE=mip6mnha;;
