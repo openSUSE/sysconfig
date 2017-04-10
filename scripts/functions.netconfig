@@ -263,8 +263,14 @@ netconfig_check_md5_and_move()
             log "You can find my version in ${OUTFILE}${OSUFFIX}"
             test "x$ERR_VAR" != x && eval "$ERR_VAR='${OUTFILE}${OSUFFIX}'"
         else
-            log "You can find my version in $SRCFILE ..."
-            test "x$ERR_VAR" != x && eval "$ERR_VAR='${SRCFILE}'"
+            if test "x$OSUFFIX" != x ; then
+                # backup requested + failed, set err var
+                test "x$ERR_VAR" != x && eval "$ERR_VAR='$SRCFILE'"
+            else
+                # no backup requested, delete src tmp file
+                rm --f -- "$SRCFILE"
+                test "x$ERR_VAR" != x && eval "$ERR_VAR=''"
+            fi
         fi
         RET=2
     else
@@ -279,12 +285,16 @@ netconfig_check_md5_and_move()
         fi
         rm -f "$SRCFILE"
     fi
-    rm -f "$MD5FILE"
-    {
-        test "x${NEW_ERX}" != x && \
-            echo "#${NEW_ERX}"
-        echo "$NEWMD5SUM"
-    } > "$MD5FILE"
+
+    if test $RET -eq 0 ; then
+      # update md5 when we've changed dst file
+      rm -f "$MD5FILE"
+      {
+          test "x${NEW_ERX}" != x && \
+              echo "#${NEW_ERX}"
+          echo "$NEWMD5SUM"
+      } > "$MD5FILE"
+    fi
 
     return $RET
 }
