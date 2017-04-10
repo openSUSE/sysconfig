@@ -35,7 +35,7 @@ BuildRequires:  pkgconfig
 Requires:       /sbin/ifup
 Requires:       /sbin/netconfig
 Requires:       sysvinit(network)
-PreReq:         %fillup_prereq %insserv_prereq textutils fileutils gawk sed grep
+PreReq:         %fillup_prereq textutils fileutils gawk sed grep
 Recommends:     wicked-service
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
