@@ -1,4 +1,18 @@
 -------------------------------------------------------------------
+Mon Apr 10 11:14:24 UTC 2017 - mt@suse.de
+
+- version 0.84.1
+- netconfig: cleanup tmp files (boo#1010760)
+  When /var/run/ntp/servers-netconfig has been modified externaly,
+  don't try to backup or keep tmp files to show what we would do.
+- netconfig: improve input check for duplicate keys (bsc#1009801)
+
+-------------------------------------------------------------------
+Tue Oct 11 11:34:21 CEST 2016 - kukuk@suse.de
+
+- Remove requires for not needed insserv (bsc#999850)
+
+-------------------------------------------------------------------
 Fri Sep  9 17:19:32 UTC 2016 - mt@suse.de
 
 - version 0.84.0
