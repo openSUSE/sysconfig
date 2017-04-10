@@ -607,9 +607,11 @@ print_network_block()
         fi
 
         eval EAP_AUTH=\$WIRELESS_EAP_AUTH$SUFFIX
-        if [ -n "$EAP_AUTH" ]; then
-            echo "  phase2=\"auth=$EAP_AUTH\""
+        if [ -z "$EAP_AUTH" ]; then
+            EAP_AUTH="any"
         fi
+        echo "  phase2=\"auth=$EAP_AUTH\""
+
         ;;
     esac
     echo "}"
