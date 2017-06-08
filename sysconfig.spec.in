@@ -100,7 +100,7 @@ ln -s /sbin/service %{buildroot}/sbin/rcnetwork
 %{_localstatedir}/adm/fillup-templates/sysconfig.config-network
 /sbin/rcnetwork
 /sbin/ifuser
-%dir %attr(0750,root,dialout) %{_sysconfdir}/ppp
+%dir %attr(0750,root,root) %{_sysconfdir}/ppp
 %dir %{_sysconfdir}/ppp/ip-up.d
 %dir %{_sysconfdir}/ppp/ip-down.d
 %dir %{_sysconfdir}/ppp/ipv6-up.d
