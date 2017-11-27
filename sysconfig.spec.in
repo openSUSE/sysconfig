@@ -139,7 +139,7 @@ if [ ${1:-0} -gt 1 ]; then
 	# trigger update from < 0.80.x only (-> openSUSE 12.3),
 	# (guard for variable added to network/config later...)
 	if [ -x %{_sbindir}/NetworkManager ] && grep -qs "^NETWORKMANAGER=" \
-		%{_fillupdir}/sysconfig.config-network ; then
+		var/adm/fillup-templates/sysconfig.config-network ; then
 		mkdir -p /dev/.sysconfig/network/ && \
 		grep -s "^NETWORKMANAGER=" etc/sysconfig/network/config \
 			> /dev/.sysconfig/network/migrate_nm_variable || :
