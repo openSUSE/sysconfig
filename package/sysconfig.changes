@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Mon Nov 27 14:47:37 UTC 2017 - mt@suse.com
+
+- version 0.84.2
+- spec: revert change to use _fillupdir in update hook from < 0.80
+- merged fixes of the the fillup templates logic and macro in
+  configure.ac by Marcus Meissner
+
+-------------------------------------------------------------------
+Thu Nov 23 13:42:10 UTC 2017 - rbrown@suse.com
+
+- Replace references to /var/adm/fillup-templates with new
+  %_fillupdir macro (boo#1069468)
+
+-------------------------------------------------------------------
+Thu Jun  8 16:23:33 UTC 2017 - dimstar@opensuse.org
+
+- Make /etc/ppp owned by root:root. The group dialout usage is no
+  longer used.
+
+-------------------------------------------------------------------
 Mon Apr 10 11:14:24 UTC 2017 - mt@suse.de
 
 - version 0.84.1
