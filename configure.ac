@@ -43,11 +43,11 @@ AC_SUBST(udevrulesdir, ${with_udevdir}/rules.d)
 AC_SUBST(modprobedir)
 AC_SUBST(nm_dispatcherdir)
 AC_SUBST(netconfig_d_scriptsdir)
-AC_ARG_WITH(fillupdir,
-	[  --with-fillup-templatesdir=name   Set the pathname for the fillup templates directory],
-	fillup-templatesdir=$withval; AC_MSG_RESULT(configuration directory: $fillup_templatesdir),
-	fillup_templatesdir='${prefix}/var/adm/fillup-templates'; AC_MSG_RESULT(fillup templates directory: $fillup_templatesdir)
-)
+AC_ARG_WITH(fillup-templatesdir,
+	[  --with-fillup-templatesdir=name   Set the pathname for the fillup templates directory],[
+	fillup_templatesdir=$withval; AC_MSG_RESULT(configuration directory: $fillup_templatesdir)],
+	[fillup_templatesdir='${prefix}/var/adm/fillup-templates'; AC_MSG_RESULT(fillup templates directory: $fillup_templatesdir)
+])
 AC_SUBST(fillup_templatesdir)
 
 
