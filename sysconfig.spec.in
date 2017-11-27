@@ -16,6 +16,11 @@
 #
 
 
+#Compat macro for new _fillupdir macro introduced in Nov 2017
+%if ! %{defined _fillupdir}
+  %define _fillupdir /var/adm/fillup-templates
+%endif
+
 %if 0%{?suse_version} >= 1230
 %define         udevdir	%{_prefix}/lib/udev
 BuildRequires:  pkgconfig(systemd)
@@ -72,7 +77,7 @@ CFLAGS="%{optflags} -fPIC" \
             --mandir=%{_mandir} \
             --with-unitdir=%{_unitdir} \
             --with-udevdir=%{udevdir} \
-            --with-fillup-templatesdir=%{_localstatedir}/adm/fillup-templates
+            --with-fillup-templatesdir=%{_fillupdir}
 make %{?_smp_mflags}
 
 %check
@@ -96,11 +101,11 @@ ln -s /sbin/service %{buildroot}/sbin/rcnetwork
 %doc %{_docdir}/sysconfig/Contents
 %doc %{_docdir}/sysconfig/COPYING
 %{_sysconfdir}/sysconfig/network/scripts/functions.rpm-utils
-%{_localstatedir}/adm/fillup-templates/sysconfig.dhcp-network
-%{_localstatedir}/adm/fillup-templates/sysconfig.config-network
+%{_fillupdir}/sysconfig.dhcp-network
+%{_fillupdir}/sysconfig.config-network
 /sbin/rcnetwork
 /sbin/ifuser
-%dir %attr(0750,root,dialout) %{_sysconfdir}/ppp
+%dir %attr(0750,root,root) %{_sysconfdir}/ppp
 %dir %{_sysconfdir}/ppp/ip-up.d
 %dir %{_sysconfdir}/ppp/ip-down.d
 %dir %{_sysconfdir}/ppp/ipv6-up.d
@@ -134,7 +139,7 @@ if [ ${1:-0} -gt 1 ]; then
 	# trigger update from < 0.80.x only (-> openSUSE 12.3),
 	# (guard for variable added to network/config later...)
 	if [ -x %{_sbindir}/NetworkManager ] && grep -qs "^NETWORKMANAGER=" \
-		var/adm/fillup-templates/sysconfig.config-network ; then
+		%{_fillupdir}/sysconfig.config-network ; then
 		mkdir -p /dev/.sysconfig/network/ && \
 		grep -s "^NETWORKMANAGER=" etc/sysconfig/network/config \
 			> /dev/.sysconfig/network/migrate_nm_variable || :
