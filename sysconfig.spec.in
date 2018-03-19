@@ -1,7 +1,7 @@
 #
 # spec file for package sysconfig
 #
-# Copyright (c) 2017 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2018 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -31,7 +31,7 @@ Name:           sysconfig
 Version:        @VERSION@
 Release:        0
 Summary:        The sysconfig scheme for traditional network scripts
-License:        GPL-2.0+
+License:        GPL-2.0-or-later
 Group:          System/Base
 Url:            https://github.com/openSUSE/sysconfig
 Source:         %{name}-%{version}.tar.bz2
@@ -89,9 +89,11 @@ touch %{buildroot}%{_sysconfdir}/sysconfig/network/config
 touch %{buildroot}%{_sysconfdir}/sysconfig/network/dhcp
 mkdir -p %{buildroot}/sbin
 ln -s /sbin/service %{buildroot}/sbin/rcnetwork
+rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
 
 %files
 %defattr(-,root,root)
+%license doc/COPYING
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/50-blacklist.conf
 %config %{_sysconfdir}/sysconfig/network/ifcfg.template
@@ -99,7 +101,6 @@ ln -s /sbin/service %{buildroot}/sbin/rcnetwork
 %ghost %{_sysconfdir}/sysconfig/network/dhcp
 %dir %{_docdir}/sysconfig
 %doc %{_docdir}/sysconfig/Contents
-%doc %{_docdir}/sysconfig/COPYING
 %{_sysconfdir}/sysconfig/network/scripts/functions.rpm-utils
 %{_fillupdir}/sysconfig.dhcp-network
 %{_fillupdir}/sysconfig.config-network
