@@ -154,7 +154,12 @@ EOT
         } >> "$TMP_FILE"
     fi
 
-    netconfig_check_md5_and_move "$TMP_FILE" "$DESTFILE" ".netconfig" TMP_FILE
+    if which resolvconf > /dev/null 2>&1 ; then
+        cat "$TMP_FILE" | resolvconf -a netconfig
+        rm "$TMP_FILE"
+    else
+        netconfig_check_md5_and_move "$TMP_FILE" "$DESTFILE" ".netconfig" TMP_FILE
+    fi
     return $?
 }
 
