@@ -81,7 +81,7 @@ netconfig_policy()
         # Use NetworkManager policy merged data
         #
         test "x$policy" = "xauto" && \
-            policy='STATIC_FALLBACK NetworkManager'
+            policy='STATIC_FALLBACK * NetworkManager'
     ;;
     network.service|*)
         #
