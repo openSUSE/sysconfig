@@ -1,4 +1,15 @@
 -------------------------------------------------------------------
+Thu May 17 09:17:39 UTC 2018 - mt@suse.de
+
+- version 0.84.3
+- netconfig: change policy to permit non-NM settings (bsc#1079793)
+  As requested and approved by NetworkManager maintainer, the 'auto'
+  policy permits now also per interface settings provided by other
+  services when NetworkManager is enabled. That is, the auto policy
+  resolving has been changed from "STATIC_FALLBACK NetworkManager"
+  to "STATIC_FALLBACK * NetworkManager".
+
+-------------------------------------------------------------------
 Mon Mar 19 15:29:04 CET 2018 - kukuk@suse.de
 
 - Use %license instead of %doc [bsc#1082318]
