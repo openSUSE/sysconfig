@@ -24,7 +24,7 @@ r=$ROOT
 NETCONFIG_DNS_RANKING_DEFAULT="+/vpn/ -/auto/ +strongswan +openswan +racoon -avahi"
 
 test -z "$MD5DIR" && {
-    MD5DIR=$r/var/adm/netconfig/md5
+    MD5DIR=$r/var/lib/netconfig/md5
     #echo "Using MD5DIR=\"$MD5DIR\"..."
 }
 
