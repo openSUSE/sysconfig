@@ -135,21 +135,6 @@ rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
 %{_sysconfdir}/ppp/pre-start.d/10-netconfig
 %{_sysconfdir}/ppp/post-stop.d/90-netconfig
 
-%pre
-# package update ?
-if [ ${1:-0} -gt 1 ]; then
-	# trigger update from < 0.80.x only (-> openSUSE 12.3),
-	# (guard for variable added to network/config later...)
-	if [ -x %{_sbindir}/NetworkManager ] && grep -qs "^NETWORKMANAGER=" \
-		var/adm/fillup-templates/sysconfig.config-network ; then
-		mkdir -p /dev/.sysconfig/network/ && \
-		grep -s "^NETWORKMANAGER=" etc/sysconfig/network/config \
-			> /dev/.sysconfig/network/migrate_nm_variable || :
-	elif [ -f /dev/.sysconfig/network/migrate_nm_variable ] ; then
-		rm -f /dev/.sysconfig/network/migrate_nm_variable || :
-	fi
-fi
-
 %post
 #
 ## we provide own, improved variant of the remove_and_set suse
@@ -195,31 +180,6 @@ for file in etc/sysconfig/network/dhcp etc/sysconfig/network/ifcfg-* ; do
 done
 # be a little bit paranoid and set the correct mode even we set umask
 chmod 0600 etc/sysconfig/network/ifcfg-* 2>/dev/null || :
-# bnc#803058: migrate from NETWORKMANAGER=yes/no variable to
-#             network.service alias link masking rcnetwork.
-if [ -f /dev/.sysconfig/network/migrate_nm_variable -a -x %{_bindir}/systemctl ] ; then
-	. /dev/.sysconfig/network/migrate_nm_variable
-	case $NETWORKMANAGER in
-	no)
-		# NetworkManager.service were always started before; stop
-		# and disable it, so %{_initddir}/network isn't masked...
-		# kill all, NM is using KillMode=Process (bnc#895447)
-		%{_bindir}/systemctl --kill-who=all kill NetworkManager.service || :
-		%{_bindir}/systemctl stop NetworkManager.service || :
-		%{_bindir}/systemctl --force disable NetworkManager.service || :
-		rm -f /dev/.sysconfig/network/migrate_nm_variable || :
-	;;
-	yes)
-		# Keep the /dev/.sysconfig/network/migrate_nm_variable file,
-		# as hint for migration in NetworkManager post-install ...
-		# Mask %{_initddir}/network service until NM update is done.
-		%{_bindir}/systemctl --force mask network.service || :
-	;;
-	esac
-else
-	# cleanup obsolete NETWORKMANAGER variable
-	sysconfig_remove_and_set network/config NETWORKMANAGER
-fi
 
 %postun -p /sbin/ldconfig
 %preun
