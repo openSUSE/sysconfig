@@ -97,6 +97,7 @@ rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
 %license doc/COPYING
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/50-blacklist.conf
+%config %{_sysconfdir}/modprobe.d/60-filesystem-blacklist.conf
 %config %{_sysconfdir}/sysconfig/network/ifcfg.template
 %ghost %{_sysconfdir}/sysconfig/network/config
 %ghost %{_sysconfdir}/sysconfig/network/dhcp
