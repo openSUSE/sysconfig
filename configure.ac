@@ -74,7 +74,7 @@ AC_CHECK_FUNCS([gethostbyname strerror])
 AC_CONFIG_FILES([Makefile
 		 doc/Makefile
 		 config/Makefile
-		 config/hardware/Makefile
+		 config/modprobe.d/Makefile
 		 tools/Makefile
 		 sysconfig.spec
 		 scripts/Makefile

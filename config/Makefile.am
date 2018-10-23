@@ -3,7 +3,7 @@
 CLEANFILES = *~
 MAINTAINERCLEANFILES = Makefile.in
 
-SUBDIRS = hardware
+SUBDIRS = modprobe.d
 
 sysconfig_network_DATA =	ifcfg.template
 
