@@ -157,9 +157,131 @@ function read_symlink()
     local name="$1"
     local dest=""
     if test "x$name" != x ; then
-        dest=`readlink -f "$name" 2>/dev/null`
+        dest=`readlink -f -- "$name" 2>/dev/null`
     fi
     test "x$dest" != x && echo "$dest" || echo "$name"
+}
+
+netconfig_mktemp()
+{
+    local fname="$1"
+    local fmode="$2"
+    local dmode="$3"
+    local dname=$(dirname -- "${fname}")
+    local fbase=$(basename -- "${fname}")
+    local ftemp="${dname:+${dname}/}.${fbase}"
+    local temp
+
+    test "X${dname}" = "X."                    || \
+    mkdir -m "${dmode:-0755}" -p -- "${dname}" || return 1
+
+    temp=`mktemp -- "${ftemp}.XXXXXX"`         || return 1
+    test "X${temp}" = "X"                      && return 1
+
+    if chmod "${fmode:-0644}" -- "${temp}" ; then
+        echo "$temp"
+        return 0
+    else
+        rm -f -- "${temp}"
+        return 1
+    fi
+}
+
+netconfig_read_erx_csum()
+{
+    test "x${1}" = x && return 1
+    gawk -- '!/^#/ { print $0; nextfile; }' "$1"
+}
+
+netconfig_read_erx_expr()
+{
+    test "x${1}" = x && return 1
+    gawk -- '/^#/ { if(NR==1) print substr($0,2); nextfile; }' "$1"
+}
+
+netconfig_read_erx_data()
+{
+    test "x${1}" = x && return 1
+    gawk -v erx="${2}" -- \
+    '{ if(length(erx) && match($0, erx) > 0) { print $0; next; } }
+     !/^#|^[[:space:]]*$/                    { print $0; }' "$1"
+}
+
+netconfig_clear_md5()
+{
+    local CUR_FILE="${1}"
+    local MD5_FILE="$MD5DIR/$CUR_FILE"
+    rm -f -- "$MD5_FILE"
+}
+
+#
+# Usage: netconfig_check_md5 <file> [additional match regex]
+#
+netconfig_check_md5()
+{
+    local CUR_FILE="${1}"
+    local CUR_ERX="${2:-"^###"}"
+    local MD5_FILE="$MD5DIR/$CUR_FILE"
+    local OLD_ERX CUR_MD5
+
+    test -s "$CUR_FILE" || return 1 # no file
+    test -s "$MD5_FILE" || return 1 # untracked
+
+    # use old erx if set
+    OLD_ERX=`netconfig_read_erx_expr "$MD5_FILE" 2>/dev/null`
+    OLD_MD5=`netconfig_read_erx_csum "$MD5_FILE" 2>/dev/null`
+    test "X$OLD_ERX" = "X" && OLD_ERX="${CUR_ERX}"
+    test "X$OLD_MD5" = "X" && return 1 # no checksum
+
+    CUR_MD5=`netconfig_read_erx_data "$CUR_FILE" "$OLD_ERX" | md5sum`
+    test "X$OLD_MD5" = "X$CUR_MD5" || return 1 # no match
+}
+
+netconfig_check_and_link()
+{
+    local LINK="$1"
+    local DEST="$2"
+    local ROOT="$3"
+    local link real
+
+    if   test -L "$ROOT$LINK" ; then
+        link=`readlink -- "$ROOT$LINK"`          || return 3
+        if test "X${link:0:1}" != "X/" ; then
+            # resolve link relative to root
+            link=`realpath -- "$ROOT/$link"`     || return 3
+        else
+            link=`realpath -- "$link"`           || return 3
+        fi
+        real=`realpath -- "$ROOT/$DEST"`         || return 3
+
+        if   test "X$real" != X -a "$link" = "$real" ; then
+            debug "$LINK is already a link to $DEST"
+            return 1
+        elif test "$FORCE_REPLACE" = "true" ; then
+            debug "$LINK does not link to $DEST"
+            ln -sf -- "$DEST" "$ROOT$LINK"       || return 3
+            debug "changed $LINK to link to $DEST"
+        else
+            return 2
+        fi
+    elif test -f "$ROOT$LINK" ; then
+        debug "$LINK is a regular file"
+        if   test "$FORCE_REPLACE" = "true" ; then
+            ln -sf -- "$DEST" "$ROOT$LINK"       || return 3
+            debug "replaced $LINK to link to $DEST"
+        elif netconfig_check_md5 "$ROOT$LINK" ; then
+            ln -sf -- "$DEST" "$ROOT$LINK"       || return 3
+            debug "replaced $LINK to link to $DEST"
+        else
+            return 2
+        fi
+        netconfig_clear_md5 "$ROOT$LINK"
+    else
+        ln -sf -- "$DEST" "$ROOT$LINK"           || return 3
+        debug "created $LINK link to $DEST"
+        netconfig_clear_md5 "$ROOT$LINK"
+    fi
+    return 0
 }
 
 #
@@ -203,24 +325,14 @@ netconfig_check_md5_and_move()
     local RET=0
     local NEWMD5SUM SRCMD5SUM DSTMD5SUM OLDMD5SUM DATE BAKFILE OLD_ERX
 
-    _read_erx_data()
-    {
-        test "x${1}" = x && return 1
-        gawk -v erx="${2}" '
-            { if(length(erx) && match($0, erx) > 0) { print $0; next; } }
-            !/^#|^[[:space:]]*$/     { print $0; }
-            ' "$1"
-    }
-
     # use old erx if set
     OLD_ERX="${NEW_ERX}"
     if test -s "$MD5FILE" ; then
-        OLD_ERX=`gawk -- '/^#/ { if(NR==1) print substr($0,2); }' \
-            "$MD5FILE" 2>/dev/null`
+        OLD_ERX=`netconfig_read_erx_expr "$MD5FILE" 2>/dev/null`
     fi
-    SRCMD5SUM=`_read_erx_data "$SRCFILE" "$OLD_ERX" | md5sum`
+    SRCMD5SUM=`netconfig_read_erx_data "$SRCFILE" "$OLD_ERX" | md5sum`
     test "x${OLD_ERX}" = "x${NEW_ERX}" && NEWMD5SUM="$SRCMD5SUM" || \
-    NEWMD5SUM=`_read_erx_data "$SRCFILE" "$NEW_ERX" | md5sum`
+    NEWMD5SUM=`netconfig_read_erx_data "$SRCFILE" "$NEW_ERX" | md5sum`
 
     # create empty DSTFILE (via OUTFILE) and reset md5
     # when the DSTFILE is empty or does not exists ...
@@ -233,8 +345,8 @@ netconfig_check_md5_and_move()
         rm -f "$MD5FILE"
         { echo "#$OLD_ERX"; echo "$DSTMD5SUM"; } > "$MD5FILE"
     else
-        DSTMD5SUM=`_read_erx_data "$DSTFILE" "$OLD_ERX" | md5sum`
-        OLDMD5SUM=`grep -Ev "^#" "$MD5FILE" 2>/dev/null`
+        DSTMD5SUM=`netconfig_read_erx_data "$DSTFILE" "$OLD_ERX" | md5sum`
+        OLDMD5SUM=`netconfig_read_erx_csum "$MD5FILE" 2>/dev/null`
     fi
 
     if test "$FORCE_REPLACE" = true ; then
