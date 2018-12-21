@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Fri Dec 21 13:14:12 UTC 2018 - mt@suse.de
+
+- version 0.85.0
+- netconfig: change to write resolv.conf,yp.conf,forwarders.conf
+  to files in /[var/]run/netconfig/ and link in /etc (fate#325872)
+- netconfig: add to update ntp servers in chrony (bsc#1099272) and
+  cleaned up to use start-ntpd addserver to update ntpd servers.
+
+-------------------------------------------------------------------
 Thu May 17 09:17:39 UTC 2018 - mt@suse.de
 
 - version 0.84.3
