@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Thu Jan 17 11:34:44 UTC 2019 - mt@suse.de
+
+- version 0.85.1
+- removed modprobe.d/50-blacklist.conf, which will be provided by
+  the suse-module-tools package instead (boo#1107611). See also:
+  gh#openSUSE/suse-module-tools/pull/3
+  gh#openSUSE/sysconfig/pull/22
+
+-------------------------------------------------------------------
 Fri Dec 21 13:14:12 UTC 2018 - mt@suse.de
 
 - version 0.85.0
