@@ -133,7 +133,7 @@ rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
 %{_sysconfdir}/ppp/pre-start.d/10-netconfig
 %{_sysconfdir}/ppp/post-stop.d/90-netconfig
 
-%post
+%post -p /bin/bash
 #
 ## we provide own, improved variant of the remove_and_set suse
 ## rpm macro that is able to handle files in subdirs, and more
@@ -186,7 +186,7 @@ if test "$1" = "0" -a -x %{_initddir}/network ; then
 fi
 
 %post netconfig
-if [ $1 -eq 2 ]; then
+if [ "$1" = 2 ]; then
   # in upgrade case, move /var/adm/netconfig to /var/lib/netconfig
   if [ -d /var/adm/netconfig -a ! -e /var/lib/netconfig ]; then
     mkdir -p /var/lib/netconfig
