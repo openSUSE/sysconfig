@@ -179,9 +179,5 @@ done
 chmod 0600 etc/sysconfig/network/ifcfg-* 2>/dev/null || :
 
 %postun -p /sbin/ldconfig
-%preun
-if test "$1" = "0" -a -x %{_initddir}/network ; then
-	%{_initddir}/network stop-all-dhcp-clients 2>/dev/null || :
-fi
 
 %changelog
