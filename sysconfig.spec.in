@@ -58,7 +58,6 @@ Summary:        Script to apply network provided settings
 Group:          System/Base
 Requires:       /bin/logger
 Requires(pre):  sysconfig = %{version}
-Requires(pre):  coreutils
 Provides:       /sbin/netconfig
 
 %description netconfig
@@ -183,17 +182,6 @@ chmod 0600 etc/sysconfig/network/ifcfg-* 2>/dev/null || :
 %preun
 if test "$1" = "0" -a -x %{_initddir}/network ; then
 	%{_initddir}/network stop-all-dhcp-clients 2>/dev/null || :
-fi
-
-%post netconfig
-if [ "$1" = 2 ]; then
-  # in upgrade case, move /var/adm/netconfig to /var/lib/netconfig
-  if [ -d /var/adm/netconfig -a ! -e /var/lib/netconfig ]; then
-    mkdir -p /var/lib/netconfig
-    cp -a /var/adm/netconfig/* /var/lib/netconfig
-    rm -rf /var/adm/netconfig
-    ln -sf /var/lib/netconfig /var/adm/netconfig
-  fi
 fi
 
 %changelog
