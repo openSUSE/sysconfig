@@ -91,6 +91,15 @@ mkdir -p %{buildroot}/sbin
 ln -s /sbin/service %{buildroot}/sbin/rcnetwork
 rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
 
+mkdir -p %{buildroot}%{_tmpfilesdir}
+cat >%{buildroot}%{_tmpfilesdir}/netconfig.conf <<-EOF
+	d /run/netconfig 0755 root root -
+	f /run/netconfig/resolv.conf 0644 root root -
+	f /run/netconfig/yp.conf 0644 root root -
+	L /etc/resolv.conf - - - - /run/netconfig/resolv.conf
+	L /etc/yp.conf - - - - /run/netconfig/yp.conf
+EOF
+
 %files
 %defattr(-,root,root)
 %license doc/COPYING
