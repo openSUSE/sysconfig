@@ -140,6 +140,12 @@ EOF
 %{_sysconfdir}/ppp/ip-down.d/90-netconfig
 %{_sysconfdir}/ppp/pre-start.d/10-netconfig
 %{_sysconfdir}/ppp/post-stop.d/90-netconfig
+%{_tmpfilesdir}/netconfig.conf
+%ghost %dir /run/netconfig
+%ghost /run/netconfig/resolv.conf
+%ghost /run/netconfig/yp.conf
+%ghost /etc/resolv.conf
+%ghost /etc/yp.conf
 
 %post -p /bin/bash
 #
@@ -188,5 +194,8 @@ done
 chmod 0600 etc/sysconfig/network/ifcfg-* 2>/dev/null || :
 
 %postun -p /sbin/ldconfig
+
+%post netconfig -p /bin/bash
+%tmpfiles_create %{_tmpfilesdir}/netconfig.conf
 
 %changelog
