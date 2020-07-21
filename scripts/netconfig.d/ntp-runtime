@@ -236,7 +236,7 @@ case $result in
     if test -x /usr/lib/chrony/helper ; then
         (
             exec </dev/null 1>/dev/null 2>/dev/null
-            /usr/lib/chrony/helper update-daemon
+            /usr/lib/chrony/helper update-daemon &
         )
         disown -a
     fi
