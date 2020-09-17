@@ -93,23 +93,29 @@ EOT
 function write_dnsmasq_forwarders ()
 {
     local TMP_FILE=""
+    local changed=0
 
     test "X$1" = "X" && return 1
 
     debug "write_dnsmasq_forwarders: $1 "
 
     TMP_FILE=`netconfig_mktemp "$ROOT$RESOLV_FILE" 0644 0755` || return 3
-    dump_dnsmasq_forwarders "$@" >> "$TMP_FILE" && \
-    mv -f -- "$TMP_FILE" "$ROOT$RESOLV_FILE"    || {
-        rm -f -- "$TMP_FILE"
-        return 3
-    }
+    if ! dump_dnsmasq_forwarders "$@" >> "$TMP_FILE" ; then
+        rm -f -- "$TMP_FILE" ; return 3
+    fi
+    if cmp -s -- "$TMP_FILE" "$ROOT$RESOLV_FILE"     ; then
+        rm -f -- "$TMP_FILE" # unchanged
+    elif mv -f -- "$TMP_FILE" "$ROOT$RESOLV_FILE"    ; then
+        changed=1
+    else
+        rm -f -- "$TMP_FILE" ; return 3
+    fi
 
     debug "dns forwarders written to $RESOLV_FILE"
 
     ### note: this file is referenced via resolv-file=$RESOLV_FILE
     ###       in dnsmasq config files -- no need to create a link.
-    return 0
+    test $changed -ne 0
 }
 
 function get_dns_settings()
