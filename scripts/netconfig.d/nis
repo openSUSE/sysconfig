@@ -207,19 +207,24 @@ function write_yp_conf()
     debug "write_yp_conf"
 
     TMP_FILE=`netconfig_mktemp "$ROOT$DESTFILE" 0644 0755` || return 3
-    dump_yp_conf "$@" >> "$TMP_FILE"           && {
-        cmp --quiet "$ROOT$DESTFILE" "$TMP_FILE"
-        changed=$?
-    } && mv -f -- "$TMP_FILE" "$ROOT$DESTFILE" || {
-        rm -f -- "$TMP_FILE"
-        return 3
-    }
+    if ! dump_yp_conf "$@" >> "$TMP_FILE"        ; then
+        rm -f -- "$TMP_FILE" ; return 3
+    fi
+    if cmp -s -- "$TMP_FILE" "$ROOT$DESTFILE"    ; then
+        rm -f -- "$TMP_FILE" # unchanged
+    elif mv -f -- "$TMP_FILE" "$ROOT$DESTFILE"   ; then
+        changed=1
+    else
+            rm -f -- "$TMP_FILE" ; return 3
+    fi
 
     debug "nis settings written to $DESTFILE"
 
     netconfig_check_and_link "$DESTLINK" "$DESTFILE" "$ROOT"
     updated=$?
+
     test $changed -ne 0 -a $updated -eq 1 || return $updated
+    return $?
 }
 
 function get_uptime()

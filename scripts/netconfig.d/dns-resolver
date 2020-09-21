@@ -125,6 +125,8 @@ EOT
 function write_resolv_conf()
 {
     local TMP_FILE=""
+    local changed=0
+    local updated=0
 
     #
     # empty search list is a valid value
@@ -139,15 +141,23 @@ function write_resolv_conf()
     debug "write_resolv_conf: '$1' '$2'"
 
     TMP_FILE=`netconfig_mktemp "$ROOT$DESTFILE" 0644 0755` || return 3
-    dump_resolv_conf "$@" >> "$TMP_FILE" && \
-    mv -f "$TMP_FILE" "$ROOT$DESTFILE"   || {
-        rm -f -- "$TMP_FILE"
-        return 3
-    }
+    if ! dump_resolv_conf "$@" >> "$TMP_FILE"   ; then
+        rm -f -- "$TMP_FILE" ; return 3
+    fi
+    if cmp -s -- "$TMP_FILE" "$ROOT$DESTFILE"   ; then
+        rm -f -- "$TMP_FILE" # unchanged
+    elif mv -f -- "$TMP_FILE" "$ROOT$DESTFILE"  ; then
+        changed=1
+    else
+        rm -f -- "$TMP_FILE" ; return 3
+    fi
 
     debug "dns settings written to $DESTFILE"
 
     netconfig_check_and_link "$DESTLINK" "$DESTFILE" "$ROOT"
+    updated=$?
+
+    test $changed -ne 0 -a $updated -eq 1 || return $updated
     return $?
 }
 

@@ -95,13 +95,17 @@ function write_chrony_servers()
     debug "write_chrony_servers: $1"
 
     TMP_FILE=`netconfig_mktemp "$ROOT$CHRONY_SERVER" 0644 0755` || return 3
-    dump_chrony_servers "$@" >> "$TMP_FILE"         && {
-        cmp --quiet "$ROOT$CHRONY_SERVER" "$TMP_FILE"
-        changed=$?
-    } && mv -f -- "$TMP_FILE" "$ROOT$CHRONY_SERVER" || {
+    if ! dump_chrony_servers "$@" >> "$TMP_FILE"     ; then
+        rm -f -- "$TMP_FILE" ; return 3
+    fi
+    if cmp -s -- "$TMP_FILE" "$ROOT$CHRONY_SERVER"   ; then
+        rm -f -- "$TMP_FILE" # unchanged
+    elif mv -f -- "$TMP_FILE" "$ROOT$CHRONY_SERVER"  ; then
+        changed=1
+    else
         rm -f -- "$TMP_FILE"
         return 3
-    }
+    fi
 
     debug "ntp servers written to $CHRONY_SERVER"
     test $changed -ne 0
@@ -122,13 +126,16 @@ function write_ntpd_servers()
     debug "write_ntpd_servers: $1"
 
     TMP_FILE=`netconfig_mktemp "$ROOT$NTPD_DESTFILE" 0644 0755` || return 3
-    dump_ntpd_servers "$@" >> "$TMP_FILE"           && {
-        cmp --quiet "$ROOT$NTPD_DESTFILE" "$TMP_FILE"
-        changed=$?
-    } && mv -f -- "$TMP_FILE" "$ROOT$NTPD_DESTFILE" || {
-        rm -f -- "$TMP_FILE"
-        return 3
-    }
+    if ! dump_ntpd_servers "$@" >> "$TMP_FILE"       ; then
+        rm -f -- "$TMP_FILE" ; return 3
+    fi
+    if cmp -s -- "$TMP_FILE" "$ROOT$NTPD_DESTFILE"   ; then
+        rm -f -- "$TMP_FILE" # unchanged
+    elif mv -f -- "$TMP_FILE" "$ROOT$NTPD_DESTFILE"  ; then
+        changed=1
+    else
+        rm -f -- "$TMP_FILE" ; return 3
+    fi
 
     debug "ntp servers written to $NTPD_DESTFILE"
     test $changed -ne 0
