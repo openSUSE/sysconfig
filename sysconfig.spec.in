@@ -51,7 +51,7 @@ Requires:       (sysvinit(network) or service(network))
 Requires(post): %fillup_prereq
 Requires(post): /usr/bin/grep
 Requires(post): /usr/bin/chmod /usr/bin/mkdir /usr/bin/touch
-Recommends:     wicked-service
+Suggests:       wicked-service
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
