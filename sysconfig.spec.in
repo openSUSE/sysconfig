@@ -15,6 +15,15 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
+#
+# Upstream First - openSUSE Build Service Policy:
+#
+# Never add any patches to this package without the upstream commit id in
+# the patch. Any patches added here without a very good reason to make an
+# exception will be silently removed with the next version update.
+# This .spec file is tracked in git as well.
+# Please use pull requests at https://github.com/openSUSE/sysconfig/ instead.
+#
 
 #Compat macro for new _fillupdir macro introduced in Nov 2017
 %if ! %{defined _fillupdir}
@@ -35,14 +44,6 @@ License:        GPL-2.0-or-later
 Group:          System/Base
 URL:            https://github.com/openSUSE/sysconfig
 Source:         %{name}-%{version}.tar.bz2
-#
-# Upstream First - openSUSE Build Service Policy:
-#
-# Never add any patches to this package without the upstream commit id in
-# the patch. Any patches added here without a very good reason to make an
-# exception will be silently removed with the next version update.
-# Please use pull requests at https://github.com/openSUSE/sysconfig/ instead.
-#
 BuildRequires:  libtool
 BuildRequires:  pkgconfig
 Requires:       /sbin/ifup
