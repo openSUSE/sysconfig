@@ -46,7 +46,6 @@ URL:            https://github.com/openSUSE/sysconfig
 Source:         %{name}-%{version}.tar.bz2
 BuildRequires:  libtool
 BuildRequires:  pkgconfig
-Requires:       /sbin/ifup
 Requires:       /sbin/netconfig
 Requires:       (sysvinit(network) or service(network))
 Requires(post): %fillup_prereq
