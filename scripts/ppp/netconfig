@@ -40,8 +40,16 @@ ACTION=${0#/etc/ppp/}
 #echo 1>&2 "$0: $@"
 #env  1>&2
 
-test "X$INTERFACE" = X  && exit 1
-test -x /sbin/netconfig || exit 0
+case "$6" in
+nm-*-service-*|/org/freedesktop/NetworkManager/PPP/*)
+	# NetworkManager handles it
+	exit 0
+	;;
+esac
+
+test "X$INTERFACE" = X   && exit 1
+test "X$USEPEERDNS" != X || exit 0
+test -x /sbin/netconfig  || exit 0
 
 # this assumes, there is a ifcfg file, let's look
 # if the user tried to enable verbose netconfig
