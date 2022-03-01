@@ -33,12 +33,12 @@ unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
 # managed by SuSEconfig when that root is not '/'
 r=$ROOT
 
-. $r/etc/sysconfig/network/scripts/functions.netconfig
+. $r/usr/libexec/netconfig/scripts/functions.netconfig
 
 PROGNAME=${0##*/}
 STATEDIR=$r/var/run/netconfig/
 
-MODULEDIR=$r/etc/netconfig.d/
+MODULEDIR=$r/usr/libexec/netconfig/netconfig.d/
 
 . $r/etc/sysconfig/network/config
 

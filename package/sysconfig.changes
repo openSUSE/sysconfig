@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Wed Mar  2 08:38:06 UTC 2022 - Stefan Schubert <schubi@suse.de>
+
+- version 0.85.9
+- Moved netconfig installs scripts to a FHS conform place:
+  -- /etc/sysconfig/network/scripts -> /usr/libexec/netconfig/scripts
+  -- /etc/netconfig.d  -> /usr/libexec/netconfig/netconfig.d/
+
+-------------------------------------------------------------------
 Mon Nov  8 17:09:26 UTC 2021 - Marius Tomaschewski <mt@suse.com>
 
 - version 0.85.8
