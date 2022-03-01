@@ -82,6 +82,7 @@ CFLAGS="%{optflags} -fPIC" LDFLAGS="-pie" \
             --sbindir=/sbin \
             --libdir=/%{_lib} \
             --sysconfdir=%{_sysconfdir} \
+	    --libexecdir=%{_libexecdir} \
             --mandir=%{_mandir} \
             --with-unitdir=%{_unitdir} \
             --with-udevdir=%{udevdir} \
@@ -116,7 +117,9 @@ EOF
 %ghost %{_sysconfdir}/sysconfig/network/dhcp
 %dir %{_docdir}/sysconfig
 %doc %{_docdir}/sysconfig/Contents
-%{_sysconfdir}/sysconfig/network/scripts/functions.rpm-utils
+%dir %{_libexecdir}/netconfig
+%dir %{_libexecdir}/netconfig/scripts
+%{_libexecdir}/netconfig/scripts/functions.rpm-utils
 %{_fillupdir}/sysconfig.dhcp-network
 %{_fillupdir}/sysconfig.config-network
 /sbin/rcnetwork
@@ -137,9 +140,11 @@ EOF
 
 %files netconfig
 %defattr(-,root,root)
-%dir %{_sysconfdir}/netconfig.d
-%{_sysconfdir}/netconfig.d/*
-%{_sysconfdir}/sysconfig/network/scripts/functions.netconfig
+%dir %{_libexecdir}/netconfig/netconfig.d
+%dir %{_libexecdir}/netconfig
+%dir %{_libexecdir}/netconfig/scripts
+%{_libexecdir}/netconfig/netconfig.d/*
+%{_libexecdir}/netconfig/scripts/functions.netconfig
 /sbin/netconfig
 %{_mandir}/man8/netconfig.8%{ext_man}
 %doc %{_docdir}/sysconfig/netconfig.png
@@ -159,7 +164,7 @@ EOF
 #
 ## we provide own, improved variant of the remove_and_set suse
 ## rpm macro that is able to handle files in subdirs, and more
-. etc/sysconfig/network/scripts/functions.rpm-utils
+. usr/libexec/netconfig/scripts/functions.rpm-utils
 #
 # remove obsolete sysconfig-network specific variables
 sysconfig_remove_and_set network/config NOZEROCONF

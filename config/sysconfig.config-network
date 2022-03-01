@@ -66,7 +66,7 @@ NM_ONLINE_TIMEOUT="30"
 ## Default:     "dns-resolver dns-bind ntp-runtime nis"
 #
 # This variable defines the start order of netconfig modules installed
-# in the /etc/netconfig.d/ directory.
+# in the /usr/libexec/netconfig/netconfig.d/ directory.
 #
 # To disable the execution of a module, don't remove it from the list
 # but prepend it with a minus sign, "-ntp-runtime".

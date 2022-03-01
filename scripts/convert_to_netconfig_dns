@@ -159,8 +159,8 @@ test "${ROOT}" = "/" && unset ROOT
 r=${ROOT}
 
 # source sysconfig_remove_and_set()
-test -f "$ROOT/etc/sysconfig/network/scripts/functions.rpm-utils" && \
-      . "$ROOT/etc/sysconfig/network/scripts/functions.rpm-utils" || exit 1
+test -f "$ROOT/usr/libexec/netconfig/scripts/functions.rpm-utils" && \
+      . "$ROOT/usr/libexec/netconfig/scripts/functions.rpm-utils" || exit 1
 
 # the files modified by modify_resolvconf
 network_config="/etc/sysconfig/network/config"
