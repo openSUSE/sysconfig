@@ -15,6 +15,7 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Author: Michael Calmer <mc@suse.de>
+#         Sven Schober <sschober@suse.de>
 #         Marius Tomaschewski <mt@suse.de>
 #
 ##
@@ -25,34 +26,33 @@ unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
 # managed by SuSEconfig when that root is not '/'
 r="$ROOT"
 
-. "$r/etc/sysconfig/network/scripts/functions.netconfig"
+. "$r@libexec_netconfigdir@/functions.netconfig" || exit 1
 
 PROGNAME="${0##*/}"
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
-    warn "You must be root to start $0." >&2
+    warn "You must be root to start $0."
     exit 1
 fi
 
 SYSFSDIR="/sys/class/net"
 STATEDIR="/var/run/netconfig"
-debug "$PROGNAME module called"
+debug "$PROGNAME Module called"
 
 . "$r/etc/sysconfig/network/config"
 
-unset DNS_SEARCHLIST ${!DNS_SEARCHLIST_*}
 unset DNS_SERVERS ${!DNS_SERVERS_*}
 
-DESTLINK="/etc/resolv.conf"
-DESTFILE="$STATEDIR/resolv.conf"
+DESTLINK="/etc/named.d/forwarders.conf"
+DESTFILE="$STATEDIR/bind-forwarders.conf"
 
 # *********************
 # FUNCTIONS 
 # *********************
 
-function dump_resolv_conf()
+function dump_named_forwarders ()
 {
-    local SEARCHLIST=()
     local NAMESERVER=()
+    local ns os
 
     cat << EOT
 ### $DESTLINK is a symlink to $DESTFILE
@@ -72,81 +72,43 @@ function dump_resolv_conf()
 ### Call "netconfig update -f" to force adjusting of ${DESTLINK}.
 EOT
 
-    if [ "X$NETCONFIG_DNS_RESOLVER_OPTIONS" != "X" ] ; then
-        echo "options $NETCONFIG_DNS_RESOLVER_OPTIONS"
-    fi
-
-    if [ "X$NETCONFIG_DNS_RESOLVER_SORTLIST" != "X" ] ; then
-        echo "sortlist $NETCONFIG_DNS_RESOLVER_SORTLIST"
-    fi
-
-    for nd in $1; do
-        # strip trailing dot added by dhcp 4.x dhclient(6)
-        [ "x$nd" != "x." ] && nd="${nd%.}"
-        test "x$nd" = x && continue
-
-        # skip duplicates
-        for od in ${SEARCHLIST[@]} ; do
-            [ "x$nd" == "x$od" ] && continue 2
-        done
-
-        # resolv.conf supports up to 6 domains
-        [ ${#SEARCHLIST[@]} -lt 6 ] || break
-
-        SEARCHLIST=(${SEARCHLIST[@]} ${nd})
-    done
-
-    if [ ${#SEARCHLIST[@]} -gt 0 ]; then
-        {
-            echo "search ${SEARCHLIST[@]}"
-        }
-    fi
-
-    for ns in $2; do
-        # skip duplicates
+    for ns in $1; do
         for os in ${NAMESERVER[@]} ; do
-            [ "x$ns" == "x$os" ] && continue 2
+            test "x$ns" == "x$os" && continue 2
         done
 
-        # resolv.conf supports up to 3 nameserver
-        [ ${#NAMESERVER[@]} -lt 3 ] || break
+        # According to Bind 9 Administrators Reference Manual
+        # there is no limit for forwarders.
+        #[ ${#NAMESERVER[@]} -lt 3 ] || break
 
         NAMESERVER=(${NAMESERVER[@]} ${ns})
     done
-    if [ ${#NAMESERVER[@]} -gt 0 ]; then
-        {
-            for ns in ${NAMESERVER[@]}; do
-                echo "nameserver $ns"
-            done
-        }
-    fi
+    {
+        echo "forwarders {"
+        for ns in ${NAMESERVER[@]}; do
+            echo "	${ns};"
+        done
+        echo "};"
+    }
 }
 
-function write_resolv_conf()
+function write_named_forwarders ()
 {
     local TMP_FILE=""
     local changed=0
     local updated=0
 
-    #
-    # empty search list is a valid value
-    #
-    #test -z "$1" && return 1
-    #
-    # empty nameserver is a valid value too
-    # (empty at least in the forwarder mode)
-    #
-    #test -z "$2" && return 1
+    test "X$1" = "X" && return 1
 
-    debug "write_resolv_conf: '$1' '$2'"
+    debug "write_named_forwarders: $1 "
 
     TMP_FILE=`netconfig_mktemp "$ROOT$DESTFILE" 0644 0755` || return 3
-    if ! dump_resolv_conf "$@" >> "$TMP_FILE"   ; then
+    if ! dump_named_forwarders "$@" >> "$TMP_FILE" ; then
         rm -f -- "$TMP_FILE" ; return 3
     fi
-    if cmp -s -- "$TMP_FILE" "$ROOT$DESTFILE"   ; then
+    if cmp -s -- "$TMP_FILE" "$ROOT$DESTFILE"    ; then
         rm -f -- "$TMP_FILE" # unchanged
-    elif mv -f -- "$TMP_FILE" "$ROOT$DESTFILE"  ; then
+    elif mv -f -- "$TMP_FILE" "$ROOT$DESTFILE"   ; then
         changed=1
     else
         rm -f -- "$TMP_FILE" ; return 3
@@ -165,40 +127,13 @@ function get_dns_settings()
 {
     local cfg=$1 ; shift
     test "x$cfg" = x && return 1
-
-    local SERVICE DNSSEARCH DNSDOMAIN DNSSERVERS
-    local var idx DNS_SEARCHLIST DNS_SERVERS
-
+    local SERVICE DNSSERVERS
+    local var idx DNS_SERVERS
     debug "exec get_dns_settings: $cfg"
 
     get_variable "SERVICE" "$cfg"
     idx=`get_ranking_idx "$SERVICE" "$@"`
     debug "     get_dns_settings: service '$SERVICE' => rank '$idx'"
-
-    var="DNS_SEARCHLIST_$idx"
-    DNS_SEARCHLIST=(${!var})
-    get_variable "DNSSEARCH" "$cfg"
-    if [ "x$DNSSEARCH" != "x" ]; then
-        DNS_SEARCHLIST=(${DNS_SEARCHLIST[@]} $DNSSEARCH)
-    else
-        get_variable "DNSDOMAIN" "$cfg"
-        if [ "x$DNSDOMAIN" != "x" ]; then
-            DNS_SEARCHLIST=(${DNS_SEARCHLIST[@]} $DNSDOMAIN)
-        else
-            local H=$HOSTNAME
-            local HOSTNAME
-            get_variable "HOSTNAME" "$cfg"
-            HOSTNAME="${HOSTNAME%.}"
-            if [ "x$HOSTNAME" != "x" -a "x${HOSTNAME#*.}" != "x" \
-                 -a "${HOSTNAME#*.}" != "${HOSTNAME}" ] ; then
-                DNS_SEARCHLIST=(${DNS_SEARCHLIST[@]} "${HOSTNAME#*.}")
-            fi
-            HOSTNAME=$H
-        fi
-    fi
-    unset DNSSEARCH DNSDOMAIN
-    eval "${var}='${DNS_SEARCHLIST[@]}'"
-    debug "     get_dns_settings: ${var}='${!var}'"
 
     var="DNS_SERVERS_$idx"
     DNS_SERVERS=(${!var})
@@ -231,6 +166,10 @@ function manage_interfaceconfig()
 # EXECUTION STARTS HERE
 # *********************
 
+if [ "$NETCONFIG_DNS_FORWARDER" != "bind" ]; then
+    exit 0;
+fi
+
 # just for the case we need the original value...
 _NETCONFIG_DNS_RANKING="$NETCONFIG_DNS_RANKING"
 case "$_NETCONFIG_DNS_RANKING" in
@@ -248,12 +187,13 @@ if [ "x$_NETCONFIG_DNS_POLICY" = "x" ]; then
     exit 0;
 fi
 
+
 sf=0
 _g=1
 # disable filename glob expansion if needed
 shopt -o -q noglob || _g=0
 [ $_g ] && shopt -o -s noglob
-for POL in $_NETCONFIG_DNS_POLICY; do
+for POL in $_NETCONFIG_DNS_POLICY; do 
     shopt -o -u noglob
     case "$POL" in
     (NetworkManager)
@@ -266,7 +206,6 @@ for POL in $_NETCONFIG_DNS_POLICY; do
     ;;
     (STATIC)
         debug "Keep Static"
-        DNS_SEARCHLIST_1="$DNS_SEARCHLIST_1 $NETCONFIG_DNS_STATIC_SEARCHLIST"
         DNS_SERVERS_1="$DNS_SERVERS_1 $NETCONFIG_DNS_STATIC_SERVERS"
     ;;
     (STATIC_FALLBACK)
@@ -286,69 +225,50 @@ for POL in $_NETCONFIG_DNS_POLICY; do
 done
 [ $_g ] && shopt -o -u noglob
 
-if [ $sf -eq 1 -a -z "$DNS_SEARCHLIST_0" \
-               -a -z "$DNS_SEARCHLIST_1" ] ; then
-    DNS_SEARCHLIST_2="$DNS_SEARCHLIST_2 $NETCONFIG_DNS_STATIC_SEARCHLIST"
-fi
 if [ $sf -eq 1 -a -z "$DNS_SERVERS_0" \
-               -a -z "$DNS_SERVERS_1" ] ; then
+               -a -z "$DNS_SERVERS_1" ]; then
     DNS_SERVERS_2="$DNS_SERVERS_2 $NETCONFIG_DNS_STATIC_SERVERS"
 fi
 
-# check if a nameserver module is used.
-# If yes, don't write nameserver. glibc is using
-# the name server on the local machine then ...
-if [ "$NETCONFIG_DNS_FORWARDER" != "resolver" -a \
-     "$NETCONFIG_DNS_FORWARDER" != "" ]; then
-    # write explicitly specified loopback addresses (when any);
-    # everything else will go into the forwarder specific config.
-    lns=()
-    rns_0=""
-    rns_1=""
-    rns_2=""
-    for idx in 0 1 2 ; do
-        var="DNS_SERVERS_$idx"
-        val=(${!var})
-        rns=()
-        for ns in ${val[*]} ; do
-            case $ns in
-            127.*|::1) lns+=("$ns") ;;
-            *)         rns+=("$ns") ;;
-            esac
-        done
-        unset $var
-        eval "rns_$idx='${rns[*]}'"
+# filter out loopback addresses and all own IPs that would case a loop
+own_ips=(`ip addr show 2>/dev/null | \
+LANG=C LC_ALL=C gawk '/[ ]+(inet|inet6)[ ]+/ { sub("/.*","",$2); print $2; }' 2>/dev/null`)
+for idx in 0 1 2 ; do
+    var="DNS_SERVERS_$idx"
+    val=(${!var})
+    new=()
+    for ns in ${val[@]} ; do
+        case $ns in
+            127.*|::1)      ;;
+            *)
+                for ip in "${own_ips[@]}" ; do
+                    test "x$ip" = "x"    && continue
+                    test "x$ip" = "x$ns" && continue 2
+                done
+                new+=("$ns")
+            ;;
+        esac
     done
-    # fallback requires a localhost address, set when needed
-    if  test "$NETCONFIG_DNS_FORWARDER_FALLBACK" = yes ;
-    then
-        test ${#lns[@]} -le 0 && lns=(127.0.0.1)
-    fi
-    # apply localhost addresses + fallback name servers
-    if  test ${#lns[@]} -gt 0 ; then
-       # local addresses have top prioriry in forwarder modes
-       DNS_SERVERS_0="${lns[*]} $rns_0"
-       DNS_SERVERS_1="$rns_1"
-       DNS_SERVERS_2="$rns_2"
-    fi
-fi
+    eval "${var}='${new[@]}'"
+done
 
-write_resolv_conf "$DNS_SEARCHLIST_0 $DNS_SEARCHLIST_1 $DNS_SEARCHLIST_2" \
-                  "$DNS_SERVERS_0 $DNS_SERVERS_1 $DNS_SERVERS_2"
+write_named_forwarders "$DNS_SERVERS_0 $DNS_SERVERS_1 $DNS_SERVERS_2"
 RET=$?
 
 if [ $RET -eq 1 ]; then
     # nothing changed; we are finished
     exit 0
 elif [ $RET -eq 2 ]; then
-    # user modified the config.
+   # user modified the config.
     echo "ATTENTION: $DESTLINK is not a link to $DESTFILE"
     echo "call \"netconfig update -f\" to adjust $DESTLINK"
     exit 20
 fi
 
-# here we should restart services if needed
-# => not applicable to reload anything
+# here we should reload services if needed
+if systemctl --quiet is-active named.service &>/dev/null ; then
+    systemctl reload named.service &>/dev/null
+fi
 
 exit 0;
 

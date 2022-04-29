@@ -118,7 +118,8 @@ netconfig actions.
 .TP
 .B NETCONFIG_MODULES_ORDER
 This variable defines the start order of netconfig modules installed
-in the \fB/etc/netconfig.d/\fR directory.
+in the \fB/etc/netconfig.d\fR and \fB@libexec_netconfigdir@/netconfig.d/\fR
+directories.
 
 To disable the execution of a module, don't remove it from the list
 but prepend it with a minus sign, \fI-ntp-runtime\fR.
