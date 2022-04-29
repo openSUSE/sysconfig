@@ -5,8 +5,7 @@ MAINTAINERCLEANFILES = Makefile.in
 
 SUBDIRS = hardware netconfig.d ppp
 
-sysconfig_network_scripts_SCRIPTS =	functions.rpm-utils \
-					functions.netconfig
+sysconfig_network_scripts_SCRIPTS =	functions.netconfig
 
 sbin_SCRIPTS =	netconfig
 
