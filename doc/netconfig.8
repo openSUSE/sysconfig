@@ -146,7 +146,7 @@ the static settings have to be merged together with the dynamic settings.
 
 .TP
 .BR STATIC_FALLBACK
-the static settings have to be used only, when no dynamic are avaliable.
+the static settings have to be used only, when no dynamic are available.
 .PD
 .RE
 .RS
@@ -164,7 +164,7 @@ The \fBauto\fR policy value is resolved to a policy "\fBSTATIC *\fR".
 .TP
 .IR NetworkManager \ is \ enabled
 The \fBauto\fR policy value is resolved to "\fBSTATIC_FALLBACK NetworkManager\fR"
-causing to use the NetworkManager build-in merge policy with a fallback to
+causing to use the NetworkManager built-in merge policy with a fallback to
 the static settings defined in netconfig variables when the NetworkManager
 does not provide any.
 
@@ -192,7 +192,7 @@ and "resolver" (dns-resolver module), that causes to write the name
 server IP addresses directly to /etc/resolv.conf only (no forwarder).
 Empty string defaults to "resolver", that is also the default setting.
 
-See also \fBNETCONFIG MODULES\fR section for more informations.
+See also \fBNETCONFIG MODULES\fR section for more information.
 .TP
 .B NETCONFIG_DNS_FORWARDER_FALLBACK
 When enabled (default) in forwarder mode ("bind", "dnsmasq"), netconfig
@@ -219,7 +219,7 @@ depends on the NETCONFIG_DNS_FORWARDER_FALLBACK variable.
 When the /etc/resolv.conf does not contain any nameservers, the glibc makes
 use of the name server running on the local machine (the forwarder). See also
 \fBNETCONFIG MODULES\fR section
-for more informations.
+for more information.
 .TP
 .B NETCONFIG_DNS_RANKING
 Allows to specify a custom DNS service ranking list, that is which services
@@ -229,7 +229,7 @@ list settings.
 Preferred service names have to be prepended with a \fB"+"\fR, fallback
 service names can be marked with a \fB"\-"\fR character. Instead of the
 service name also a regex is supported using +/pattern/ and -/pattern/.
-The special default value \fI"auto"\fR enables the build-in service ranking
+The special default value \fI"auto"\fR enables the built-in service ranking
 list, currently:
 .nf
     "+/vpn/ -/auto/ +strongswan +openswan +racoon -avahi"
@@ -237,7 +237,7 @@ list, currently:
 the value \fI"none"\fR or \fI""\fR allows to disable the ranking / sorting.
 .TP
 .B NETCONFIG_DNS_RESOLVER_OPTIONS
-Allows to specify options to use when writting the /etc/resolv.conf,
+Allows to specify options to use when writing the /etc/resolv.conf,
 for example:
 .nf
      "debug attempts:1 timeout:10"
@@ -245,7 +245,7 @@ for example:
 See resolv.conf(5) manual page for details.
 .TP
 .B NETCONFIG_DNS_RESOLVER_SORTLIST
-Allows to specify a sortlist to use when writting the /etc/resolv.conf,
+Allows to specify a sortlist to use when writing the /etc/resolv.conf,
 for example:
 .nf
 	"130.155.160.0/255.255.240.0 130.155.0.0"
