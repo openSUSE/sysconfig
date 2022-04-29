@@ -325,13 +325,14 @@ into the \fI/run/dnsmasq-forwarders.conf\fR file. Please verify, that this
 file is set in the \fBresolv-file\fR keyword in the \fI/etc/dnsmasq.conf\fR.
 .TP
 .B ntp-runtime
-The netconfig ntp-runtime module does not alter the \fI/etc/ntp.conf\fR file,
-but makes use of NTP "runtime configuration".
+The netconfig ntp-runtime module does not alter the \fI/etc/ntp.conf\fR nor writes
+an \fI/etc/chrony.d\fR config file, but makes use of NTP "runtime configuration"
+provided by the ntp and chrony packages.
 
-The list of the NTP servers is written to the \fI/run/ntp/servers-netconfig\fR
-file and if the configuration changed meanwhile, the ntp service will be restarted
-using "rcntp try-restart". The ntp init script provides the functionality to apply
-the server list at runtime to the \fBntpd\fR(1) daemon.
+For chrony, it's written to the \fI/run/netconfig/chrony.servers\fR file and the
+\fIchrony/helper update-daemon\fR utility is used to apply it to the chrony daemon.
+For ntpd, the list of the NTP servers is written to the \fI/run/ntp/servers-netconfig\fR
+passed to the \fIstart-ntpd addserver\fR utility command applying it to the ntpd daemon.
 .TP
 .B nis
 This module writes the NIS configuration into the \fI/etc/ypconf\fR file and
