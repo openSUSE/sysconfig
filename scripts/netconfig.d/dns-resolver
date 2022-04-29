@@ -34,7 +34,7 @@ if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
 fi
 
 SYSFSDIR="/sys/class/net"
-STATEDIR="/var/run/netconfig"
+STATEDIR="/run/netconfig"
 debug "$PROGNAME module called"
 
 . "$r/etc/sysconfig/network/config"

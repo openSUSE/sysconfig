@@ -36,7 +36,7 @@ r=$ROOT
 . $r/etc/sysconfig/network/scripts/functions.netconfig
 
 PROGNAME=${0##*/}
-STATEDIR=$r/var/run/netconfig/
+STATEDIR=$r/run/netconfig/
 
 MODULEDIR=$r/etc/netconfig.d/
 
