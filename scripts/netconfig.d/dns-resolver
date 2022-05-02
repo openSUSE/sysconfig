@@ -90,9 +90,6 @@ EOT
             [ "x$nd" == "x$od" ] && continue 2
         done
 
-        # resolv.conf supports up to 6 domains
-        [ ${#SEARCHLIST[@]} -lt 6 ] || break
-
         SEARCHLIST=(${SEARCHLIST[@]} ${nd})
     done
 
