@@ -33,12 +33,13 @@ unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
 # managed by SuSEconfig when that root is not '/'
 r=$ROOT
 
-. $r/etc/sysconfig/network/scripts/functions.netconfig
+. "$r@libexec_netconfigdir@/functions.netconfig" || exit 1
 
 PROGNAME=${0##*/}
 STATEDIR=$r/run/netconfig/
 
-MODULEDIR=$r/etc/netconfig.d/
+SYSCONF_MODULEDIR=$r/etc/netconfig.d/
+LIBEXEC_MODULEDIR=$r@libexec_netconfigdir@/netconfig.d/
 
 . $r/etc/sysconfig/network/config
 
@@ -240,6 +241,7 @@ function run_modules() {
     local errors=()
     local msg=""
     local ret=0 err=0
+    local mod mscript
 
     if [ -n "$FORCE_REPLACE" ]; then
         export FORCE_REPLACE=$FORCE_REPLACE
@@ -249,24 +251,28 @@ function run_modules() {
     fi
 
     debug "Module order: $NETCONFIG_MODULES_ORDER"
-    for plg in $NETCONFIG_MODULES_ORDER; do
-        case $plg in
+    for mod in $NETCONFIG_MODULES_ORDER; do
+        case $mod in
             -*)
-                debug "${plg:1} module is disabled" ;
+                debug "${mod:1} module is disabled" ;
                 continue
             ;;
         esac
-        if [ ! -x "$MODULEDIR/$plg" ]; then
-            debug "$plg module is not executable"
+        if [ -x "$SYSCONF_MODULEDIR/$mod" ] ; then
+            mscript="$SYSCONF_MODULEDIR/$mod"
+        elif [ -x "$LIBEXEC_MODULEDIR/$mod" ]; then
+            mscript="$LIBEXEC_MODULEDIR/$mod"
+        else
+            debug "$mod module is not executable"
             continue
         fi
         case "x$mfilter" in
-            "x"|"x${plg}"|"x${plg%%-*}")   ;;
-            *) debug "$plg module skipped" ;
+            "x"|"x${mod}"|"x${mod%%-*}")   ;;
+            *) debug "$mod module skipped" ;
                continue                    ;;
         esac
 
-        msg=`"$MODULEDIR/$plg" 2>&1` ; ret=$?
+        msg=`"$mscript" 2>&1` ; ret=$?
         if [ "$ret" != "0" -a "$err" = "0" ]; then
             err=$ret
         fi
@@ -399,17 +405,18 @@ function usage ()
 {
     typeset -a MODULES
     typeset -a MGROUPS
-    local grp g plg
+    local grp g mod
 
-    for plg in $NETCONFIG_MODULES_ORDER; do
-        case $plg in
+    for mod in $NETCONFIG_MODULES_ORDER; do
+        case $mod in
           -*) continue ;;
         esac
-        if [ ! -x "$MODULEDIR/$plg" ]; then
+        if [ ! -x "$SYSCONF_MODULEDIR/$mod" -a \
+             ! -x "$LIBEXEC_MODULEDIR/$mod" ]; then
             continue
         fi
-        MODULES=(${MODULES[@]} $plg)
-        grp=${plg%%-*}
+        MODULES=(${MODULES[@]} $mod)
+        grp=${mod%%-*}
         for g in ${MGROUPS[@]} ; do
             test "x$grp" = "x$g" && continue 2
         done

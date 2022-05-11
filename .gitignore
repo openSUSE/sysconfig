@@ -20,3 +20,12 @@ sysconfig-*
 tools/autoip
 tools/ifuser
 tools/udevmountd
+doc/netconfig.8
+config/sysconfig.config-network
+scripts/functions.netconfig
+scripts/netconfig
+scripts/netconfig.d/nis
+scripts/netconfig.d/dns-bind
+scripts/netconfig.d/dns-dnsmasq
+scripts/netconfig.d/dns-resolver
+scripts/netconfig.d/ntp-runtime

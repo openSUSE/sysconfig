@@ -82,6 +82,7 @@ CFLAGS="%{optflags} -fPIC" LDFLAGS="-pie" \
             --sbindir=/sbin \
             --libdir=/%{_lib} \
             --sysconfdir=%{_sysconfdir} \
+            --libexecdir=%{_libexecdir} \
             --mandir=%{_mandir} \
             --with-unitdir=%{_unitdir} \
             --with-udevdir=%{udevdir} \
@@ -111,6 +112,7 @@ EOF
 %files
 %defattr(-,root,root)
 %license doc/COPYING
+%dir %{_sysconfdir}/sysconfig/network
 %config %{_sysconfdir}/sysconfig/network/ifcfg.template
 %ghost %{_sysconfdir}/sysconfig/network/config
 %ghost %{_sysconfdir}/sysconfig/network/dhcp
@@ -136,13 +138,15 @@ EOF
 
 %files netconfig
 %defattr(-,root,root)
-%dir %{_sysconfdir}/netconfig.d
-%{_sysconfdir}/netconfig.d/*
+%dir %{_libexecdir}/netconfig
+%dir %{_libexecdir}/netconfig/netconfig.d
+%{_libexecdir}/netconfig/netconfig.d/*
+%{_libexecdir}/netconfig/functions.netconfig
 %{_sysconfdir}/sysconfig/network/scripts/functions.netconfig
 /sbin/netconfig
 %{_mandir}/man8/netconfig.8%{ext_man}
 %doc %{_docdir}/sysconfig/netconfig.png
-%{_sysconfdir}/ppp/netconfig
+%{_libexecdir}/netconfig/ppp/ip-up
 %{_sysconfdir}/ppp/ip-up.d/10-netconfig
 %{_sysconfdir}/ppp/ip-down.d/90-netconfig
 %{_sysconfdir}/ppp/pre-start.d/10-netconfig

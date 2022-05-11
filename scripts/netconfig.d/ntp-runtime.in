@@ -25,7 +25,7 @@ unset POSIXLY_CORRECT ; set +o posix # we are using non-posix bash features
 # managed by SuSEconfig when that root is not '/'
 r="$ROOT"
 
-. "$r/etc/sysconfig/network/scripts/functions.netconfig"
+. "$r@libexec_netconfigdir@/functions.netconfig" || exit 1
 
 PROGNAME="${0##*/}"
 if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then

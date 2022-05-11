@@ -7,7 +7,7 @@ VERSION=$(cat ${srcdir}/VERSION)
 AC_SUBST(VERSION)
 
 AM_INIT_AUTOMAKE([foreign dist-bzip2 no-dist-gzip])
-AC_CONFIG_SRCDIR([config/sysconfig.config-network])
+AC_CONFIG_SRCDIR([config/sysconfig.config-network.in])
 AC_REVISION($Revision: 1.13 $)
 
 AC_PREFIX_DEFAULT(/usr)
@@ -22,7 +22,9 @@ docdir='${prefix}/usr/share/doc/packages/sysconfig'
 pppdir='${sysconfdir}/ppp'
 nm_dispatcherdir='${sysconfdir}/NetworkManager/dispatcher.d'
 modprobedir='${sysconfdir}/modprobe.d'
-netconfig_d_scriptsdir='${sysconfdir}/netconfig.d'
+libexec_netconfigdir='${libexecdir}/netconfig'
+libexec_netconfig_d_scriptsdir='${libexec_netconfigdir}/netconfig.d'
+sysconf_netconfig_d_scriptsdir='${sysconfdir}/netconfig.d'
 fillup_templatesdir='${prefix}/var/adm/fillup-templates'
 AC_SUBST(sysconfigdir)
 AC_SUBST(sysconfig_hardwaredir)
@@ -42,7 +44,9 @@ AC_SUBST(udevdir, $with_udevdir)
 AC_SUBST(udevrulesdir, ${with_udevdir}/rules.d)
 AC_SUBST(modprobedir)
 AC_SUBST(nm_dispatcherdir)
-AC_SUBST(netconfig_d_scriptsdir)
+AC_SUBST(libexec_netconfigdir)
+AC_SUBST(libexec_netconfig_d_scriptsdir)
+AC_SUBST(sysconf_netconfig_d_scriptsdir)
 AC_ARG_WITH(fillup-templatesdir,
 	[  --with-fillup-templatesdir=name   Set the pathname for the fillup templates directory],[
 	fillup_templatesdir=$withval; AC_MSG_RESULT(configuration directory: $fillup_templatesdir)],
