@@ -64,7 +64,6 @@ Summary:        Script to apply network provided settings
 Group:          System/Base
 Requires:       /bin/gawk
 Requires:       /bin/logger
-Requires:       /usr/bin/sed
 Requires(pre):  sysconfig = %{version}
 Provides:       /sbin/netconfig
 
