@@ -79,8 +79,8 @@ provided settings like DNS or NIS into system files.
 autoreconf -fvi
 CFLAGS="%{optflags} -fPIC" LDFLAGS="-pie" \
 %configure --prefix=/ \
-            --sbindir=/sbin \
-            --libdir=/%{_lib} \
+            --sbindir=%{_sbindir} \
+            --libdir=%{_libdir} \
             --sysconfdir=%{_sysconfdir} \
             --libexecdir=%{_libexecdir} \
             --mandir=%{_mandir} \
@@ -96,8 +96,11 @@ make %{?_smp_mflags} check
 %make_install
 touch %{buildroot}%{_sysconfdir}/sysconfig/network/config
 touch %{buildroot}%{_sysconfdir}/sysconfig/network/dhcp
+%if !0%{?usrmerged}
 mkdir -p %{buildroot}/sbin
-ln -s /sbin/service %{buildroot}/sbin/rcnetwork
+ln -s %{_sbindir}/netconfig %{buildroot}/sbin/netconfig
+%endif
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rcnetwork
 rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
 
 mkdir -p %{buildroot}%{_tmpfilesdir}
@@ -120,8 +123,8 @@ EOF
 %doc %{_docdir}/sysconfig/Contents
 %{_fillupdir}/sysconfig.dhcp-network
 %{_fillupdir}/sysconfig.config-network
-/sbin/rcnetwork
-/sbin/ifuser
+%{_sbindir}/rcnetwork
+%{_sbindir}/ifuser
 %dir %attr(0750,root,root) %{_sysconfdir}/ppp
 %dir %{_sysconfdir}/ppp/ip-up.d
 %dir %{_sysconfdir}/ppp/ip-down.d
@@ -143,7 +146,10 @@ EOF
 %{_libexecdir}/netconfig/netconfig.d/*
 %{_libexecdir}/netconfig/functions.netconfig
 %{_sysconfdir}/sysconfig/network/scripts/functions.netconfig
+%{_sbindir}/netconfig
+%if !0%{?usrmerged}
 /sbin/netconfig
+%endif
 %{_mandir}/man8/netconfig.8%{ext_man}
 %doc %{_docdir}/sysconfig/netconfig.png
 %{_libexecdir}/netconfig/ppp/ip-up
