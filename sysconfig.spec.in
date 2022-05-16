@@ -31,6 +31,11 @@
   %define _fillupdir /var/adm/fillup-templates
 %endif
 
+%if 0%{?suse_version} >= 1550
+%bcond_with     ifuser
+%else
+%bcond_without  ifuser
+%endif
 %if 0%{?suse_version} >= 1230
 %define         udevdir	%{_prefix}/lib/udev
 BuildRequires:  pkgconfig(systemd)
@@ -102,6 +107,9 @@ ln -s %{_sbindir}/netconfig %{buildroot}/sbin/netconfig
 %endif
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rcnetwork
 rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
+%if %{without ifuser}
+rm -f %{buildroot}%{_sbindir}/ifuser
+%endif
 
 mkdir -p %{buildroot}%{_tmpfilesdir}
 cat >%{buildroot}%{_tmpfilesdir}/netconfig.conf <<-EOF
@@ -124,7 +132,9 @@ EOF
 %{_fillupdir}/sysconfig.dhcp-network
 %{_fillupdir}/sysconfig.config-network
 %{_sbindir}/rcnetwork
+%if %{with ifuser}
 %{_sbindir}/ifuser
+%endif
 %dir %attr(0750,root,root) %{_sysconfdir}/ppp
 %dir %{_sysconfdir}/ppp/ip-up.d
 %dir %{_sysconfdir}/ppp/ip-down.d
