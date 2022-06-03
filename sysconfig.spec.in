@@ -52,7 +52,11 @@ Requires:       (sysvinit(network) or service(network))
 Requires(post): %fillup_prereq
 Requires(post): /usr/bin/grep
 Requires(post): /usr/bin/chmod /usr/bin/mkdir /usr/bin/touch
+%if 0%{?suse_version} >= 1550
 Suggests:       wicked-service
+%else
+Recommends:     wicked-service
+%endif
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
