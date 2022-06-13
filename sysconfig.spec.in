@@ -31,6 +31,11 @@
   %define _fillupdir /var/adm/fillup-templates
 %endif
 
+%if 0%{?suse_version} >= 1550
+%bcond_with     ifuser
+%else
+%bcond_without  ifuser
+%endif
 %if 0%{?suse_version} >= 1230
 %define         udevdir	%{_prefix}/lib/udev
 BuildRequires:  pkgconfig(systemd)
@@ -52,7 +57,11 @@ Requires:       (sysvinit(network) or service(network))
 Requires(post): %fillup_prereq
 Requires(post): /usr/bin/grep
 Requires(post): /usr/bin/chmod /usr/bin/mkdir /usr/bin/touch
+%if 0%{?suse_version} >= 1550
 Suggests:       wicked-service
+%else
+Recommends:     wicked-service
+%endif
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -64,7 +73,6 @@ Summary:        Script to apply network provided settings
 Group:          System/Base
 Requires:       /bin/gawk
 Requires:       /bin/logger
-Requires:       /usr/bin/sed
 Requires(pre):  sysconfig = %{version}
 Provides:       /sbin/netconfig
 
@@ -79,8 +87,8 @@ provided settings like DNS or NIS into system files.
 autoreconf -fvi
 CFLAGS="%{optflags} -fPIC" LDFLAGS="-pie" \
 %configure --prefix=/ \
-            --sbindir=/sbin \
-            --libdir=/%{_lib} \
+            --sbindir=%{_sbindir} \
+            --libdir=%{_libdir} \
             --sysconfdir=%{_sysconfdir} \
             --libexecdir=%{_libexecdir} \
             --mandir=%{_mandir} \
@@ -96,9 +104,18 @@ make %{?_smp_mflags} check
 %make_install
 touch %{buildroot}%{_sysconfdir}/sysconfig/network/config
 touch %{buildroot}%{_sysconfdir}/sysconfig/network/dhcp
+mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/network/scripts
+ln -s %{_libexecdir}/netconfig/functions.netconfig \
+      %{buildroot}%{_sysconfdir}/sysconfig/network/scripts
+%if !0%{?usrmerged}
 mkdir -p %{buildroot}/sbin
-ln -s /sbin/service %{buildroot}/sbin/rcnetwork
+ln -s %{_sbindir}/netconfig %{buildroot}/sbin/netconfig
+%endif
+ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rcnetwork
 rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
+%if %{without ifuser}
+rm -f %{buildroot}%{_sbindir}/ifuser
+%endif
 
 mkdir -p %{buildroot}%{_tmpfilesdir}
 cat >%{buildroot}%{_tmpfilesdir}/netconfig.conf <<-EOF
@@ -120,8 +137,10 @@ EOF
 %doc %{_docdir}/sysconfig/Contents
 %{_fillupdir}/sysconfig.dhcp-network
 %{_fillupdir}/sysconfig.config-network
-/sbin/rcnetwork
-/sbin/ifuser
+%{_sbindir}/rcnetwork
+%if %{with ifuser}
+%{_sbindir}/ifuser
+%endif
 %dir %attr(0750,root,root) %{_sysconfdir}/ppp
 %dir %{_sysconfdir}/ppp/ip-up.d
 %dir %{_sysconfdir}/ppp/ip-down.d
@@ -143,7 +162,10 @@ EOF
 %{_libexecdir}/netconfig/netconfig.d/*
 %{_libexecdir}/netconfig/functions.netconfig
 %{_sysconfdir}/sysconfig/network/scripts/functions.netconfig
+%{_sbindir}/netconfig
+%if !0%{?usrmerged}
 /sbin/netconfig
+%endif
 %{_mandir}/man8/netconfig.8%{ext_man}
 %doc %{_docdir}/sysconfig/netconfig.png
 %{_libexecdir}/netconfig/ppp/ip-up

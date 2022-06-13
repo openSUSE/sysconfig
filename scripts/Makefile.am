@@ -30,12 +30,10 @@ substitute_vars	= $(AM_V_GEN)sed \
 	@$(substitute_vars) < $< > $@.tmp && mv $@.tmp $@
 
 install-data-hook:
-	$(MKDIR_P) $(DESTDIR)$(sysconfig_network_scriptsdir)
 	$(MKDIR_P) $(DESTDIR)$(pppdir)/ip-up.d
 	$(MKDIR_P) $(DESTDIR)$(pppdir)/ip-down.d
 	$(MKDIR_P) $(DESTDIR)$(pppdir)/pre-start.d
 	$(MKDIR_P) $(DESTDIR)$(pppdir)/post-stop.d
-	$(LN_S) -f $(libexec_netconfigdir)/functions.netconfig $(DESTDIR)$(sysconfig_network_scriptsdir)
 	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(pppdir)/ip-up.d/10-netconfig
 	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(pppdir)/ip-down.d/90-netconfig
 	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(pppdir)/pre-start.d/10-netconfig
