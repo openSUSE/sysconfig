@@ -48,7 +48,7 @@ find_current_service()
 {
     local name=$1
     local pfx file link
-    for pfx in /etc/systemd /var/run/systemd /run/systemd ; do
+    for pfx in /etc/systemd /run/systemd ; do
         file="$pfx/system/$name"
         test -f "$file" || continue
         link=`readlink -f "$file" 2>/dev/null`
@@ -472,7 +472,7 @@ function openLock() {
     PRGNAME=$1
     PID=$$
 
-    PIDPATH="/var/run/$PRGNAME.pid"
+    PIDPATH="/run/$PRGNAME.pid"
 
     if [ -e $PIDPATH ]; then
 
@@ -515,7 +515,7 @@ function unLock() {
     PRGNAME=$1
     PID=$$
 
-    PIDPATH="/var/run/$PRGNAME.pid"
+    PIDPATH="/run/$PRGNAME.pid"
     
     if [ ! -e $PIDPATH ]; then
 

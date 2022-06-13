@@ -36,7 +36,7 @@ r=$ROOT
 . $r/etc/sysconfig/network/scripts/functions.netconfig
 
 PROGNAME=${0##*/}
-STATEDIR=$r/var/run/netconfig/
+STATEDIR=$r/run/netconfig/
 
 MODULEDIR=$r/etc/netconfig.d/
 
@@ -223,7 +223,7 @@ function get_new_cfgname() {
     local CFGNAME=""
 
     for CFG in `ls -X -r $STATEDIR/$INTERFACE/ 2>/dev/null`; do
-        CNT=`echo "$CFG" | sed 's/netconfig//'`
+        CNT="${CFG#netconfig}"
         ((CNT++))
         CFGNAME="netconfig$CNT"
         break

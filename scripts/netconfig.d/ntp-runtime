@@ -34,15 +34,15 @@ if test "$UID" != "0" -a "$USER" != root -a -z "$ROOT" ; then
 fi
 
 SYSFSDIR="/sys/class/net"
-STATEDIR="/var/run/netconfig"
+STATEDIR="/run/netconfig"
 debug "$PROGNAME Module called"
 
 . "$r/etc/sysconfig/network/config"
 
 NTP_SERVER_LIST=()
 
-CHRONY_SERVER="/var/run/netconfig/chrony.servers"
-NTPD_DESTFILE="/var/run/ntp/servers-netconfig"
+CHRONY_SERVER="$STATEDIR/chrony.servers"
+NTPD_DESTFILE="/run/ntp/servers-netconfig"
 
 function dump_chrony_servers()
 {
