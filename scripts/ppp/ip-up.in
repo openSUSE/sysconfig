@@ -3,7 +3,7 @@
 #	/etc/ppp/ip-{up,down} dispatcher script
 #	Put your scripts into ip-{up,down}.d/* instead
 #
-#	Copyright (C) 1997-2016 SUSE LINUX GmbH, Nuernberg, Germany.
+#	Copyright (C) 1997-2022 SUSE LLC
 #
 #	This program is free software; you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
@@ -68,25 +68,30 @@ filter_ext()
 
 run_script()
 {
-	local SCRIPT="$1" ; shift
+	local S="$1" ; shift
 
-	# Filter out non-regular files
-	test -f "$SCRIPT" || return 1
+	if   test -x "@sysconf_pppdir@/$S" ; then
+		"@sysconf_pppdir@/$S" "$@" | logger -p security.notice -t "${S}" 2>&1
+	elif test -x "@libexec_pppdir@/$S" ; then
+		"@libexec_pppdir@/$S" "$@" | logger -p security.notice -t "${S}" 2>&1
+	fi
+}
 
-	# Filter out non-executable files
-	test -x "$SCRIPT" || return 1
+get_sorted()
+{
+	local S ACTION="$1"
 
-	"$SCRIPT" "$@" | logger -p security.notice -t "${SCRIPT#/etc/ppp/}" 2>&1
+	for S in "@sysconf_pppdir@/$ACTION/"* "@libexec_pppdir@/$ACTION/"* ; do
+		filter_ext "$S" || continue && echo "${S##*/}"
+	done | sort -u
 }
 
 run_scripts()
 {
-	local S SCRIPTS="$1" ; shift
+	local S ACTION="$1" ; shift
 
-	test -d "$SCRIPTS" || return 1
-	for S in "$SCRIPTS"/* ; do
-		filter_ext "$S" || continue
-		run_script "$S" "$@"
+	for S in $(get_sorted "$ACTION" 2>/dev/null) ;  do
+		run_script "$ACTION/$S" "$@"
 	done
 	return 0
 }
@@ -97,8 +102,8 @@ case $BASENAME in
 # See also "man 8 pppd" for all up/down script names supported by pppd.
 #
 *-up|*-down)
-	run_scripts /etc/ppp/${BASENAME}.d "$@"
-	run_script  /etc/ppp/${BASENAME}.local "$@"
+	run_scripts "${BASENAME}.d" "$@"
+	run_script  "${BASENAME}.local" "$@"
 ;;
 
 #
@@ -107,7 +112,7 @@ case $BASENAME in
 # triggers pppd to estabish connection) and to preform a cleanup on pppd exit.
 #
 pre-start|post-stop)
-	run_scripts /etc/ppp/${BASENAME}.d "$@"
+	run_scripts "${BASENAME}.d" "$@"
 ;;
 esac
 
