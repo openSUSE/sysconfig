@@ -30,14 +30,14 @@ substitute_vars	= $(AM_V_GEN)sed \
 	@$(substitute_vars) < $< > $@.tmp && mv $@.tmp $@
 
 install-data-hook:
-	$(MKDIR_P) $(DESTDIR)$(pppdir)/ip-up.d
-	$(MKDIR_P) $(DESTDIR)$(pppdir)/ip-down.d
-	$(MKDIR_P) $(DESTDIR)$(pppdir)/pre-start.d
-	$(MKDIR_P) $(DESTDIR)$(pppdir)/post-stop.d
-	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(pppdir)/ip-up.d/10-netconfig
-	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(pppdir)/ip-down.d/90-netconfig
-	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(pppdir)/pre-start.d/10-netconfig
-	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(pppdir)/post-stop.d/90-netconfig
+	$(MKDIR_P) $(DESTDIR)$(libexec_pppdir)/ip-up.d
+	$(MKDIR_P) $(DESTDIR)$(libexec_pppdir)/ip-down.d
+	$(MKDIR_P) $(DESTDIR)$(libexec_pppdir)/pre-start.d
+	$(MKDIR_P) $(DESTDIR)$(libexec_pppdir)/post-stop.d
+	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(libexec_pppdir)/ip-up.d/10-netconfig
+	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(libexec_pppdir)/ip-down.d/90-netconfig
+	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(libexec_pppdir)/pre-start.d/10-netconfig
+	$(LN_S) -f $(libexec_netconfig_pppdir)/ip-up $(DESTDIR)$(libexec_pppdir)/post-stop.d/90-netconfig
 
 check-local:
 	@for i in $(sbin_SCRIPTS) ; do bash -n $(builddir)/$$i && printf '%-30s %s\n' $$i "Syntax OK" || exit 1; done

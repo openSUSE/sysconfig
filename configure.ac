@@ -19,9 +19,10 @@ sysconfig_networkdir='${sysconfdir}/sysconfig/network'
 sysconfig_network_scriptsdir='${sysconfdir}/sysconfig/network/scripts'
 init_ddir='${sysconfdir}/init.d'
 docdir='${prefix}/usr/share/doc/packages/sysconfig'
-pppdir='${sysconfdir}/ppp'
 nm_dispatcherdir='${sysconfdir}/NetworkManager/dispatcher.d'
 modprobedir='${sysconfdir}/modprobe.d'
+sysconf_pppdir='${sysconfdir}/ppp'
+libexec_pppdir='${libexecdir}/ppp'
 libexec_netconfigdir='${libexecdir}/netconfig'
 libexec_netconfig_d_scriptsdir='${libexec_netconfigdir}/netconfig.d'
 sysconf_netconfig_d_scriptsdir='${sysconfdir}/netconfig.d'
@@ -32,7 +33,8 @@ AC_SUBST(sysconfig_networkdir)
 AC_SUBST(sysconfig_network_scriptsdir)
 AC_SUBST(init_ddir)
 AC_SUBST(docdir)
-AC_SUBST(pppdir)
+AC_SUBST(sysconf_pppdir)
+AC_SUBST(libexec_pppdir)
 AC_ARG_WITH([unitdir], [AS_HELP_STRING([--with-unitdir@<:@=PATH@:>@],
 	    [path to the systemd/system unit directory])],,
 	    [with_unitdir='${prefix}/lib/systemd/system'])

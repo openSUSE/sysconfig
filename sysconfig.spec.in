@@ -141,17 +141,28 @@ EOF
 %if %{with ifuser}
 %{_sbindir}/ifuser
 %endif
+%dir %attr(0750,root,root) %{_libexecdir}/ppp
+%dir %{_libexecdir}/ppp/ip-up.d
+%dir %{_libexecdir}/ppp/ip-down.d
+%dir %{_libexecdir}/ppp/ipv6-up.d
+%dir %{_libexecdir}/ppp/ipv6-down.d
+%dir %{_libexecdir}/ppp/ip-pre-up.d
+%dir %{_libexecdir}/ppp/pre-start.d
+%dir %{_libexecdir}/ppp/post-stop.d
+%{_libexecdir}/ppp/ip-up
 %dir %attr(0750,root,root) %{_sysconfdir}/ppp
 %dir %{_sysconfdir}/ppp/ip-up.d
 %dir %{_sysconfdir}/ppp/ip-down.d
 %dir %{_sysconfdir}/ppp/ipv6-up.d
 %dir %{_sysconfdir}/ppp/ipv6-down.d
+%dir %{_sysconfdir}/ppp/ip-pre-up.d
 %dir %{_sysconfdir}/ppp/pre-start.d
 %dir %{_sysconfdir}/ppp/post-stop.d
 %{_sysconfdir}/ppp/ip-up
 %{_sysconfdir}/ppp/ip-down
 %{_sysconfdir}/ppp/ipv6-up
 %{_sysconfdir}/ppp/ipv6-down
+%{_sysconfdir}/ppp/ip-pre-up
 %{_sysconfdir}/ppp/post-stop
 %{_sysconfdir}/ppp/pre-start
 
@@ -169,10 +180,10 @@ EOF
 %{_mandir}/man8/netconfig.8%{ext_man}
 %doc %{_docdir}/sysconfig/netconfig.png
 %{_libexecdir}/netconfig/ppp/ip-up
-%{_sysconfdir}/ppp/ip-up.d/10-netconfig
-%{_sysconfdir}/ppp/ip-down.d/90-netconfig
-%{_sysconfdir}/ppp/pre-start.d/10-netconfig
-%{_sysconfdir}/ppp/post-stop.d/90-netconfig
+%{_libexecdir}/ppp/ip-up.d/10-netconfig
+%{_libexecdir}/ppp/ip-down.d/90-netconfig
+%{_libexecdir}/ppp/pre-start.d/10-netconfig
+%{_libexecdir}/ppp/post-stop.d/90-netconfig
 %{_tmpfilesdir}/netconfig.conf
 %ghost %dir /run/netconfig
 %ghost /run/netconfig/resolv.conf

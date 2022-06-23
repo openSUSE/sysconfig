@@ -10,7 +10,7 @@ CONFIGURE_DEPENDENCIES = VERSION
 CLEANFILES = *~
 MAINTAINERCLEANFILES = aclocal.m4 config.guess config.sub  \
 	configure depcomp install-sh ltmain.sh Makefile.in \
-	missing sysconfig.spec package/sysconfig.spec      \
+	compile missing sysconfig.spec package/sysconfig.spec \
 	$(DIST_ARCHIVES) $(PACKAGE)-$(VERSION).tar.bz2     \
 	package/$(PACKAGE)-$(VERSION).tar.bz2
 
