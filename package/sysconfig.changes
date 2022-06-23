@@ -4,7 +4,7 @@ Fri Jun  3 15:11:14 UTC 2022 - Marius Tomaschewski <mt@suse.com>
 - version 0.85.9
 - spec: revert to recommend wicked-service on <= 15.4
 - netconfig: remove sed dependency
-- netconfig/dns-resolver: remove search limit of 6 domains
+- netconfig/dns-resolver: remove search limit of 6 domains (bsc#1199093)
 - netconfig: cleanup /var/run leftovers (bsc#1194557)
 - netconfig: update ntp man page documentation, fix typos
 - spec: drop legacy migration (from sle11) and rpm-utils
