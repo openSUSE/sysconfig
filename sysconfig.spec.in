@@ -1,7 +1,7 @@
 #
 # spec file for package sysconfig
 #
-# Copyright (c) 2021 SUSE LLC
+# Copyright (c) 2022 SUSE LLC
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -167,6 +167,7 @@ EOF
 %files netconfig
 %defattr(-,root,root)
 %dir %{_libexecdir}/netconfig
+%dir %{_libexecdir}/netconfig/ppp
 %dir %{_libexecdir}/netconfig/netconfig.d
 %{_libexecdir}/netconfig/netconfig.d/*
 %{_libexecdir}/netconfig/functions.netconfig
