@@ -30,7 +30,7 @@ SPEED=$3
 LOCALIP=$4
 REMOTEIP=$5
 IPPARAM=$6
-ACTION=${0#/etc/ppp/}
+ACTION=${0#*/ppp/}
 
 ###
 ### remove comment chars to trace this script:
