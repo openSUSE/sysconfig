@@ -115,8 +115,8 @@ EOF
 %defattr(-,root,root)
 %license doc/COPYING
 %config %{_sysconfdir}/sysconfig/network/ifcfg.template
-%ghost %{_sysconfdir}/sysconfig/network/config
-%ghost %{_sysconfdir}/sysconfig/network/dhcp
+%ghost %attr(0644,root,root) %{_sysconfdir}/sysconfig/network/config
+%ghost %attr(0644,root,root) %{_sysconfdir}/sysconfig/network/dhcp
 %dir %{_docdir}/sysconfig
 %doc %{_docdir}/sysconfig/Contents
 %{_fillupdir}/sysconfig.dhcp-network
@@ -151,11 +151,11 @@ EOF
 %{_sysconfdir}/ppp/pre-start.d/10-netconfig
 %{_sysconfdir}/ppp/post-stop.d/90-netconfig
 %{_tmpfilesdir}/netconfig.conf
-%ghost %dir /run/netconfig
-%ghost /run/netconfig/resolv.conf
-%ghost /run/netconfig/yp.conf
-%ghost /etc/resolv.conf
-%ghost %config(noreplace) %{_sysconfdir}/yp.conf
+%ghost %attr(0755,root,root) %dir /run/netconfig
+%ghost %attr(0644,root,root) /run/netconfig/resolv.conf
+%ghost %attr(0644,root,root) /etc/resolv.conf
+%ghost %attr(0644,root,root) /run/netconfig/yp.conf
+%ghost %attr(0644,root,root) /etc/yp.conf
 
 %post -p /bin/bash
 %{fillup_only -dns dhcp network network}
