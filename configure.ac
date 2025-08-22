@@ -56,6 +56,23 @@ AC_ARG_WITH(fillup-templatesdir,
 ])
 AC_SUBST(fillup_templatesdir)
 
+AC_ARG_ENABLE([netconfig-dns],
+	[AS_HELP_STRING([--disable-netconfig-dns],
+	[disable netconfig dns updater modules])],,
+	[enable_netconfig_dns=yes])
+AM_CONDITIONAL([netconfig_dns], [test "x$enable_netconfig_dns" = "xyes"])
+
+AC_ARG_ENABLE([netconfig-ntp],
+	[AS_HELP_STRING([--disable-netconfig-ntp],
+	[disable netconfig ntp updater modules])],,
+	[enable_netconfig_ntp=yes])
+AM_CONDITIONAL([netconfig_ntp], [test "x$enable_netconfig_ntp" = "xyes"])
+
+AC_ARG_ENABLE([netconfig-nis],
+	[AS_HELP_STRING([--disable-netconfig-nis],
+	[disable netconfig nis updater modules])],,
+	[enable_netconfig_nis=yes])
+AM_CONDITIONAL([netconfig_nis], [test "x$enable_netconfig_nis" = "xyes"])
 
 # Checks for programs.
 AC_PROG_AWK

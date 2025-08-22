@@ -1,0 +1,35 @@
+
+## Type:        string
+## Default:     "dns-resolver dns-bind ntp-runtime nis"
+#
+# This variable defines the start order of netconfig modules installed
+# in the /etc/netconfig.d and @libexec_netconfigdir@/netconfig.d/ directories.
+#
+# To disable the execution of a module, instead of removing it from the
+# list, you can also prepend a minus sign to the module, e.g. "-nis".
+#
+NETCONFIG_MODULES_ORDER="@netconfig_modules@"
+
+## Type:        yesno
+## Default:     no
+#
+# Enable netconfig verbose reporting.
+#
+NETCONFIG_VERBOSE="no"
+
+## Type:	yesno
+## Default:	no
+#
+# This variable enables netconfig to always force a replace of modified
+# files and automatically enables the -f | --force-replace parameter.
+#
+# The purpose is to use it as workaround, when some other tool trashes
+# the files, e.g. /etc/resolv.conf and you observe messages like this
+# in your logs on in "netconfig update" output:
+# ATTENTION: You have modified /etc/resolv.conf. Leaving it untouched.
+#
+# Please do not forget to also report a bug as we have a system policy
+# to use netconfig.
+#
+NETCONFIG_FORCE_REPLACE="no"
+

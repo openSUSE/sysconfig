@@ -1,0 +1,16 @@
+
+## Type:        string
+## Default:     "auto"
+#
+# Defines the NTP merge policy as documented in netconfig(8) manual page.
+# Set to "" to disable NTP configuration.
+#
+NETCONFIG_NTP_POLICY="auto"
+
+## Type:        string
+## Default:     ""
+#
+# List of NTP servers.
+#
+NETCONFIG_NTP_STATIC_SERVERS=""
+
