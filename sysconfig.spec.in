@@ -36,12 +36,7 @@
 %else
 %bcond_without  ifuser
 %endif
-%if 0%{?suse_version} >= 1230
-%define         udevdir	%{_prefix}/lib/udev
-BuildRequires:  pkgconfig(systemd)
-%else
-%define         udevdir	/lib/udev
-%endif
+
 Name:           sysconfig
 Version:        @VERSION@
 Release:        0
@@ -91,7 +86,6 @@ CFLAGS="%{optflags} -fPIC" LDFLAGS="-pie" \
             --libexecdir=%{_libexecdir} \
             --mandir=%{_mandir} \
             --with-unitdir=%{_unitdir} \
-            --with-udevdir=%{udevdir} \
             --with-fillup-templatesdir=%{_fillupdir}
 make %{?_smp_mflags}
 
