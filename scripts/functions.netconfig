@@ -1,4 +1,5 @@
-#!/bin/bash
+#
+# netconfig bash function collection.
 #
 # Copyright (c) 2008 SUSE LINUX Products GmbH, Nuernberg, Germany.
 # This program is free software; you can redistribute it and/or modify it under
