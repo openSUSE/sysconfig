@@ -74,6 +74,12 @@ AC_ARG_ENABLE([netconfig-nis],
 	[enable_netconfig_nis=yes])
 AM_CONDITIONAL([netconfig_nis], [test "x$enable_netconfig_nis" = "xyes"])
 
+AC_ARG_ENABLE([ifuser],
+	[AS_HELP_STRING([--enable-ifuser],
+	[disable the ifuser utility])],,
+	[enable_ifuser=no])
+AM_CONDITIONAL([ifuser], [test "x$enable_ifuser" = "xyes"])
+
 # Checks for programs.
 AC_PROG_AWK
 AC_PROG_CC

@@ -63,6 +63,9 @@ Requires:       /sbin/netconfig
 Requires:       (sysvinit(network) or service(network))
 Recommends:     wicked-service
 %endif
+%if %{without ifuser}
+BuildArch:      noarch
+%endif
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -91,6 +94,9 @@ CFLAGS="%{optflags} -fPIC" LDFLAGS="-pie" \
 %if %{without nis}
 	--disable-netconfig-nis \
 %endif
+%if %{with ifuser}
+	--enable-ifuser \
+%endif
 	--prefix=/ \
 	--sbindir=%{_sbindir} \
 	--libdir=%{_libdir} \
@@ -117,9 +123,6 @@ ln -s %{_sbindir}/netconfig %{buildroot}/sbin/netconfig
 %endif
 ln -s %{_sbindir}/service %{buildroot}%{_sbindir}/rcnetwork
 rm -f %{buildroot}%{_docdir}/sysconfig/COPYING
-%if %{without ifuser}
-rm -f %{buildroot}%{_sbindir}/ifuser
-%endif
 
 mkdir -p %{buildroot}%{_tmpfilesdir}
 rm -f -- %{buildroot}%{_tmpfilesdir}/netconfig.conf

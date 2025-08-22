@@ -3,7 +3,11 @@
 CLEANFILES = *~
 MAINTAINERCLEANFILES = Makefile.in
 
-sbin_PROGRAMS = ifuser
+if ifuser
+sbin_PROGRAMS	= ifuser
 
-ifuser_SOURCES = ifuser.c
+ifuser_SOURCES	= ifuser.c
+else
+EXTRA_DIST	= ifuser.c
+endif
 
