@@ -40,7 +40,7 @@ BuildRequires:  pkgconfig(systemd)
 Name:           sysconfig
 Version:        @VERSION@
 Release:        0
-Summary:        The sysconfig scheme for traditional network scripts
+Summary:        The configuration scheme for traditional network scripts
 License:        GPL-2.0-or-later
 Group:          System/Base
 URL:            https://github.com/openSUSE/sysconfig
@@ -73,7 +73,7 @@ Provides:       /sbin/netconfig
 
 %description netconfig
 This package provides the netconfig scripts to apply network
-provided settings like DNS or NIS into system files.
+provided settings like DNS, NIS or NIS into system files.
 
 %prep
 %setup -q
