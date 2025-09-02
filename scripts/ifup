@@ -71,7 +71,7 @@ exithook () {
 }
 
 ######################################################################
-# change the working direcory and source some common files
+# change the working directory and source some common files
 #
 R_INTERNAL=1      # internal error, e.g. no config or missing scripts
 cd /etc/sysconfig/network || exit $R_INTERNAL
@@ -238,7 +238,7 @@ test "X$INTERFACETYPE" = "X" && export INTERFACETYPE="$_INTERFACETYPE"
 #
 # This is needed if ifup is called via udev before rcnetwork was started.
 # Without this flag rcnetwork does not know if renaming was completed and
-# will therefore wait unneccessarily. In older releases we did this in
+# will therefore wait unnecessarily. In older releases we did this in
 # rename_netiface, but since rename_netiface is gone we do it here.
 if [ "$SCRIPTNAME" = ifup ] ; then
 	if [ "$HOTPLUG" = yes ] ; then
@@ -453,7 +453,7 @@ if [ "$?" = 0 -a "$NODEPS" != yes ] ; then
 	done
 
 	message "`printf "    %-9s now going down itself" $INTERFACE`"
-	# check if iface is (still) avaliable
+	# check if iface is (still) available
 	# [bonding master may go down itself
 	#  while the last slave gets removed]
 	if ! is_iface_available $INTERFACE; then
@@ -657,7 +657,7 @@ if [ "$STARTMODE" == ifplugd -a "$CONTROL_IFPLUGD" == yes ] ; then
 		message "`printf "    %-9s is controlled by ifplugd" $INTERFACE`"
 		if [ "$INTERFACETYPE" = "wlan" ]; then
 			# Since exec deletes our traps we have to call
-			# exittrap explicitely to set connection state
+			# exittrap explicitly to set connection state
 			RET_STATE=ifplugd
 			exittrap
 			exec scripts/ifplugd-selectif $INTERFACE up > /dev/null
@@ -1128,7 +1128,7 @@ case "$BOOTPROTO$SKIP_MAIN_PART" in
 							if test ! -d /proc/sys/net/ipv6 ; then
 								if ! modprobe net-pf-10 2>/dev/null; then
 									logerror "Missing IPv6 support." \
-									         "Ommitting address $IPADDR."
+									         "Omitting address $IPADDR."
 									continue
 								fi
 							fi
@@ -1488,7 +1488,7 @@ fi
 
 # We have to respect the status of ifplugd for interfaces with
 # STARTMODE=ifplugd. If ifplugd_retcode is set, then this value takes 
-# priority over other reurn codes.
+# priority over other return codes.
 if [ -n "$ifplugd_retcode" -a "$ifplugd_retcode" != 99 ] ; then
 	exithook $ifplugd_retcode
 elif [ "$ifplugd_retcode" == 99 -a "$dhcpretcode" == $R_NOTRUNNING ] ; then

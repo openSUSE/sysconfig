@@ -255,7 +255,7 @@ if [ $RET -eq 1 ]; then
     exit 0
 elif [ $RET -eq 2 ]; then
    # user modified the config.
-    echo "ATTENTION: externaly modified $RESOLV_FILE"
+    echo "ATTENTION: externally modified $RESOLV_FILE"
     echo "call \"netconfig update -f\" to adjust it."
     exit 20
 fi

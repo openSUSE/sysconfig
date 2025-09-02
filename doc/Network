@@ -35,7 +35,7 @@ Script details and syntax
 -------------------------
 By default, all "rcnetwork start" scripts work only
 with configured interfaces ("configured" means no STARTMODE=onboot). If one
-needs to setup particular interface, he should do it explicitely.
+needs to setup particular interface, he should do it explicitly.
 
 rcnetwork {start|stop|restart|reload|status}
 - start:	set up all configured devices
@@ -76,7 +76,7 @@ Config files
 Common variables
 ----------------
 
-See the ifcfg(5) manual page - more specific informations are
+See the ifcfg(5) manual page - more specific information is
 also in the ifcfg-bonding(5), ifcfg-bridge(5), ifcfg-tunnel(5),
 ifcfg-vlan(5), ifcfg-wireless(5) manual pages.
 

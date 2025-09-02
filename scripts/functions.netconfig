@@ -299,12 +299,12 @@ netconfig_check_and_link()
 # generates one with exactly same data inside (and modify it later).
 #
 # The return values of this function:
-# RET=0 : file successfuly copied
+# RET=0 : file successfully copied
 # RET=1 : nothing changed ($srcfile == $destfile)
 # RET=2 : ERROR: somebody has changed the file. The file was not copied
 #         it still exists as $srcfile or in `readline $destfile`.$suffix;
 #         the err_var variable is set to the name.
-# RET=3 : ERROR: another error occured, e.g. some file operation failed
+# RET=3 : ERROR: another error occurred, e.g. some file operation failed
 netconfig_check_md5_and_move()
 {
     local SRCFILE=${1}
@@ -431,7 +431,7 @@ netconfig_kv_filter()
 }
 
 #
-# try to open a lock (4 times) and wait if it failes
+# try to open a lock (4 times) and wait if it fails
 # for the specified time
 #
 # $1 name of the program

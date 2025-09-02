@@ -11,7 +11,7 @@ usage () {
 }
 
 # Test if argument is a existing path in sysfs. Argument may also be relative to
-# /sys. If it is a devpath, return the absolut path.
+# /sys. If it is a devpath, return the absolute path.
 chkif_devpath() {
 	local DP=$1
 	test -z "$DP" && return 11

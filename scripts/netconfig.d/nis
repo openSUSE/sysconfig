@@ -60,7 +60,7 @@ function format_yp_conf()
 
     if [ "$domain" = "broadcast" ]; then
         NIS_GLOGAL_BROADCAST="yes"
-        debug "configure gloabal broadcast"
+        debug "configure global broadcast"
         return 0
     fi
 

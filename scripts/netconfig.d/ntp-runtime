@@ -239,7 +239,7 @@ RET=0
 write_chrony_servers "${NTP_SERVER_LIST[*]}"
 result=$?
 case $result in
-0)  # server list successfuly changed
+0)  # server list successfully changed
     for dir in /usr/libexec /usr/lib ; do
       if test -x "$dir/chrony/helper" ; then
         (
@@ -262,7 +262,7 @@ esac
 write_ntpd_servers "${NTP_SERVER_LIST[*]}"
 result=$?
 case $result in
-0)  # server list successfuly changed
+0)  # server list successfully changed
     if test -x /usr/sbin/start-ntpd ; then
         (
             exec </dev/null 1>/dev/null 2>/dev/null

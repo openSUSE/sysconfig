@@ -37,7 +37,7 @@ baycomepp
 boot		Boot process settings (confirmation, flow control)
 bootloader	Boot loader settings (boot loader type)
 clock		Clock settings (timezone)
-console		Console settings (font, enconding)
+console		Console settings (font, encoding)
 cron		Settings for cron(8) scripts (files to delete)
 devfs
 dhcpd		Settings for dhcpd(8) (interface, user)

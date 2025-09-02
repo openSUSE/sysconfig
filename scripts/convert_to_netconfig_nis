@@ -162,7 +162,7 @@ parse_ypconf()
 ################################################################################
 SCRIPTNAME=${0##*/}
 
-# act bellow of this "root" directory
+# act below of this "root" directory
 test "${ROOT}" = "/" && unset ROOT
 r=${ROOT}
 
@@ -339,7 +339,7 @@ if test -r "${r}${ypbind_config}" ; then
 			# on the policy we evaluate later...
 			#
 			# When DHCLIENT_MODIFY_NIS_CONF was "yes" for at least one
-			# interface, we are alowed to change the yp.conf and enable
+			# interface, we are allowed to change the yp.conf and enable
 			# netconfig (non-empty policy) too.
 			#
 			# The netconfig fallback mode, will use a similar way as

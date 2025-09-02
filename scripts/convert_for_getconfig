@@ -516,7 +516,7 @@ for i in `eval "echo {0..$n}"`; do
 						iface_number=${iface_number#ifcfg-eth}
 						persistent_name="$persistent_prefix$iface_number"
 						(
-						echo "# You may set an interface name which is independant of the order of driver loading."
+						echo "# You may set an interface name which is independent of the order of driver loading."
 						echo "# Note, though, that the genuine names (e.g. eth*) cannot be used here."
 						echo "#PERSISTENT_NAME='$persistent_name'"
 						) >> $new_file

@@ -33,7 +33,7 @@ usage () {
 	echo "  LINK_WAIT=no    (or empty/unset)"
 	echo "    - default, don't do anything"
 	echo "  LINK_WAIT=<steps>"
-	echo "    - space separated list of steps to preform:"
+	echo "    - space separated list of steps to perform:"
 	echo "       sleep: just sleep"
 	echo "       check: check link state flags"
 	echo "       ping : ping specified address"
@@ -50,7 +50,7 @@ usage () {
 }
 
 ######################################################################
-# change the working direcory and source some common files
+# change the working directory and source some common files
 #
 R_INTERNAL=1      # internal error, e.g. no config or missing scripts
 cd /etc/sysconfig/network || exit $R_INTERNAL
