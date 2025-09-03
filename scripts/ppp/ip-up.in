@@ -109,7 +109,7 @@ case $BASENAME in
 #
 # The pre-start/post-stop scripts can be called by the process before starting
 # pppd to initialize demand dialing (e.g. to apply dns servers, so a dns query
-# triggers pppd to estabish connection) and to preform a cleanup on pppd exit.
+# triggers pppd to establish connection) and to perform a cleanup on pppd exit.
 #
 pre-start|post-stop)
 	run_scripts "${BASENAME}.d" "$@"

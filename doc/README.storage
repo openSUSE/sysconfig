@@ -44,7 +44,7 @@ oran:~ # cat /etc/fstab
 ...
 
 When this device is plugged the filesystem will be checked and if no error
-occurs then mounted. If an error occurs you wont get a message in normal
+occurs then mounted. If an error occurs you won't get a message in normal
 operation mode. Only if /etc/udev/udev.conf:udev_log=info is set, udev will pass
 error messages to syslog.
 Further you should not use the mount option 'noauto', because all storage
@@ -66,7 +66,7 @@ Currently there are two variables in /etc/sysconfig/storage, but these will be
 very probably removed in further releases:
 HOTPLUG_MOUNT_FSTAB=yes/no indicates if storage devices should be mounted via
 hotplug events at all. But you can also just add/remove fstab lines instead.
-HOTPLUG_CHECK_FILESYSTEMS=yes/no is a gobal switch if filesystems on dynamic
+HOTPLUG_CHECK_FILESYSTEMS=yes/no is a global switch if filesystems on dynamic
 system devices should be checked. Also this may be configured in /etc/fstab.
 
 

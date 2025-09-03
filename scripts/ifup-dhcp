@@ -33,7 +33,7 @@ usage () {
 }
 
 ######################################################################
-# change the working direcory and source some common files
+# change the working directory and source some common files
 #
 R_INTERNAL=1      # internal error, e.g. no config or missing scripts
 cd /etc/sysconfig/network || exit $R_INTERNAL
@@ -153,7 +153,7 @@ fi
 #
 # This script is supposed to work with both dhcpcd and the ISC DHCP client,
 # because there's a lot of common stuff.
-# If neccesary you can preselect a dhcp client; just set DHCLIENT_BIN in
+# If necessary you can preselect a dhcp client; just set DHCLIENT_BIN in
 # one of the used config files. If not we prefer dhcpcd if available.
 : ${DHCLIENT_BIN:=dhcpcd}
 : ${DHCLIENT6_BIN:=dhcp6c}
@@ -277,7 +277,7 @@ case "$ACTION" in
 		done
 
 		# exit when not even one of the requested clients is installed
-		# or the a client was explicitely requested in bootproto
+		# or the a client was explicitly requested in bootproto
 		[ "x$HAVE_IPv6" = xyes ] && \
 		[ "x$explicit_dhcp6" = "xyes" -a "x$DHCLIENT6" = x ] && exit $R_ERROR
 		[ "x$explicit_dhcp4" = "xyes" -a "x$DHCLIENT"  = x ] && exit $R_ERROR
@@ -353,7 +353,7 @@ start_dhcp4_dhcpcd() {
 
 start_dhcp4_dhclient() {
 	#
-	# TODO: filter out statements (e.g. inerface blocks),
+	# TODO: filter out statements (e.g. interface blocks),
 	#       apply DHCLIENT_* variables
 	#
 	local DHCPIFLEASE="/var/lib/dhcp/dhclient.${INTERFACE}.lease"
@@ -414,7 +414,7 @@ start_dhcp6_dhcp6c() {
 
 start_dhcp6_dhclient() {
 	#
-	# TODO: filter out statements (e.g. inerface blocks),
+	# TODO: filter out statements (e.g. interface blocks),
 	#       apply DHCLIENT6_* variables
 	#
 	local DHCP6IFLEASE="/var/lib/dhcp6/dhclient6.${INTERFACE}.lease"
@@ -1204,7 +1204,7 @@ case "$ACTION" in
 	;;
 	status)
 		if ifup_on_iface ; then
-			print_mesg mesg ". . . is just beeing set up"
+			print_mesg mesg ". . . is just being set up"
 			exit $R_DHCP_BG
 		fi
 

@@ -22,6 +22,10 @@ tools/ifuser
 tools/udevmountd
 doc/netconfig.8
 config/sysconfig.config-network
+config/sysconfig.config-netconfig
+config/sysconfig.config-netconfig-dns
+config/sysconfig.config-netconfig-ntp
+config/sysconfig.config-netconfig-nis
 scripts/ppp/ip-up
 scripts/functions.netconfig
 scripts/netconfig

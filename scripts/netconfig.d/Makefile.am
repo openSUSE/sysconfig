@@ -6,7 +6,16 @@ DISTCLEANFILES =  $(BUILT_SOURCES)
 EXTRA_DIST = $(templates)
 BUILT_SOURCES = $(libexec_netconfig_d_scripts_generated)
 
-libexec_netconfig_d_scripts_generated	= dns-bind dns-resolver dns-dnsmasq nis ntp-runtime 
+libexec_netconfig_d_scripts_generated	= 
+if netconfig_dns
+libexec_netconfig_d_scripts_generated	+= dns-bind dns-resolver dns-dnsmasq
+endif
+if netconfig_ntp
+libexec_netconfig_d_scripts_generated	+= ntp-runtime 
+endif
+if netconfig_nis
+libexec_netconfig_d_scripts_generated	+= nis
+endif
 libexec_netconfig_d_scripts_SCRIPTS	= $(libexec_netconfig_d_scripts_generated)
 
 templates = $(libexec_netconfig_d_scripts_generated:=.in)

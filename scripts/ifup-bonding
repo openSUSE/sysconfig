@@ -38,7 +38,7 @@ usage () {
 }
 
 ######################################################################
-# change the working direcory and source some common files
+# change the working directory and source some common files
 #
 R_INTERNAL=1      # internal error, e.g. no config or missing scripts
 cd /etc/sysconfig/network || exit $R_INTERNAL
@@ -180,7 +180,7 @@ load_bond() {
 		esac
 		# Some options may only be changed if the interface is up and slaves are
 		# already assigned. Others may only be changed if it is down. To avoid
-		# unneccessary error messages or warnings we check first if the option
+		# unnecessary error messages or warnings we check first if the option
 		# already has the specified value.
 		# Special case for option 'mode': this sysfs attribute contains two
 		# words. A string describing the mode and the corresponding number. We

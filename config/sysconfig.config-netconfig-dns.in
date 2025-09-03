@@ -1,0 +1,83 @@
+
+## Type:        string
+## Default:     "auto"
+#
+# Defines the DNS merge policy as documented in netconfig(8) manual page.
+# Set to "" to disable DNS configuration.
+#
+NETCONFIG_DNS_POLICY="auto"
+
+## Type:        string(resolver,bind,dnsmasq,)
+## Default:     "resolver"
+#
+# Defines the name of the DNS forwarder that has to be configured.
+# Currently implemented are "bind", "dnsmasq" and "resolver", that
+# causes to write the name server IP addresses to /etc/resolv.conf
+# only (no forwarder). Empty string defaults to "resolver".
+#
+NETCONFIG_DNS_FORWARDER="resolver"
+
+## Type:        yesno
+## Default:     yes
+#
+# When enabled (default) in forwarder mode ("bind", "dnsmasq"),
+# netconfig writes an explicit localhost nameserver address to the
+# /etc/resolv.conf, followed by the policy resolved name server list
+# as fallback for the moments, when the local forwarder is stopped.
+#
+NETCONFIG_DNS_FORWARDER_FALLBACK="yes"
+
+## Type:        string
+## Default:     ""
+#
+# List of DNS domain names used for host-name lookup.
+# It is written as search list into the /etc/resolv.conf file.
+#
+NETCONFIG_DNS_STATIC_SEARCHLIST=""
+
+## Type:        string
+## Default:     ""
+#
+# List of DNS nameserver IP addresses to use for host-name lookup.
+# When the NETCONFIG_DNS_FORWARDER variable is set to "resolver",
+# the name servers are written directly to /etc/resolv.conf.
+# Otherwise, the nameserver are written into a forwarder specific
+# configuration file and the /etc/resolv.conf does not contain any
+# nameservers causing the glibc to use the name server on the local
+# machine (the forwarder). See also netconfig(8) manual page.
+#
+NETCONFIG_DNS_STATIC_SERVERS=""
+
+## Type:        string
+## Default:     "auto"
+#
+# Allows to specify a custom DNS service ranking list, that is which
+# services provide preferred (e.g. vpn services), and which services
+# fallback settings (e.g. avahi).
+# Preferred service names have to be prepended with a "+", fallback
+# service names with a "-" character. The special default value
+# "auto" enables the current built-in service ranking list -- see the
+# netconfig(8) manual page -- "none" or "" disables the ranking.
+#
+NETCONFIG_DNS_RANKING="auto"
+
+## Type:        string
+## Default:     ""
+#
+# Allows to specify options to use when writing the /etc/resolv.conf,
+# for example:
+# 	"debug attempts:1 timeout:10"
+# See resolv.conf(5) manual page for details.
+#
+NETCONFIG_DNS_RESOLVER_OPTIONS=""
+
+## Type:        string
+## Default:     ""
+#
+# Allows to specify a sortlist to use when writing the /etc/resolv.conf,
+# for example:
+# 	130.155.160.0/255.255.240.0 130.155.0.0"
+# See resolv.conf(5) manual page for details.
+#
+NETCONFIG_DNS_RESOLVER_SORTLIST=""
+

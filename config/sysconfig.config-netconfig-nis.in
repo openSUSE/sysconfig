@@ -1,0 +1,42 @@
+
+## Type:        string
+## Default:     "auto"
+#
+# Defines the NIS merge policy as documented in netconfig(8) manual page.
+# Set to "" to disable NIS configuration.
+#
+NETCONFIG_NIS_POLICY="auto"
+
+## Type:        string(yes,no,)
+## Default:     "yes"
+#
+# Defines whether to set the default NIS domain. When enabled and no domain
+# is provided dynamically or in static settings, /etc/defaultdomain is used.
+# Valid values are:
+#  - "no" or ""         netconfig does not set the domainname
+#  - "yes"              netconfig sets the domainname according to the
+#                       NIS policy using settings provided by the first
+#                       interface and service that provided it.
+#  - "<interface name>" as yes, but only using settings from interface.
+#
+NETCONFIG_NIS_SETDOMAINNAME="yes"
+
+## Type:        string
+## Default:     ""
+#
+# Defines a default NIS domain.
+#
+# Further domain can be specified by adding a "_<number>" suffix to
+# the NETCONFIG_NIS_STATIC_DOMAIN and NETCONFIG_NIS_STATIC_SERVERS
+# variables, e.g.: NETCONFIG_NIS_STATIC_DOMAIN_1="second".
+#
+NETCONFIG_NIS_STATIC_DOMAIN=""
+
+## Type:        string
+## Default:     ""
+#
+# Defines a list of NIS servers for the default NIS domain or the
+# domain specified with same "_<number>" suffix.
+#
+NETCONFIG_NIS_STATIC_SERVERS=""
+
