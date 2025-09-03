@@ -245,7 +245,7 @@ changing the configuration scripts might result in an unbootable
 system.
 Before changing or adapting any of those scripts, be sure to be
 familiar with the manual configuration of those devices.
-Also it is adviseable to test the configuration with running
+Also it is advisable to test the configuration with running
 hwup/hwdown manually before rebooting the system.
 If any disk devices have been configured which should be available at
 boot-time, be sure to run 'mkinitrd' and 'zipl' prior to

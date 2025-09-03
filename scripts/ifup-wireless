@@ -34,7 +34,7 @@ usage () {
 }
 
 ######################################################################
-# change the working direcory and source some common files
+# change the working directory and source some common files
 #
 R_INTERNAL=1      # internal error, e.g. no config or missing scripts
 cd /etc/sysconfig/network || exit $R_INTERNAL

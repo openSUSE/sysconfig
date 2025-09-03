@@ -56,7 +56,7 @@ NETCONFIG_DNS_STATIC_SERVERS=""
 # fallback settings (e.g. avahi).
 # Preferred service names have to be prepended with a "+", fallback
 # service names with a "-" character. The special default value
-# "auto" enables the current build-in service ranking list -- see the
+# "auto" enables the current built-in service ranking list -- see the
 # netconfig(8) manual page -- "none" or "" disables the ranking.
 #
 NETCONFIG_DNS_RANKING="auto"
@@ -64,7 +64,7 @@ NETCONFIG_DNS_RANKING="auto"
 ## Type:        string
 ## Default:     ""
 #
-# Allows to specify options to use when writting the /etc/resolv.conf,
+# Allows to specify options to use when writing the /etc/resolv.conf,
 # for example:
 # 	"debug attempts:1 timeout:10"
 # See resolv.conf(5) manual page for details.
@@ -74,7 +74,7 @@ NETCONFIG_DNS_RESOLVER_OPTIONS=""
 ## Type:        string
 ## Default:     ""
 #
-# Allows to specify a sortlist to use when writting the /etc/resolv.conf,
+# Allows to specify a sortlist to use when writing the /etc/resolv.conf,
 # for example:
 # 	130.155.160.0/255.255.240.0 130.155.0.0"
 # See resolv.conf(5) manual page for details.

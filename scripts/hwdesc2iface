@@ -250,7 +250,7 @@ convert_netconfig() {
 		cat <<- EOT >> $RCF
 		
 		# This file helps you to revert the automatic conversion and logs
-		# If conversion was succesful you may remove this file.
+		# If conversion was successful you may remove this file.
 		# For the reason and the details about this conversion see:
 		# /usr/share/doc/packages/sysconfig/README.no_more_hardwaredescriptions
 		EOT

@@ -154,7 +154,7 @@ is_localhost_ip()
 ################################################################################
 SCRIPTNAME=${0##*/}
 
-# act bellow of this "root" directory
+# act below of this "root" directory
 test "${ROOT}" = "/" && unset ROOT
 r=${ROOT}
 

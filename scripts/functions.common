@@ -51,7 +51,7 @@ R_NOCONFIG=9       # we could not find a matching configuration file
 R_BUSY=10          # the interface is busy and should not be shut down.
                    # It will be used for 'ifstatus ... -o stop' or ifdown ... -o
                    # check' or whatever we use for the check if a interface can
-                   # be shut down savely.
+                   # be shut down safely.
 R_LOCKED=11        # ifup/down is currently running on this interface
 R_DHCP_BG=12       # dhcp client is running in bg, but no address up to now
                    # or setting up firewall is still in progress

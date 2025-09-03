@@ -23,7 +23,7 @@ CHECK_DUPLICATE_IP="yes"
 ## Default:     auto
 # If ifup should send a gratuitous ARP to inform the receivers about its
 # IPv4 addresses. Default is to send gratuitous ARP, when duplicate IPv4
-# address check is enabled and the check were sucessful.
+# address check is enabled and the check were successful.
 #
 # Make sure that packet sockets (CONFIG_PACKET) are supported in the kernel,
 # since this feature uses arp, which depends on that.

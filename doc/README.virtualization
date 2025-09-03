@@ -309,7 +309,7 @@ is basically the same as for XEN.
 
         Note, that the ifsysctl will be applied in every ifup call, that is,
         on every virtual machine start (executed by vif-route-ifup).
-        See also special proxy-arp case in the SuSEfirewall2 section bellow.
+        See also special proxy-arp case in the SuSEfirewall2 section below.
 
       - Network configuration in the host system:
 
@@ -399,7 +399,7 @@ is basically the same as for XEN.
             inet6 fe80::216:3eff:fe10:1010/64 scope link
         [...]
 
-        For more informations, search for "EUI-64 Identifiers" - there are
+        For more information, search for "EUI-64 Identifiers" - there are
         several pages with nice calculation instructions available on the
         internet.
 
@@ -591,7 +591,7 @@ is basically the same as for XEN.
         };
 
       The RDNSS statement does not work, so when you want to provide DNS
-      informations to the virtual machines, install and configure dhcpv6
+      information to the virtual machines, install and configure dhcpv6
       server -- additionally to radvd -- and enable the AdvManagedFlag.
 
 

@@ -61,7 +61,7 @@ show-commit-state:
 	  cd $(top_srcdir) && \
 	  LC_ALL=C git status --all --quiet 2>&1 | \
 	  grep -qsE 'Untracked|to be committed' && { \
-	    echo -e "##\n## *** NOTE: There are uncommited changes:\n##" ; \
+	    echo -e "##\n## *** NOTE: There are uncommitted changes:\n##" ; \
 	    git status --quiet 2>&1 || : ; \
 	  } || : ; \
 	elif [ -d $(top_srcdir)/.svn ]; then \
@@ -73,7 +73,7 @@ show-commit-state:
 	  cd $(top_srcdir) && \
 	    out=`LC_ALL=C svn status --show-updates --quiet 2>&1` ; \
 	  if [ "x`echo \"$$out\" | grep -v '^Status against revision'`" != x ] ; then \
-	    echo -e "##\n## *** NOTE: There are uncommited changes:\n##" ; \
+	    echo -e "##\n## *** NOTE: There are uncommitted changes:\n##" ; \
 	    echo "$$out" ; \
 	  fi ; \
 	fi

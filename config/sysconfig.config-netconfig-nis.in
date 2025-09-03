@@ -16,7 +16,7 @@ NETCONFIG_NIS_POLICY="auto"
 #  - "no" or ""         netconfig does not set the domainname
 #  - "yes"              netconfig sets the domainname according to the
 #                       NIS policy using settings provided by the first
-#                       iterface and service that provided it.
+#                       interface and service that provided it.
 #  - "<interface name>" as yes, but only using settings from interface.
 #
 NETCONFIG_NIS_SETDOMAINNAME="yes"

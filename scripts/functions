@@ -495,7 +495,7 @@ get_vlan_if_vid()
 	'$1 == vif { print $2; }' /proc/net/vlan/config 2>/dev/null
 }
 
-# Parse iSCSI Boot Firmare Table settings of given interface
+# Parse iSCSI Boot Firmware Table settings of given interface
 # and provide as adequate ifcfg/netcontrol scripts settings
 # (basically STARTMODE and BOOTPROTO variables) on stdout.
 get_ibft_iface_ref_glob()
@@ -1016,7 +1016,7 @@ resolve_iface_startorder()
     #
     # resolve_iface_startorder <name of the result variable>
     #                          <list of interfaces to resolve>
-    #                          [ <skip list> [filter fuction] ]
+    #                          [ <skip list> [filter function] ]
     #
     # This function creates a start ordered list of virtual interfaces
     # as bondings, vlans and bridges known by the get_slaves() function.
@@ -1027,7 +1027,7 @@ resolve_iface_startorder()
     #
     # The optional skip list allows to stop the recursion insertion at
     # e.g. already started / existing physical slave interfaces.
-    # Addding interfaces to resolve to this skip list causes resolving
+    # Adding interfaces to resolve to this skip list causes resolving
     # of the recursive list of slave interfaces without the requested
     # interfaces themself (resolve_iface_startorder slaves "br0" "br0").
     #
@@ -1202,7 +1202,7 @@ dhcp_interfaces() {
 # these reasons:
 # 1) remember the used configuration if getcfg cannot get it after the device
 #    has been unplugged  --> OBSOLETE: no more getcfg
-# 2) store ifup options while restarting the network (e.g. the choosen provider)
+# 2) store ifup options while restarting the network (e.g. the chosen provider)
 # 3) pass status information to smpppd to allow kinternet to show them to the
 #    user.
 # 4) control running ifup/down processes (ifdown has to stop a running ifup)
