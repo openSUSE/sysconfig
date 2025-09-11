@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Thu Sep 11 10:43:07 UTC 2025 - Marius Tomaschewski <mt@suse.com>
+
+- version 0.85.10
+  * codespell run for all repository files and changes file
+  * spec: define permissions for ghost file attrs to avoid
+    rpm --restore resets them to 0 (bsc#1237595).
+  * spec: fix name-repeated-in-summary rpmlint warning
+
+-------------------------------------------------------------------
 Fri Jun  3 15:11:14 UTC 2022 - Marius Tomaschewski <mt@suse.com>
 
 - version 0.85.9
