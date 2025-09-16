@@ -199,14 +199,10 @@ EOF
 %{_libexecdir}/ppp/pre-start.d/10-netconfig
 %{_libexecdir}/ppp/post-stop.d/90-netconfig
 %{_tmpfilesdir}/netconfig.conf
-%{_fillupdir}/sysconfig.config-netconfig
-%{_fillupdir}/sysconfig.config-netconfig-dns
-%{_fillupdir}/sysconfig.config-netconfig-ntp
 %ghost %attr(0755,root,root) %dir /run/netconfig
 %ghost %attr(0644,root,root) /run/netconfig/resolv.conf
 %ghost %attr(0644,root,root) /etc/resolv.conf
 %if %{with nis}
-%{_fillupdir}/sysconfig.config-netconfig-nis
 %ghost %attr(0644,root,root) /run/netconfig/yp.conf
 %ghost %attr(0644,root,root) /etc/yp.conf
 %endif
@@ -219,12 +215,6 @@ EOF
 %postun -p /sbin/ldconfig
 
 %post netconfig -p /bin/bash
-%{fillup_only -dns config netconfig network}
-%{fillup_only -dns config netconfig-dns network}
-%{fillup_only -dns config netconfig-ntp network}
-%if %{with nis}
-%{fillup_only -dns config netconfig-nis network}
-%endif
 %tmpfiles_create %{_tmpfilesdir}/netconfig.conf
 
 %changelog

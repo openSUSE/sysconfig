@@ -7,7 +7,7 @@ VERSION=$(cat ${srcdir}/VERSION)
 AC_SUBST(VERSION)
 
 AM_INIT_AUTOMAKE([foreign dist-bzip2 no-dist-gzip])
-AC_CONFIG_SRCDIR([config/sysconfig.config-network.in])
+AC_CONFIG_SRCDIR([config/sysconfig.config-common.in])
 AC_REVISION($Revision: 1.13 $)
 
 AC_PREFIX_DEFAULT(/usr)

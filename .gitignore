@@ -21,6 +21,7 @@ tools/autoip
 tools/ifuser
 tools/udevmountd
 doc/netconfig.8
+config/sysconfig.config-common
 config/sysconfig.config-network
 config/sysconfig.config-netconfig
 config/sysconfig.config-netconfig-dns

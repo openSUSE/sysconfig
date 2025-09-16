@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Tue Sep 16 08:29:08 UTC 2025 - Marius Tomaschewski <mt@suse.com>
+
+- version 0.90.2
+  * Change to create the sysconfig.config-network fillup
+    template from common and netconfig components at build
+    time, so it contains all variables again, instead to
+    fillup /etc/sysconfig/network/config using multiple
+    templates at installation time.
+    The installation-images package is creating the config
+    using the sysconfig.config-network template only, what
+    caused DNS issues in the yast2 installer (boo#1249210).
+
+-------------------------------------------------------------------
 Tue Sep  2 14:03:43 UTC 2025 - Marius Tomaschewski <mt@suse.com>
 
 - version 0.90.1
