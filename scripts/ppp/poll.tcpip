@@ -89,7 +89,7 @@ done
 # file /etc/fetchmailrc.  Use the user id of the
 # system wide configuration file, e.g. `mail'.
 # For this the file /etc/fetchmailrc should have
-# the permisssions 0600 and be owned by the user
+# the permissions 0600 and be owned by the user
 # and the group `mail'
 #
 while true ; do

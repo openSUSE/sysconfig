@@ -28,7 +28,7 @@ the yast-modules. Dhcp, ppp as well as the NetworkManager provide the
 dynamic values directly to netconfig in a specified format.
 
 Netconfig manages (stores or removes) the dynamic values and the netconfig 
-modules merge all these informations depending on a predefined policy
+modules merge all these information depending on a predefined policy
 and apply the required changes, for instance write a configuration file, 
 restart a service and similar.
 
@@ -81,7 +81,7 @@ policy value is resolved by netconfig depending on the NETWORKMANAGER
 - NETWORKMANAGER = yes
         The auto policy value is resolved to a policy
                 "STATIC_FALLBACK NetworkManager"
-        causing to use the NetworkManager build-in merge policy
+        causing to use the NetworkManager built-in merge policy
         with a fallback to the static settings defined in
         netconfig variables when the NetworkManager does not
         provide any dynamic settings.

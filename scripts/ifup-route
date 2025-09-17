@@ -33,7 +33,7 @@ usage () {
 }
 
 ######################################################################
-# change the working direcory and source some common files
+# change the working directory and source some common files
 #
 R_INTERNAL=1      # internal error, e.g. no config or missing scripts
 cd /etc/sysconfig/network || exit $R_INTERNAL
@@ -234,7 +234,7 @@ pop_route_stack () {
 	# The default route stack consists of files named route-stack-<i>-<X>-<Y>.
 	# If the topmost entry (with highest i) has for Y the current interface, then
 	# the current interface hosts the current default route. We can look for the
-	# current default route interface via 'ip route', but in one case thsi does not
+	# current default route interface via 'ip route', but in one case this does not
 	# work. 
 	# NICs that are handled by '/sbin/hotplug' (cardmgr behaves different) loose
 	# their registered interface immediately when the NIC is ejected. Therefore
@@ -437,7 +437,7 @@ while read DEST GWAY MASK IFACE TYPE IPOPTS ; do
 	esac
 
 	# To be able to compare destination later we possibly have to fill up $DEST
-	# with some '.0'. For this we have to seperate DIST and PFXL once again.
+	# with some '.0'. For this we have to separate DIST and PFXL once again.
 	# Don't do that if $DEST = default ;)
 	if [ "$INET" = 4 -a "$DEST" != default ] ; then
 		DEST=${DEST%%/*}

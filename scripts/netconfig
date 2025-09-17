@@ -51,7 +51,7 @@ function prepend() {
 
 function modify() {
     if [ "x$SERVICE" = "x" ]; then
-        warn "No service informations available"
+        warn "No service declaration available"
         return 1
     fi
 
@@ -129,7 +129,7 @@ function modify() {
         fi
 
         if [ "x$INTERFACE" = "x" ]; then
-            warn "No interface informations available"
+            warn "No interface declaration available"
             return 1
         fi
 
@@ -168,7 +168,7 @@ function modify() {
 
 function remove() {
     if [ "x$SERVICE" = "x" ]; then
-        warn "No service informations available"
+        warn "No service declaration available"
         return 1
     fi
 
@@ -181,7 +181,7 @@ function remove() {
 
     else
         if [ "x$INTERFACE" = "x" ]; then
-            warn "No interface informations available"
+            warn "No interface declaration available"
             return 1
         fi
 
@@ -425,7 +425,7 @@ Usage:
             or as file using the --input-file or --lease-file option.
             Already existing settings for this interface and service will
             be replaced with the new one, otherwise netconfig creates a
-            new state file. Finaly, netconfig updates the managed files.
+            new state file. Finally, netconfig updates the managed files.
   remove    Removes the interface and service specific settings and
             updates the managed files.
   update    Updates the managed files with the current set of settings.
@@ -557,7 +557,7 @@ if ! touch $r/tmp &>/dev/null; then
     exit 1
 fi
 
-# Set usefull default umask
+# Set useful default umask
 umask 0022
 
 # Create state directory

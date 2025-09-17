@@ -38,7 +38,7 @@ usage () {
 }
 
 ######################################################################
-# change the working direcory and source some common files
+# change the working directory and source some common files
 #
 R_INTERNAL=1      # internal error, e.g. no config or missing scripts
 cd /etc/sysconfig/network || exit $R_INTERNAL
@@ -96,7 +96,7 @@ done
 # check presence of configuration file and source it
 #
 source_iface_config "$CONFIG" || {
-	message "could not find inferface configuration: $CONFIG"
+	message "could not find interface configuration: $CONFIG"
 }
 
 ######################################################################

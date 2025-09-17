@@ -118,7 +118,7 @@ REMOTE_IPADDR=
 ## Type:    string
 ## Default: ""
 #
-# Set a label for the interface. This may be neccessary if you still use
+# Set a label for the interface. This may be necessary if you still use
 # ifconfig and configured multiple addresses. (See manpage ifcfg).
 # For multiple addresses use the same suffixes as with IPADDR.
 #
@@ -199,7 +199,7 @@ DHCLIENT6_SET_HOSTNAME=
 DHCLIENT6_HOSTNAME_OPTION=
 
 ##########################################################################
-## bridge settings. See ifcfg-bridge(5) and brctl(8) for mor information
+## bridge settings. See ifcfg-bridge(5) and brctl(8) for more information
 ## 
 
 ## Type:    yesno
@@ -306,7 +306,7 @@ BRIDGE_STP=
 #
 # Defines whether this interface is wireless or not.  This variable is usually
 # not set, WLAN capabilities get auto-detected in this case.  As the WIRELESS
-# variable is device speficic and not network specific, it can have no suffix.
+# variable is device specific and not network specific, it can have no suffix.
 WIRELESS=
 
 ## Type:	string
@@ -324,7 +324,7 @@ WIRELESS_MODE=
 #
 # Set the SSID/ESSID (or Network Name - in some products it may also called
 # Domain ID). The ESSID is used to identify cells which are part of the same
-# virtual network. If emtpy or set to any the node will connect to the
+# virtual network. If empty or set to any the node will connect to the
 # Access Point with the best signal strength around (in managed operating
 # mode). For WLANs that make use of WPA (see WIRELESS_AUTH_MODE below)
 # you need to set your ESSID.
@@ -442,7 +442,7 @@ WIRELESS_HIDDEN_SSID=
 #
 # This variable only makes sense used in conjunction with multiple
 # networks. If you want to prefer one configured network for over another, set
-# the respecitve WIRELESS_PRIORITY variable (means, with the same suffix) to a
+# the respective WIRELESS_PRIORITY variable (means, with the same suffix) to a
 # higher value (integer only). NOTE: This does not work for networks that are
 # configured with WIRELESS_HIDDEN_SSID="yes" (which is default). For networks
 # with hidden SSID scanning support the suffix number is important.  The
@@ -458,7 +458,7 @@ WIRELESS_PRIORITY=
 # security policy and SSID. This mode does not support multiple network
 # settings. Default is "1" for most drivers. Try "0" or "2" if you have
 # problems associating to your access point. This variable can have no
-# suffix. This is only used in conjuntion with wpa_supplicant.
+# suffix. This is only used in conjunction with wpa_supplicant.
 WIRELESS_AP_SCANMODE=
 
 ## Type:        string
@@ -479,7 +479,7 @@ WIRELESS_WPA_DRIVER=
 #
 # In environments with multiple Access points you may want to define the one
 # to connect to by entering its MAC address. Format is 6x2 hex digits,
-# seperated by colons, eg 01:02:03:04:05:06.
+# separated by colons, eg 01:02:03:04:05:06.
 # See also the iwconfig ap option description in the iwconfig(8) manual page.
 #
 # Note, that some drivers (mac80211 based) may require to set this variable
@@ -501,7 +501,7 @@ WIRELESS_NICK=
 #
 # Set the Network ID (in some products it is also called Domain ID). As all
 # adjacent wireless networks share the same medium, this parameter is used to
-# differenciate them (create logical colocated networks) and identify nodes
+# differentiate them (create logical colocated networks) and identify nodes
 # belonging to the same cell.
 WIRELESS_NWID=
 
@@ -556,7 +556,7 @@ WIRELESS_KEY=
 #
 # Defines the length in bits for all keys used. There are currently 40 and 104
 # bit keys supported. Sometimes they are also called 64 resp. 128 bits
-# (depends on whether you count the 24 bit initialization vetor or not).
+# (depends on whether you count the 24 bit initialization vector or not).
 # This variable is only meaningful if you enter the key as passphrase.
 WIRELESS_KEY_LENGTH=
 
