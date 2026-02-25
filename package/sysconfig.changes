@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Feb 25 14:30:16 UTC 2026 - Marius Tomaschewski <mt@suse.com>
+
+- version 0.90.4
+  - netconfig: adjust condition to disable nis on 16.x (jsc#PED-15809)
+
+-------------------------------------------------------------------
 Mon Sep 29 08:48:10 UTC 2025 - Marius Tomaschewski <mt@suse.com>
 
 - version 0.90.3
