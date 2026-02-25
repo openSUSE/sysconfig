@@ -39,7 +39,7 @@
 
 # disable nis on 16.x (dropped),
 # keeping on tumbleweed and 15.x
-%if 0%{?suse_version} != 1600
+%if %{suse_version} < 1600 || %{suse_version} >= 1699
 %bcond_without  nis
 %else
 %bcond_with     nis
