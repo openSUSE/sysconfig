@@ -20,7 +20,7 @@ config_templates_generated +=	sysconfig.config-netconfig
 netconfig_modules =
 if netconfig_dns
 config_templates_generated +=	sysconfig.config-netconfig-dns
-netconfig_modules          +=	dns-resolver dns-bind dns-dnsmasq
+netconfig_modules          +=	dns-resolver dns-bind dns-dnsmasq dns-systemd-resolved
 endif
 if netconfig_nis
 config_templates_generated +=	sysconfig.config-netconfig-nis
