@@ -34,4 +34,5 @@ scripts/netconfig.d/nis
 scripts/netconfig.d/dns-bind
 scripts/netconfig.d/dns-dnsmasq
 scripts/netconfig.d/dns-resolver
+scripts/netconfig.d/dns-systemd-resolved
 scripts/netconfig.d/ntp-runtime
