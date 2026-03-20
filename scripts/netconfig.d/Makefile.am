@@ -8,7 +8,7 @@ BUILT_SOURCES = $(libexec_netconfig_d_scripts_generated)
 
 libexec_netconfig_d_scripts_generated	= 
 if netconfig_dns
-libexec_netconfig_d_scripts_generated	+= dns-bind dns-resolver dns-dnsmasq
+libexec_netconfig_d_scripts_generated	+= dns-bind dns-resolver dns-dnsmasq dns-systemd-resolved
 endif
 if netconfig_ntp
 libexec_netconfig_d_scripts_generated	+= ntp-runtime 
