@@ -1,6 +1,6 @@
 
 ## Type:        string
-## Default:     "dns-resolver dns-bind ntp-runtime nis"
+## Default:     "@netconfig_modules@"
 #
 # This variable defines the start order of netconfig modules installed
 # in the /etc/netconfig.d and @libexec_netconfigdir@/netconfig.d/ directories.
