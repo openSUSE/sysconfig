@@ -183,6 +183,9 @@ It can have the values:
 * "dnsmasq": A dnsmasq nameserver is used as forwarder. Only the searchlist
              is written to the /etc/resolv.conf; the nameserver are written
              to the /var/run/dnsmasq-forwarders.conf.
+* "systemd": systemd-resolved is used as forwarder. Only the searchlist and
+             it's own stub address are written to the /etc/resolv.conf; the
+             nameserver are sent to systemd-resolved directly.
 
 
     Example:

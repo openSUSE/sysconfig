@@ -1,0 +1,729 @@
+#!/bin/bash
+#
+# Copyright (c) 2026 SUSE LLC
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Author: Jan Fooken <jan.fooken@suse.com>
+#
+##
+
+unset POSIXLY_CORRECT
+set +o posix # we are using non-posix bash features
+
+# The environment variable ROOT indicates the root of the system to be
+# managed by SuSEconfig when that root is not '/'
+r="$ROOT"
+
+. "$r@libexec_netconfigdir@/functions.netconfig" || exit 1
+
+PROGNAME="${0##*/}"
+if [ "$UID" != "0" ] && [ "$USER" != root ] && [ -z "$ROOT" ]; then
+    warn "You must be root to start $0." >&2
+    exit 1
+fi
+
+if [ -n "$ROOT" ]; then
+    warn "$0 doesn't support running in a different root directory." >&2
+    exit 0
+fi
+
+RESOLVECTL="/usr/bin/resolvectl"
+SYSFSDIR="/sys/class/net"
+STATEDIR="/run/netconfig"
+debug "$PROGNAME module called"
+
+. "$r/etc/sysconfig/network/config"
+
+unset DNS_SEARCHLIST ${!DNS_SEARCHLIST_*}
+unset DNS_SERVERS ${!DNS_SERVERS_*}
+unset INTERFACE_RANK ${!INTERFACE_RANK_*}
+unset MANAGED_INTERFACES
+unset OWN_IPS
+
+declare -a MANAGED_INTERFACES
+declare -a OWN_IPS
+
+# *********************
+# FUNCTIONS
+# *********************
+
+function list_find()
+{
+    local needle="$1"
+    shift
+    local haystack=("$@")
+
+    [ 0 -eq "${#haystack[@]}" ] && return 1
+
+    for i in $(seq 0 "$(("${#haystack[@]}" - 1))"); do
+        if [ "$needle" = "${haystack["$i"]}" ]; then
+            printf "%d\n" "$i"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+function interface_get_index()
+{
+    local ifname="$1"
+    [ -n "$ifname" ] || return 1
+
+    [ -n "$2" ] || return 1
+    declare -n idx_out="$2"
+
+    debug "exec interface_get_index: $ifname"
+
+    if ! idx_out="$(list_find "$ifname" "${MANAGED_INTERFACES[@]}")"; then
+        debug "     interface_get_index: $ifname => not managed"
+        return 1
+    fi
+
+    debug "     interface_get_index: $ifname => $idx_out"
+
+    debug "exit interface_get_index: $ifname"
+
+    return 0
+}
+
+function interface_manage()
+{
+    local ifname="$1"
+    [ -n "$ifname" ] || return 1
+
+    [ -n "$2" ] || return 1
+    declare -n idx_out="$2"
+
+    debug "exec interface_manage: $ifname"
+
+    idx_out="${#MANAGED_INTERFACES[@]}"
+    MANAGED_INTERFACES+=("$ifname")
+    debug "     interface_manage: $ifname => $idx_out"
+
+    debug "exit interface_manage: $ifname"
+
+    return 0
+}
+
+function interface_set_rank()
+{
+    local ifname="$1"
+    [ -n "$ifname" ] || return 1
+
+    local ranking="$2"
+    [ -n "$ranking" ] || return 1
+
+    debug "exec interface_set_rank: $ifname $ranking"
+
+    local ifindex=
+    if ! interface_get_index "$ifname" ifindex; then
+        interface_manage "$ifname" ifindex
+    fi
+
+    [ -n "$ifindex" ] || return 1
+
+    local prev_ranking=
+    if interface_get_rank "$ifname" prev_ranking; then
+        [ -n "$prev_ranking" ] || return 1
+
+        if [ "$prev_ranking" -lt "$ranking" ]; then
+            debug "     interface_set_rank: $ifname => keeping $prev_ranking"
+            ranking="$prev_ranking"
+        fi
+    fi
+
+    local interface_rank_var="INTERFACE_RANK_${ifindex}"
+    eval "[ -n \"\${${interface_rank_var}+x}\" ] || declare -g ${interface_rank_var}"
+    declare -n interface_rank_ref="$interface_rank_var"
+
+    interface_rank_ref="$ranking"
+
+    debug "exit interface_set_rank: $ifname $ranking"
+
+    return 0
+}
+
+function interface_get_rank()
+{
+    local ifname="$1"
+    [ -n "$ifname" ] || return 1
+
+    local varname="$2"
+    [ -n "$varname" ] || return 1
+
+    debug "exec interface_get_rank: $ifname"
+
+    local ifindex=
+    interface_get_index "$ifname" ifindex || return 1
+    [ -n "$ifindex" ] || return 1
+
+    local interface_rank_var="INTERFACE_RANK_${ifindex}"
+    declare -n interface_rank_ref="$interface_rank_var"
+
+    declare -n rank_out="$varname"
+
+    if [ -n "${interface_rank_ref:+x}" ]; then
+        rank_out="$interface_rank_ref"
+        debug "     interface_get_rank: $ifname => $rank_out"
+    else
+        debug "     interface_get_rank: $ifname => none"
+        return 1
+    fi
+
+    debug "exit interface_get_rank: $ifname"
+
+    return 0
+}
+
+function dns_servers_add()
+{
+    local ifname="$1"
+    shift
+    [ -n "$ifname" ] || return 1
+
+    local ranking="$1"
+    shift
+    [ -n "$ranking" ] || return 1
+
+    local servers=("$@")
+
+    debug "exec dns_servers_add: $ifname $ranking: ${servers[*]:-none}"
+
+    local ifindex=
+    if ! interface_get_index "$ifname" ifindex; then
+        interface_manage "$ifname" ifindex
+    fi
+
+    [ -n "$ifindex" ] || return 1
+
+    [ 0 -ne "${#servers[@]}" ] || return 0
+
+    eval "DNS_SERVERS_${ifindex}_${ranking}+=(\"\${servers[@]}\")"
+    debug "     dns_servers_add: DNS_SERVERS_${ifindex}_${ranking}+=(${servers[*]})"
+
+    debug "exit dns_servers_add: $ifname $ranking: ${servers[*]:-none}"
+
+    return 0
+}
+
+function dns_searchlist_add()
+{
+    local ifname="$1"
+    shift
+    [ -n "$ifname" ] || return 1
+
+    local ranking="$1"
+    shift
+    [ -n "$ranking" ] || return 1
+
+    local searchlist=("$@")
+
+    debug "exec dns_searchlist_add: $ifname $ranking: ${searchlist[*]:-none}"
+
+    local ifindex=
+    if ! interface_get_index "$ifname" ifindex; then
+        interface_manage "$ifname" ifindex
+    fi
+
+    [ -n "$ifindex" ] || return 1
+
+    [ 0 -ne "${#searchlist[@]}" ] || return 0
+
+    eval "DNS_SEARCHLIST_${ifindex}_${ranking}+=(\"\${searchlist[@]}\")"
+    debug "     dns_searchlist_add: DNS_SEARCHLIST_${ifindex}_${ranking}+=(${searchlist[*]})"
+
+    debug "exit dns_searchlist_add: $ifname $ranking: ${searchlist[*]:-none}"
+
+    return 0
+}
+
+function dns_servers_get()
+{
+    local ifname="$1"
+    [ -n "$ifname" ] || return 1
+
+    local ranking="$2"
+    [ -n "$ranking" ] || return 1
+
+    local varname="$3"
+    [ -n "$varname" ] || return 1
+
+    debug "exec dns_servers_get: $ifname $ranking"
+
+    local ifindex=
+    interface_get_index "$ifname" ifindex || return 1
+    [ -n "$ifindex" ] || return 1
+
+    local listname="DNS_SERVERS_${ifindex}_${ranking}"
+    eval "[ -n \"\${${listname}+x}\" ] || declare -g -a ${listname}"
+    declare -n ranked_servers_ref="$listname"
+
+    declare -n servers_out="$varname"
+    if [ 0 -ne "${#ranked_servers_ref[@]}" ]; then
+        servers_out+=("${ranked_servers_ref[@]}")
+        debug "     dns_servers_get: $ifname $ranking => ${servers_out[*]}"
+    else
+        debug "     dns_servers_get: $ifname $ranking => none"
+    fi
+
+    debug "exit dns_servers_get: $ifname $ranking"
+
+    return 0
+}
+
+function dns_searchlist_get()
+{
+    local ifname="$1"
+    [ -n "$ifname" ] || return 1
+
+    local ranking="$2"
+    [ -n "$ranking" ] || return 1
+
+    local varname="$3"
+    [ -n "$varname" ] || return 1
+
+    debug "exec dns_searchlist_get: $ifname $ranking"
+
+    local ifindex=
+    interface_get_index "$ifname" ifindex || return 1
+    [ -n "$ifindex" ] || return 1
+
+    local listname="DNS_SEARCHLIST_${ifindex}_${ranking}"
+    eval "[ -n \"\${${listname}+x}\" ] || declare -g -a ${listname}"
+    declare -n ranked_searchlist_ref="$listname"
+
+    declare -n searchlist_out="$varname"
+    if [ 0 -ne "${#ranked_searchlist_ref[@]}" ]; then
+        searchlist_out+=("${ranked_searchlist_ref[@]}")
+        debug "     dns_searchlist_get: $ifname $ranking => ${searchlist_out[*]}"
+    else
+        debug "     dns_searchlist_get: $ifname $ranking => none"
+    fi
+
+    debug "exec dns_searchlist_get: $ifname $ranking"
+
+    return 0
+}
+
+function get_own_ips()
+{
+    local varname="$1"
+    [ -n "$varname" ] || return 1
+
+    debug "exec get_own_ips"
+
+    declare -n own_ips_out="$varname"
+
+    local addr=
+    while IFS= read -r addr; do
+        [ -n "$addr" ] || continue
+
+        own_ips_out+=("$addr")
+    done < <(LANG=C LC_ALL=C ip addr show 2>/dev/null \
+        | LANG=C LC_ALL=C gawk -- \
+            '/[ ]+(inet|inet6)[ ]+/ { sub("/.*","",$2); print $2; }' 2>/dev/null)
+
+    debug "     get_own_ips: ${own_ips_out[*]:-none}"
+
+    debug "exit get_own_ips"
+
+    return 0
+}
+
+function dns_servers_filter_local()
+{
+    local varname="$1"
+    [ -n "$varname" ] || return 1
+
+    declare -n servers_ref="$varname"
+
+    debug "exec dns_servers_filter_local: ${servers_ref[*]:-none}"
+
+    local filtered=()
+    local server=
+    local ip=
+    for server in "${servers_ref[@]}"; do
+        case "$server" in
+        127.* | ::1)
+            debug "     dns_servers_filter_local: $server => loopback, dropped"
+            continue
+            ;;
+        esac
+
+        for ip in "${OWN_IPS[@]}"; do
+            [ -n "$ip" ] || continue
+
+            if [ "$ip" = "$server" ]; then
+                debug "     dns_servers_filter_local: $server => own address, dropped"
+                continue 2
+            fi
+        done
+
+        filtered+=("$server")
+    done
+
+    servers_ref=("${filtered[@]}")
+
+    debug "exit dns_servers_filter_local: ${servers_ref[*]:-none}"
+
+    return 0
+}
+
+function manage_systemd_resolved()
+{
+    debug "exec manage_systemd_resolved"
+
+    local r=0
+
+    for ifname in "${MANAGED_INTERFACES[@]}"; do
+        declare -a ifservers
+        ifservers=()
+        local ifrank=
+        declare -a ifdomains
+        ifdomains=()
+
+        debug "     manage_systemd_resolved: resolvectl revert $ifname"
+        if ! "$RESOLVECTL" revert -- "$ifname" 1>/dev/null; then
+            warn "Failed to revert systemd-resolved settings for $ifname" >&2
+            r=1
+            continue
+        fi
+
+        dns_servers_get "$ifname" 0 ifservers
+        dns_servers_get "$ifname" 1 ifservers
+        dns_servers_get "$ifname" 2 ifservers
+
+        dns_servers_filter_local ifservers
+
+        if [ 0 -ne "${#ifservers[@]}" ]; then
+            debug "     manage_systemd_resolved: resolvectl dns $ifname ${ifservers[*]}"
+            if ! "$RESOLVECTL" dns -- "$ifname" "${ifservers[@]}" 1>/dev/null; then
+                warn "Failed inform systemd-resolved about DNS server for $ifname." >&2
+                r=1
+                continue
+            fi
+        fi
+
+        dns_searchlist_get "$ifname" 0 ifdomains
+        if interface_get_rank "$ifname" ifrank \
+            && [ 0 -eq "$ifrank" ] && [ 0 -eq "${#ifdomains[@]}" ]; then
+            debug "     manage_systemd_resolved: setting $ifname as wild-card interface"
+            ifdomains=("~.")
+        fi
+
+        dns_searchlist_get "$ifname" 1 ifdomains
+        dns_searchlist_get "$ifname" 2 ifdomains
+
+        if [ 0 -ne "${#ifdomains[@]}" ]; then
+            debug "     manage_systemd_resolved: resolvectl domain $ifname ${ifdomains[*]}"
+            if ! "$RESOLVECTL" domain -- "$ifname" "${ifdomains[@]}" 1>/dev/null; then
+                warn "Failed to inform systemd-resolved about DNS search domain for $ifname." >&2
+                r=1
+                continue
+            fi
+        fi
+    done
+
+    debug "exit manage_systemd_resolved"
+
+    return "$r"
+}
+
+function get_dns_settings()
+{
+    local cfg="$1"
+    shift
+    [ -n "$cfg" ] || return 0
+
+    local ifname="$1"
+    shift
+    [ -n "$ifname" ] || return 0
+
+    local SERVICE DNSSEARCH DNSDOMAIN DNSSERVERS
+    local idx DNS_SEARCHLIST DNS_SERVERS
+
+    debug "exec get_dns_settings: $cfg for $ifname"
+
+    get_variable "SERVICE" "$cfg"
+    idx="$(get_ranking_idx "$SERVICE" "$@")"
+    debug "     get_dns_settings: service '$SERVICE' => rank '$idx'"
+
+    interface_set_rank "$ifname" "$idx"
+
+    get_variable "DNSSEARCH" "$cfg"
+    if [ -n "$DNSSEARCH" ]; then
+        read -r -a DNS_SEARCHLIST <<<"$DNSSEARCH"
+    else
+        get_variable "DNSDOMAIN" "$cfg"
+        if [ -n "$DNSDOMAIN" ]; then
+            read -r -a DNS_SEARCHLIST <<<"$DNSDOMAIN"
+        else
+            local H="$HOSTNAME"
+            local HOSTNAME
+            get_variable "HOSTNAME" "$cfg"
+            HOSTNAME="${HOSTNAME%.}"
+            if [ -n "$HOSTNAME" ] && [ -n "${HOSTNAME#*.}" ] \
+                && [ "${HOSTNAME#*.}" != "${HOSTNAME}" ]; then
+                read -r -a DNS_SEARCHLIST <<<"${HOSTNAME#*.}"
+            fi
+            HOSTNAME="$H"
+        fi
+    fi
+    unset DNSSEARCH DNSDOMAIN
+    dns_searchlist_add "$ifname" "$idx" "${DNS_SEARCHLIST[@]}"
+
+    # Interface specific server list
+    get_variable "DNSSERVERS" "$cfg"
+    if [ -n "$DNSSERVERS" ]; then
+        read -r -a DNS_SERVERS <<<"$DNSSERVERS"
+    fi
+    unset DNSSERVERS
+    dns_servers_add "$ifname" "$idx" "${DNS_SERVERS[@]}"
+
+    debug "exit get_dns_settings: $cfg for $ifname"
+
+    return 0
+}
+
+function applicable_network_service()
+{
+    local id=
+    id="$(systemctl --no-pager -p Id show network.service 2>/dev/null)"
+    local service="${id#Id=}"
+
+    service="${service%.service}"
+    if [ -z "$service" ]; then
+        debug "Systemd did not reported any enabled network service"
+        service="$(find_current_service "network.service" 2>/dev/null)"
+        service="${service%.service}"
+        debug "Using '$service' as network service"
+    fi
+
+    case "${service}" in
+    # with wicked as network.service, wicked and other services are
+    # passing per-service and per-interface settings to netconfig.
+    wicked) return 0 ;;
+
+    # NetworkManager collects the settings from it's plugins and is
+    # passing the already merged settings to netconfig, processed by
+    # the dns-resolver (/etc/resolv.conf) module.
+    # It also passes the per-interface settings to systemd-resolved.
+    NetworkManager | *) return 1 ;;
+    esac
+}
+
+function handle_static_policy()
+{
+    local searchlist
+    read -r -a searchlist <<<"${1:-}"
+
+    local servers
+    read -r -a servers <<<"${2:-}"
+
+    debug "exec handle_static_policy"
+
+    for ifdir in "${ROOT}${STATEDIR}/"*; do
+        local ifname="${ifdir##*/}"
+
+        [ "$ifname" != "lo" ] \
+            && [ -d "$ifdir" ] \
+            && [ -d "$SYSFSDIR/$ifname" ] || continue
+
+        debug "     handle_static_policy: handling $ifname"
+
+        dns_servers_add "$ifname" 1 "${servers[@]}"
+        dns_searchlist_add "$ifname" 1 "${searchlist[@]}"
+    done
+
+    debug "exit handle_static_policy"
+
+    return 0
+}
+
+function handle_normal_policy()
+{
+    local policy="${1:-}"
+    shift
+    [ -n "$policy" ] || return 0
+
+    debug "exec handle_normal_policy: $policy"
+
+    for ifdir in "${ROOT}${STATEDIR}/"$policy; do
+        local ifname="${ifdir##*/}"
+
+        [ "$ifname" != "lo" ] \
+            && [ -d "$ifdir" ] \
+            && [ -d "$SYSFSDIR/$ifname" ] || continue
+
+        debug "     handle_normal_policy: handling $ifname"
+
+        local cfg=
+        while IFS= read -r cfg; do
+            if ! [ -e "$ifdir/$cfg" ]; then
+                debug "     handle_normal_policy: $cfg doesn't exist"
+                continue
+            fi
+
+            get_dns_settings "$ifdir/$cfg" "$ifname" "$@"
+        done < <(ls -1 -X -r "$ifdir/" 2>/dev/null)
+    done
+
+    debug "exit handle_normal_policy: $policy"
+
+    return 0
+}
+
+function handle_static_fallback_policy()
+{
+    local static_searchlist
+    read -r -a static_searchlist <<<"${1:-}"
+
+    local static_servers
+    read -r -a static_servers <<<"${2:-}"
+
+    debug "exec handle_static_fallback_policy"
+
+    for ifdir in "${ROOT}${STATEDIR}/"*; do
+        local ifname="${ifdir##*/}"
+        declare -a ifservers
+        ifservers=()
+        declare -a ifdomains
+        ifdomains=()
+
+        [ "$ifname" != "lo" ] \
+            && [ -d "$ifdir" ] \
+            && [ -d "$SYSFSDIR/$ifname" ] || continue
+
+        debug "     handle_static_fallback_policy: $ifname"
+
+        dns_servers_get "$ifname" 0 ifservers
+        dns_servers_get "$ifname" 1 ifservers
+
+        if [ 0 -eq "${#ifservers[@]}" ]; then
+            debug "     handle_static_fallback_policy: $ifname => fallback applies"
+            dns_servers_add "$ifname" 2 "${static_servers[@]}"
+        fi
+
+        dns_searchlist_get "$ifname" 0 ifdomains
+        dns_searchlist_get "$ifname" 1 ifdomains
+
+        if [ 0 -eq "${#ifdomains[@]}" ]; then
+            debug "     handle_static_fallback_policy: $ifname => fallback applies"
+            dns_searchlist_add "$ifname" 2 "${static_searchlist[@]}"
+        fi
+    done
+
+    debug "exit handle_static_fallback_policy"
+
+    return 0
+}
+
+# *********************
+# EXECUTION STARTS HERE
+# *********************
+
+[ "$NETCONFIG_DNS_FORWARDER" != "systemd" ] && exit 0
+
+# just for the case we need the original value...
+_NETCONFIG_DNS_RANKING="$NETCONFIG_DNS_RANKING"
+case "$_NETCONFIG_DNS_RANKING" in
+auto) _NETCONFIG_DNS_RANKING="$NETCONFIG_DNS_RANKING_DEFAULT" ;;
+none) _NETCONFIG_DNS_RANKING="" ;;
+esac
+
+# just for the case we need the original value...
+_NETCONFIG_DNS_POLICY="$(netconfig_policy "$NETCONFIG_DNS_POLICY" dns)"
+if [ -z "$_NETCONFIG_DNS_POLICY" ]; then
+    #
+    # empty policy means do not touch anything.
+    # successful exit.
+    #
+    exit 0
+fi
+
+if ! applicable_network_service; then
+    warn "The current network.service is not supported"
+    exit 0
+fi
+
+if ! [ -e "$RESOLVECTL" ]; then
+    warn "$RESOLVECTL does not exist"
+    exit 1
+fi
+
+if ! [ -x "$RESOLVECTL" ]; then
+    warn "$RESOLVECTL is not executable"
+    exit 1
+fi
+
+if ! systemctl --quiet is-active systemd-resolved.service; then
+    warn 'The service "systemd-resolved.service" is not active'
+    exit 1
+fi
+
+if ! systemctl --quiet is-enabled systemd-resolved.service; then
+    warn 'The service "systemd-resolved.service" is not enabled'
+fi
+
+sf=0
+_g=1
+# disable filename glob expansion if needed
+shopt -o -q noglob || _g=0
+shopt -o -s noglob
+for POL in $_NETCONFIG_DNS_POLICY; do
+    shopt -o -u noglob
+    case "$POL" in
+    NetworkManager)
+        # NetworkManager sends per interface settings to systemd-resolved by default
+        debug "Ignoring policy NetworkManager"
+        ;;
+    STATIC)
+        debug "Keep Static"
+        handle_static_policy \
+            "${NETCONFIG_DNS_STATIC_SEARCHLIST}" \
+            "${NETCONFIG_DNS_STATIC_SERVERS}"
+        ;;
+    STATIC_FALLBACK)
+        debug "Static Fallback"
+        sf=1
+        ;;
+    *)
+        # Get current set of per-interface settings
+        debug "Other: $POL"
+        handle_normal_policy "$POL" "$_NETCONFIG_DNS_RANKING"
+        ;;
+    esac
+done
+
+if [ 1 -eq "$sf" ]; then
+    shopt -o -u noglob
+    handle_static_fallback_policy \
+        "${NETCONFIG_DNS_STATIC_SEARCHLIST}" \
+        "${NETCONFIG_DNS_STATIC_SERVERS}"
+fi
+
+if [ "$_g" -eq 0 ]; then
+    shopt -o -u noglob
+else
+    shopt -o -s noglob
+fi
+
+get_own_ips OWN_IPS
+
+manage_systemd_resolved || exit 1
+
+exit 0
+
+# vim: ts=8 sts=4 sw=4 ai et

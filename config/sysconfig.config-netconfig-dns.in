@@ -7,20 +7,21 @@
 #
 NETCONFIG_DNS_POLICY="auto"
 
-## Type:        string(resolver,bind,dnsmasq,)
+## Type:        string(resolver,bind,dnsmasq,systemd,)
 ## Default:     "resolver"
 #
 # Defines the name of the DNS forwarder that has to be configured.
-# Currently implemented are "bind", "dnsmasq" and "resolver", that
-# causes to write the name server IP addresses to /etc/resolv.conf
-# only (no forwarder). Empty string defaults to "resolver".
+# Currently implemented are "bind", "dnsmasq", "resolver" and
+# "systemd", that causes to write the name server IP addresses to
+# /etc/resolv.conf only (no forwarder).  Empty string defaults to
+# "resolver".
 #
 NETCONFIG_DNS_FORWARDER="resolver"
 
 ## Type:        yesno
 ## Default:     yes
 #
-# When enabled (default) in forwarder mode ("bind", "dnsmasq"),
+# When enabled (default) in forwarder mode ("bind", "dnsmasq", "systemd"),
 # netconfig writes an explicit localhost nameserver address to the
 # /etc/resolv.conf, followed by the policy resolved name server list
 # as fallback for the moments, when the local forwarder is stopped.

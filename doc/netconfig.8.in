@@ -188,20 +188,21 @@ See also the \fBNETCONFIG_\fI<set>\fB_POLICY\fR section.
 .TP
 .B NETCONFIG_DNS_FORWARDER
 The name of the DNS forwarder that has to be configured. Currently
-implemented are "bind" (dns-bind module), "dnsmasq" (dns-dnsmasq)
-and "resolver" (dns-resolver module), that causes to write the name
-server IP addresses directly to /etc/resolv.conf only (no forwarder).
+implemented are "bind" (dns-bind module), "dnsmasq" (dns-dnsmasq),
+"systemd" (dns-systemd) and "resolver" (dns-resolver module), that causes
+to write the name server IP addresses directly to /etc/resolv.conf only
+(no forwarder).
 Empty string defaults to "resolver", that is also the default setting.
 
 See also \fBNETCONFIG MODULES\fR section for more information.
 .TP
 .B NETCONFIG_DNS_FORWARDER_FALLBACK
-When enabled (default) in forwarder mode ("bind", "dnsmasq"), netconfig
-writes an explicit localhost nameserver address to the /etc/resolv.conf,
-followed by the policy resolved name server list as fallback for the
-moments, when the local forwarder is stopped. Otherwise, the fallback is
-written only, when the NETCONFIG_DNS_STATIC_SERVERS variable contains an
-localhost address.
+When enabled (default) in forwarder mode ("bind", "dnsmasq", "systemd"),
+netconfig writes an explicit localhost nameserver address to the
+/etc/resolv.conf, followed by the policy resolved name server list as
+fallback for the moments, when the local forwarder is stopped. Otherwise,
+the fallback is written only, when the NETCONFIG_DNS_STATIC_SERVERS
+variable contains an localhost address.
 .TP
 .B NETCONFIG_DNS_STATIC_SEARCHLIST
 List of DNS domain names used for host-name lookup.
@@ -324,6 +325,17 @@ You can use the yast2 dns-server module to configure bind as forwarder.
 This module writes the DNS nameservers as forwarders for the dnsmasq nameserver
 into the \fI/run/dnsmasq-forwarders.conf\fR file. Please verify, that this
 file is set in the \fBresolv-file\fR keyword in the \fI/etc/dnsmasq.conf\fR.
+.TP
+.B dns-systemd
+This module sends the DNS nameservers to systemd-resolved. To use
+systemd-resolved with DNS over TLS, enable global support via systemd's own
+configuration. Make sure your DoT server provides the \fIiPAddress\fR Subject
+Alternative Name (SAN) extension. Follow this example to enable global DoT
+support in \fI/etc/systemd/resolved.conf.d/dns_over_tls.conf\fR:
+.nf
+[Resolve]
+DNSOverTLS=true
+.fi
 .TP
 .B ntp-runtime
 The netconfig ntp-runtime module does not alter the \fI/etc/ntp.conf\fR nor writes

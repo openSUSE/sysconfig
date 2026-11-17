@@ -319,7 +319,14 @@ if [ "$NETCONFIG_DNS_FORWARDER" != "resolver" -a \
     # fallback requires a localhost address, set when needed
     if  test "$NETCONFIG_DNS_FORWARDER_FALLBACK" = yes ;
     then
-        test ${#lns[@]} -le 0 && lns=(127.0.0.1)
+        if test "x$NETCONFIG_DNS_FORWARDER" = "xsystemd" ;
+        then
+            # systemd-resolved doesn't bind to localhost, but to another
+            # private address on the loopback device
+            test ${#lns[@]} -le 0 && lns=(127.0.0.53)
+        else
+            test ${#lns[@]} -le 0 && lns=(127.0.0.1)
+        fi
     fi
     # apply localhost addresses + fallback name servers
     if  test ${#lns[@]} -gt 0 ; then
@@ -345,7 +352,14 @@ elif [ $RET -eq 2 ]; then
 fi
 
 # here we should restart services if needed
-# => not applicable to reload anything
+# - glibc resolver   => not applicable to reload anything
+# - systemd resolved => inform systemd-resolved (if running) about changes we
+#                       made to /etc/resolv.conf …
+case $NETCONFIG_DNS_FORWARDER in
+systemd|resolver)
+    systemctl try-reload-or-restart systemd-resolved.service &>/dev/null || :
+;;
+esac
 
 exit 0;
 
